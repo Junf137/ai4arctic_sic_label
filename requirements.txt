@@ -9,5 +9,6 @@ torch==1.12.0
 tqdm==4.64.1
 # sklearn==0.0
 sklearn
-ipywidgets==8.0.2
+# ipywidgets==8.0.2
 jupyterlab
+ipywidgets
