@@ -1,14 +1,11 @@
-jupyterlab==3.4.5
 xarray==2022.10.0
-#netCDF4==1.6.1
-# numpy==1.23.2
+h5netcdf
 numpy
-# matplotlib==3.6.1
 matplotlib
 torch==1.12.0
 tqdm==4.64.1
-# sklearn==0.0
 sklearn
 # ipywidgets==8.0.2
 jupyterlab
 ipywidgets
+icecream
