@@ -153,9 +153,30 @@ def compute_combined_score(scores, charts, metrics):
 
 
 # -- functions to save models -- #
-def save_best_model(train_options,net,optimizer,epoch):
+def save_best_model(train_options:dict,net,optimizer,epoch:int):
     '''
+    Saves the input model in the inside the directory "/work_dirs/"experiment_name"/
+    The models with be save as best_model.pth.
+    The following are stored inside best_model.pth
+        model_state_dict
+        optimizer_state_dict
+        epoch
+        train_options
+
+
+    Parameters
+    ----------
+    train_options : Dict
+        The dictory which stores the train_options from quickstart
+    net : 
+        The pytorch model
+    optimizer : 
+        The optimizer that the model uses.
+    epoch: int
+        The epoch number 
     
+
+
     '''
     print('saving model....')
     work_dir = os.path.abspath(os.path.join('./work_dirs',train_options['experiment_name']))
