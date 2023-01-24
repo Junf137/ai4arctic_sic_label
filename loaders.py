@@ -44,6 +44,7 @@ class AI4ArcticChallengeDataset(Dataset):
         Number of iterations per epoch.
         """
         return self.options['epoch_len']
+
     def random_crop(self, scene):
         """
         Perform random cropping in scene.
@@ -214,11 +215,14 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
         """
         if len(self.options['amsrenv_variables']) > 0:
+            from icecream import ic
+            # print(1, scene['SIC'].values.shape)
+            # print(2, scene['nersc_sar_primary'].values.shape)
             x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),
-                           torch.nn.functional.interpolate(
+                        torch.nn.functional.interpolate(
                 input=torch.from_numpy(
                     scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
-                size=scene['SIC'].values.shape,
+                size=scene['nersc_sar_primary'].values.shape,
                 mode=self.options['loader_upsampling'])),
                 axis=1)
         else:

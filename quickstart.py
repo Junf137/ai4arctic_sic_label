@@ -34,7 +34,7 @@ import sys
 
 # -- Environmental variables -- #
 # Fill in directory for data location.
-os.environ['AI4ARCTIC_DATA'] = '../dataset/train'
+os.environ['AI4ARCTIC_DATA'] = '../dataset/ai4arctic/train'
 # Fill in directory for environment with Ai4Arctic get-started package.
 os.environ['AI4ARCTIC_ENV'] = './'
 
@@ -54,10 +54,10 @@ train_options = {
     'path_to_env': os.environ['AI4ARCTIC_ENV'],
     'lr': 0.0001,  # Optimizer learning rate.
     'epochs': 50,  # Number of epochs before training stop.
-    'epoch_len': 500,  # Number of batches for each epoch.
+    'epoch_len': 1,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
     'patch_size': 256,
-    'batch_size': 16,  # Number of patches for each batch.
+    'batch_size': 2,  # Number of patches for each batch.
     # How to upscale low resolution variables to high resolution.
     'loader_upsampling': 'nearest',
 
@@ -99,8 +99,8 @@ train_options = {
 
     # -- GPU/cuda options -- #
     'gpu_id': 0,  # Index of GPU. In case of multiple GPUs.
-    'num_workers': 4,  # Number of parallel processes to fetch data.
-    'num_workers_val': 4,  # Number of parallel processes during validation.
+    'num_workers': 0,  # Number of parallel processes to fetch data.
+    'num_workers_val': 0,  # Number of parallel processes during validation.
 
     # -- U-Net Options -- #
     'unet_conv_filters': [16, 32, 64, 64],  # Number of filters in the U-Net.
