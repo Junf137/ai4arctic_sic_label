@@ -16,7 +16,7 @@
 
 
 # -- Built-in modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES, colour_str
+from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES1, colour_str
 from unet import UNet  # Convolutional Neural Network model
 # Custom dataloaders for regular training and validation.
 from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
@@ -54,7 +54,7 @@ train_options = {
     'path_to_env': os.environ['AI4ARCTIC_ENV'],
     'lr': 0.0001,  # Optimizer learning rate.
     'epochs': 50,  # Number of epochs before training stop.
-    'epoch_len': 500,  # Number of batches for each epoch.
+    'epoch_len': 1,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
     'patch_size': 256,
     'batch_size': 16,  # Number of patches for each batch.
@@ -63,7 +63,7 @@ train_options = {
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
-    'train_variables': SCENE_VARIABLES,
+    'train_variables': SCENE_VARIABLES1,
     'charts': CHARTS,  # Charts to train on.
     'n_classes': {  # number of total classes in the reference charts, including the mask.
         'SIC': SIC_LOOKUP['n_classes'],

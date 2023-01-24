@@ -32,7 +32,8 @@ class AI4ArcticChallengeDataset(Dataset):
         self.files = files
 
         # Channel numbers in patches, includes reference channel.
-        self.patch_c = len(self.options['train_variables']) + len(self.options['charts'])
+        self.patch_c = len(
+            self.options['train_variables']) + len(self.options['charts'])
 
     def __len__(self):
         """
@@ -43,8 +44,6 @@ class AI4ArcticChallengeDataset(Dataset):
         Number of iterations per epoch.
         """
         return self.options['epoch_len']
-    
-    
     def random_crop(self, scene):
         """
         Perform random cropping in scene.
@@ -61,45 +60,52 @@ class AI4ArcticChallengeDataset(Dataset):
         """
         patch = np.zeros((len(self.options['full_variables']) + len(self.options['amsrenv_variables']),
                           self.options['patch_size'], self.options['patch_size']))
-        
+
         # Get random index to crop from.
-        row_rand = np.random.randint(low=0, high=scene['SIC'].values.shape[0] - self.options['patch_size'])
-        col_rand = np.random.randint(low=0, high=scene['SIC'].values.shape[1] - self.options['patch_size'])
+        row_rand = np.random.randint(
+            low=0, high=scene['SIC'].values.shape[0] - self.options['patch_size'])
+        col_rand = np.random.randint(
+            low=0, high=scene['SIC'].values.shape[1] - self.options['patch_size'])
         # Equivalent in amsr and env variable grid.
         amsrenv_row = row_rand / self.options['amsrenv_delta']
-        amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))  # Used in determining the location of the crop in between pixels.
-        amsrenv_row_index_crop = amsrenv_row_dec * self.options['amsrenv_delta'] * amsrenv_row_dec
+        # Used in determining the location of the crop in between pixels.
+        amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))
+        amsrenv_row_index_crop = amsrenv_row_dec * \
+            self.options['amsrenv_delta'] * amsrenv_row_dec
         amsrenv_col = col_rand / self.options['amsrenv_delta']
         amsrenv_col_dec = int(amsrenv_col - int(amsrenv_col))
-        amsrenv_col_index_crop = amsrenv_col_dec * self.options['amsrenv_delta'] * amsrenv_col_dec
-        
+        amsrenv_col_index_crop = amsrenv_col_dec * \
+            self.options['amsrenv_delta'] * amsrenv_col_dec
+
         # - Discard patches with too many meaningless pixels (optional).
-        if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size'], 
+        if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size'],
                                       col_rand: col_rand + self.options['patch_size']] != self.options['class_fill_values']['SIC']) > 1:
-            
+
             # Crop full resolution variables.
             patch[0:len(self.options['full_variables']), :, :] = scene[self.options['full_variables']].isel(
-                sar_lines=range(row_rand, row_rand + self.options['patch_size']),
+                sar_lines=range(row_rand, row_rand +
+                                self.options['patch_size']),
                 sar_samples=range(col_rand, col_rand + self.options['patch_size'])).to_array().values
-            # Crop and upsample low resolution variables.
-            patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
-                input=torch.from_numpy(scene[self.options['amsrenv_variables']].to_array().values[
-                    :, 
-                    int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
-                    int(amsrenv_col): int(amsrenv_col + np.ceil(self.options['amsrenv_patch']))]
-                ).unsqueeze(0),
-                size=self.options['amsrenv_upsample_shape'],
-                mode=self.options['loader_upsampling']).squeeze(0)[
-                :,
-                int(np.around(amsrenv_row_index_crop)): int(np.around(amsrenv_row_index_crop + self.options['patch_size'])),
-                int(np.around(amsrenv_col_index_crop)): int(np.around(amsrenv_col_index_crop + self.options['patch_size']))].numpy()
+
+            if len(self.options['amsrenv_variables']) > 0:
+                # Crop and upsample low resolution variables.
+                patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
+                    input=torch.from_numpy(scene[self.options['amsrenv_variables']].to_array().values[
+                        :,
+                        int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
+                        int(amsrenv_col): int(amsrenv_col + np.ceil(self.options['amsrenv_patch']))]
+                    ).unsqueeze(0),
+                    size=self.options['amsrenv_upsample_shape'],
+                    mode=self.options['loader_upsampling']).squeeze(0)[
+                    :,
+                    int(np.around(amsrenv_row_index_crop)): int(np.around(amsrenv_row_index_crop + self.options['patch_size'])),
+                    int(np.around(amsrenv_col_index_crop)): int(np.around(amsrenv_col_index_crop + self.options['patch_size']))].numpy()
 
         # In case patch does not contain any valid pixels - return None.
         else:
             patch = None
 
         return patch
-
 
     def prep_dataset(self, patches):
         """
@@ -118,7 +124,8 @@ class AI4ArcticChallengeDataset(Dataset):
             Dictionary with 3D torch tensors for each chart; reference data for training data x.
         """
         # Convert training data to tensor.
-        x = torch.from_numpy(patches[:, len(self.options['charts']):]).type(torch.float)
+        x = torch.from_numpy(
+            patches[:, len(self.options['charts']):]).type(torch.float)
 
         # Store charts in y dictionary.
         y = {}
@@ -126,7 +133,6 @@ class AI4ArcticChallengeDataset(Dataset):
             y[chart] = torch.from_numpy(patches[:, idx]).type(torch.long)
 
         return x, y
-
 
     def __getitem__(self, idx):
         """
@@ -147,23 +153,26 @@ class AI4ArcticChallengeDataset(Dataset):
         # Continue until batch is full.
         while sample_n < self.options['batch_size']:
             # - Open memory location of scene. Uses 'Lazy Loading'.
-            scene_id = np.random.randint(low=0, high=len(self.files), size=1).item()
+            scene_id = np.random.randint(
+                low=0, high=len(self.files), size=1).item()
 
             # - Load scene
-            scene = xr.open_dataset(os.path.join(self.options['path_to_processed_data'], self.files[scene_id]))
+            scene = xr.open_dataset(os.path.join(
+                self.options['path_to_processed_data'], self.files[scene_id]))
             # - Extract patches
             try:
                 scene_patch = self.random_crop(scene)
             except:
                 print(f"Cropping in {self.files[scene_id]} failed.")
-                print(f"Scene size: {scene['SIC'].values.shape} for crop shape: ({self.options['patch_size']}, {self.options['patch_size']})")
+                print(
+                    f"Scene size: {scene['SIC'].values.shape} for crop shape: ({self.options['patch_size']}, {self.options['patch_size']})")
                 print('Skipping scene.')
                 continue
-            
+
             if scene_patch is not None:
                 # -- Stack the scene patches in patches
                 patches[sample_n, :, :, :] = scene_patch
-                sample_n += 1 # Update the index.
+                sample_n += 1  # Update the index.
 
         # Prepare training arrays
         x, y = self.prep_dataset(patches=patches)
@@ -204,19 +213,24 @@ class AI4ArcticChallengeTestDataset(Dataset):
         y :
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
         """
-        x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),
-                      torch.nn.functional.interpolate(
-                          input=torch.from_numpy(scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
-                          size=scene['SIC'].values.shape, 
-                          mode=self.options['loader_upsampling'])),
-                      axis=1)
-        
+        if len(self.options['amsrenv_variables']) > 0:
+            x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),
+                           torch.nn.functional.interpolate(
+                input=torch.from_numpy(
+                    scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
+                size=scene['SIC'].values.shape,
+                mode=self.options['loader_upsampling'])),
+                axis=1)
+        else:
+            x = torch.from_numpy(
+                scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
         if not self.test:
-            y = {chart: scene[chart].values for chart in self.options['charts']}
+            y = {
+                chart: scene[chart].values for chart in self.options['charts']}
 
         else:
             y = None
-        
+
         return x, y
 
     def __getitem__(self, idx):
@@ -235,18 +249,21 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Name of scene.
 
         """
-        scene = xr.open_dataset(os.path.join(self.options['path_to_processed_data'], self.files[idx]))
+        scene = xr.open_dataset(os.path.join(
+            self.options['path_to_processed_data'], self.files[idx]))
 
         x, y = self.prep_scene(scene)
         name = self.files[idx]
-        
+
         if not self.test:
             masks = {}
             for chart in self.options['charts']:
-                masks[chart] = (y[chart] == self.options['class_fill_values'][chart]).squeeze()
-                
+                masks[chart] = (
+                    y[chart] == self.options['class_fill_values'][chart]).squeeze()
+
         else:
-            masks = (x.squeeze()[0, :, :] == self.options['train_fill_value']).squeeze()
+            masks = (x.squeeze()[0, :, :] ==
+                     self.options['train_fill_value']).squeeze()
 
         return x, y, masks, name
 
@@ -259,26 +276,29 @@ def get_variable_options(train_options: dict):
     ----------
     train_options: dict
         Dictionary with training options.
-    
+
     Returns
     -------
     train_options: dict
         Updated with amsrenv options.
     """
-    train_options['amsrenv_delta'] = 50 / (train_options['pixel_spacing'] // 40)
-    train_options['amsrenv_patch'] = train_options['patch_size'] / train_options['amsrenv_delta']
-    train_options['amsrenv_patch_dec'] = int(train_options['amsrenv_patch'] - int(train_options['amsrenv_patch']))
-    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size'] + \
-                                                   train_options['amsrenv_patch_dec'] * \
+    train_options['amsrenv_delta'] = 50 / \
+        (train_options['pixel_spacing'] // 40)
+    train_options['amsrenv_patch'] = train_options['patch_size'] / \
+        train_options['amsrenv_delta']
+    train_options['amsrenv_patch_dec'] = int(
+        train_options['amsrenv_patch'] - int(train_options['amsrenv_patch']))
+    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size'] +
+                                                   train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']),
-                                               int(train_options['patch_size'] +  \
-                                                   train_options['amsrenv_patch_dec'] * \
+                                               int(train_options['patch_size'] +
+                                                   train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']))
-    train_options['sar_variables'] = [variable for variable in train_options['train_variables'] \
+    train_options['sar_variables'] = [variable for variable in train_options['train_variables']
                                       if 'sar' in variable or 'map' in variable]
-    train_options['full_variables'] = np.hstack((train_options['charts'], train_options['sar_variables']))
-    train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables'] \
+    train_options['full_variables'] = np.hstack(
+        (train_options['charts'], train_options['sar_variables']))
+    train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables']
                                           if 'sar' not in variable and 'map' not in variable]
-    
+
     return train_options
-                                               

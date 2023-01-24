@@ -16,7 +16,7 @@
 
 
 # -- Built-in modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES, colour_str
+from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES2, colour_str
 from unet import UNet  # Convolutional Neural Network model
 # Custom dataloaders for regular training and validation.
 from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
@@ -63,7 +63,7 @@ train_options = {
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
-    'train_variables': SCENE_VARIABLES,
+    'train_variables': SCENE_VARIABLES2,
     'charts': CHARTS,  # Charts to train on.
     'n_classes': {  # number of total classes in the reference charts, including the mask.
         'SIC': SIC_LOOKUP['n_classes'],
