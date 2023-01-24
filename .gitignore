@@ -14,7 +14,7 @@ events.*.*
 *.zip
 *.out
 *.pkl
-*.pickle
+# *.pickle
 # pytorch path files
 *.pth
 # Byte-compiled / optimized / DLL files
@@ -153,4 +153,4 @@ core.*
 .pyre/
 __pycache__/functions.cpython-39.pyc
 best_model
-filename.pickle
+# filename.pickle
