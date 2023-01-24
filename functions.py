@@ -12,11 +12,13 @@ __version__ = '1.0.0'
 __date__ = '2022-10-17'
 
 # -- Built-in modules -- #
+import os
 
 # -- Third-party modules -- #
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from sklearn.metrics import r2_score, f1_score
 
 # -- Proprietary modules -- #
@@ -147,3 +149,22 @@ def compute_combined_score(scores, charts, metrics):
         sum_weight += metrics[chart]['weight']
     
     return np.round(combined_metric / sum_weight, 3)
+
+
+
+# -- functions to save models -- #
+def save_best_model(train_options,net,optimizer,epoch):
+    '''
+    
+    '''
+    print('saving model....')
+    work_dir = os.path.abspath(os.path.join('./work_dirs',train_options['experiment_name']))
+    print('working directory: '+work_dir)
+    os.makedirs(work_dir, exist_ok=True)
+
+    torch.save(obj={'model_state_dict': net.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'epoch': epoch,
+                        'train_options':train_options # TODO replace with config file later
+                        },
+                   f=os.path.join(work_dir,'best_model.pth'))
