@@ -48,15 +48,15 @@ os.environ['AI4ARCTIC_ENV'] = './'
 
 # TODO replace with config file later
 train_options = {
-    'experiment_name': 'HH_HV_UNet', # To be replaced once config file is working. 
+    'experiment_name': 'Input_Channel_Experiment_Setup1', # To be replaced once config file is working. 
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
     # Replace with environmment directory path.
     'path_to_env': os.environ['AI4ARCTIC_ENV'],
     'lr': 0.0001,  # Optimizer learning rate.
-    'epochs': 2,  # Number of epochs before training stop.
-    'epoch_len': 1,  # Number of batches for each epoch.
+    'epochs': 50,  # Number of epochs before training stop.
+    'epoch_len': 500,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
     'patch_size': 256,
     'batch_size': 16,  # Number of patches for each batch.
@@ -112,6 +112,13 @@ train_options = {
     'conv_padding': (1, 1),  # Number of padded pixels in convolutional layers.
     'conv_padding_style': 'zeros',  # Style of padding.
 }
+
+print('-----------------------------------------------------------')
+print('Experiment Name: '+train_options['experiment_name'])
+print('-----------------------------------------------------------')
+
+
+
 # Get options for variables, amsrenv grid, cropping and upsampling.
 get_variable_options = get_variable_options(train_options)
 # To be used in test_upload.

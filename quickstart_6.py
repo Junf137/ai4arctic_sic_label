@@ -16,7 +16,7 @@
 
 
 # -- Built-in modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES3, colour_str
+from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES6, colour_str
 from unet import UNet  # Convolutional Neural Network model
 # Custom dataloaders for regular training and validation.
 from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
@@ -48,7 +48,7 @@ os.environ['AI4ARCTIC_ENV'] = './'
 
 # TODO replace with config file later
 train_options = {
-    'experiment_name': 'Input_Channel_Experiment_Setup3', # To be replaced once config file is working. 
+    'experiment_name': 'Input_Channel_Experiment_Setup6', # To be replaced once config file is working. 
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
@@ -65,7 +65,7 @@ train_options = {
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
-    'train_variables': SCENE_VARIABLES3,
+    'train_variables': SCENE_VARIABLES6,
     'charts': CHARTS,  # Charts to train on.
     'n_classes': {  # number of total classes in the reference charts, including the mask.
         'SIC': SIC_LOOKUP['n_classes'],

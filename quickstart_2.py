@@ -21,7 +21,7 @@ from unet import UNet  # Convolutional Neural Network model
 # Custom dataloaders for regular training and validation.
 from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
 # Functions to calculate metrics and show the relevant chart colorbar.
-from functions import chart_cbar, r2_metric, f1_metric, compute_metrics
+from functions import chart_cbar, r2_metric, f1_metric, compute_metrics, save_best_model
 from tqdm import tqdm  # Progress bar
 import xarray as xr
 import torch
@@ -34,7 +34,7 @@ import sys
 
 # -- Environmental variables -- #
 # Fill in directory for data location.
-os.environ['AI4ARCTIC_DATA'] = '../dataset/train'
+os.environ['AI4ARCTIC_DATA'] = '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train'
 # Fill in directory for environment with Ai4Arctic get-started package.
 os.environ['AI4ARCTIC_ENV'] = './'
 
@@ -46,7 +46,9 @@ os.environ['AI4ARCTIC_ENV'] = './'
 
 # --Proprietary modules -- #
 
+# TODO replace with config file later
 train_options = {
+    'experiment_name': 'Input_Channel_Experiment_Setup2', # To be replaced once config file is working. 
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
@@ -110,6 +112,13 @@ train_options = {
     'conv_padding': (1, 1),  # Number of padded pixels in convolutional layers.
     'conv_padding_style': 'zeros',  # Style of padding.
 }
+
+print('-----------------------------------------------------------')
+print('Experiment Name: '+train_options['experiment_name'])
+print('-----------------------------------------------------------')
+
+
+
 # Get options for variables, amsrenv grid, cropping and upsampling.
 get_variable_options = get_variable_options(train_options)
 # To be used in test_upload.
@@ -187,7 +196,7 @@ print('Model setup complete')
 # In[ ]:
 
 
-best_combined_score = 0  # Best weighted model score.
+best_combined_score = -np.Inf  # Best weighted model score.
 
 # -- Training Loop -- #
 for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
@@ -273,37 +282,13 @@ for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
     print(f"Combined score: {combined_score}%")
 
     # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
+    
     if combined_score > best_combined_score:
         best_combined_score = combined_score
-        torch.save(obj={'model_state_dict': net.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'epoch': epoch},
-                   f='best_model.pth')
+        # torch.save(obj={'model_state_dict': net.state_dict(),
+        #                 'optimizer_state_dict': optimizer.state_dict(),
+        #                 'epoch': epoch},
+        #            f='best_model.pth')
+        save_best_model(train_options,net,optimizer,epoch)
     # del inf_ys_flat, outputs_flat  # Free memory.
 
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:
-
-
-# In[ ]:

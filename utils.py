@@ -212,7 +212,6 @@ SCENE_VARIABLES1=[
     # -- Environmental variables -- #
     # 'u10m_rotated', 'v10m_rotated',
     # 't2m', 'skt', 'tcwv', 'tclw'
-    
 ]    
 
 
@@ -235,7 +234,7 @@ SCENE_VARIABLES2 = [
     # 'btemp_89_0h', 'btemp_89_0v',
     
     # # -- Environmental variables -- #
-    'u10m_rotated', 'v10m_rotated',
+    # 'u10m_rotated', 'v10m_rotated',
     # 't2m', 'skt', 'tcwv', 'tclw'
     
 ]    
@@ -261,7 +260,88 @@ SCENE_VARIABLES3 = [
     
     # -- Environmental variables -- #
     'u10m_rotated', 'v10m_rotated',
-    't2m', 'skt', 
+    # 't2m', 'skt', 
+    # 'tcwv', 'tclw'
+    
+]    
+
+
+
+
+SCENE_VARIABLES4 = [
+    # -- Sentinel-1 variables -- #
+    'nersc_sar_primary', 
+    'nersc_sar_secondary',
+    # 'sar_incidenceangle',
+    
+    # # -- Geographical variables -- #
+    # 'distance_map',
+
+    # # -- AMSR2 channels -- #
+    # 'btemp_6_9h', 'btemp_6_9v',
+    # 'btemp_7_3h', 'btemp_7_3v',
+    # 'btemp_10_7h', 'btemp_10_7v',
+    # 'btemp_18_7h', 'btemp_18_7v',
+    # 'btemp_23_8h', 'btemp_23_8v',
+    # 'btemp_36_5h', 'btemp_36_5v',
+    # 'btemp_89_0h', 'btemp_89_0v',
+    
+    # -- Environmental variables -- #
+    # 'u10m_rotated', 'v10m_rotated',
+    't2m', 
+    # 'skt', 
+    # 'tcwv', 'tclw'
+    
+]    
+
+SCENE_VARIABLES5 = [
+    # -- Sentinel-1 variables -- #
+    'nersc_sar_primary', 
+    'nersc_sar_secondary',
+    # 'sar_incidenceangle',
+    
+    # # -- Geographical variables -- #
+    # 'distance_map',
+
+    # # -- AMSR2 channels -- #
+    # 'btemp_6_9h', 'btemp_6_9v',
+    # 'btemp_7_3h', 'btemp_7_3v',
+    # 'btemp_10_7h', 'btemp_10_7v',
+    'btemp_18_7h', 'btemp_18_7v',
+    # 'btemp_23_8h', 'btemp_23_8v',
+    'btemp_36_5h', 'btemp_36_5v',
+    # 'btemp_89_0h', 'btemp_89_0v',
+    
+    # -- Environmental variables -- #
+    'u10m_rotated', 'v10m_rotated',
+    't2m', 
+    # 'skt', 
+    'tcwv', 'tclw'
+    
+]    
+
+
+SCENE_VARIABLES6 = [
+    # -- Sentinel-1 variables -- #
+    'nersc_sar_primary', 
+    'nersc_sar_secondary',
+    # 'sar_incidenceangle',
+    
+    # # -- Geographical variables -- #
+    'distance_map',
+
+    # # -- AMSR2 channels -- #
+    # 'btemp_6_9h', 'btemp_6_9v',
+    # 'btemp_7_3h', 'btemp_7_3v',
+    # 'btemp_10_7h', 'btemp_10_7v',
+    # 'btemp_18_7h', 'btemp_18_7v',
+    # 'btemp_23_8h', 'btemp_23_8v',
+    # 'btemp_36_5h', 'btemp_36_5v',
+    # 'btemp_89_0h', 'btemp_89_0v',
+    
+    # -- Environmental variables -- #
+    # 'u10m_rotated', 'v10m_rotated',
+    # 't2m','skt', 
     # 'tcwv', 'tclw'
     
 ]    
