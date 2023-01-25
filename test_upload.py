@@ -70,7 +70,7 @@ print('Model successfully loaded.')
 with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
     train_options['test_list'] = json.loads(file.read())
 train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc' for file in train_options['test_list']]
-train_options['path_to_processed_data'] = '../dataset/ai4arctic/test'  # The test data is stored in a separate folder inside the training data.
+train_options['path_to_processed_data'] = '../dataset/test'  # The test data is stored in a separate folder inside the training data.
 upload_package = xr.Dataset()  # To store model outputs.
 dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options['test_list'], test=True)
 asid_loader = torch.utils.data.DataLoader(dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
@@ -117,7 +117,7 @@ for inf_x, _, masks, scene_name in tqdm(iterable=asid_loader, total=len(train_op
 print('Saving upload_package. Compressing data with zlib.')
 compression = dict(zlib=True, complevel=1)
 encoding = {var: compression for var in upload_package.data_vars}
-upload_package.to_netcdf('upload_package.nc', mode='w', format='netcdf4', engine='netcdf4', encoding=encoding)
+upload_package.to_netcdf('upload_package.nc', mode='w', format='netcdf4', engine='h5netcdf', encoding=encoding)
 print('Testing completed.')
 
 
