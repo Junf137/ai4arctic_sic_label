@@ -12,25 +12,12 @@
 #
 # The first cell imports the necessary Python packages, initializes the 'train_options' dictionary, the sample U-Net options, loads the dataset list and select validation scenes.
 
-# In[1]:
-
 
 # -- Built-in modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES, colour_str
-from unet import UNet  # Convolutional Neural Network model
-# Custom dataloaders for regular training and validation.
-from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
-# Functions to calculate metrics and show the relevant chart colorbar.
-from functions import chart_cbar, r2_metric, f1_metric, compute_metrics, save_best_model
-from tqdm import tqdm  # Progress bar
-import xarray as xr
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-import json
-import gc
+# import gc
 import os
-import sys
+# import sys
+
 
 # -- Environmental variables -- #
 # Fill in directory for data location.
@@ -39,16 +26,28 @@ os.environ['AI4ARCTIC_DATA'] = ''
 os.environ['AI4ARCTIC_ENV'] = ''
 
 
-# In[2]:
-
-
 # -- Third-part modules -- #
+from tqdm import tqdm  # Progress bar
+import xarray as xr
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import json
 
 # --Proprietary modules -- #
+from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES, colour_str
+from unet import UNet  # Convolutional Neural Network model
+# Custom dataloaders for regular training and validation.
+from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
+# Functions to calculate metrics and show the relevant chart colorbar.
+from functions import chart_cbar, r2_metric, f1_metric, compute_metrics, save_best_model
+
+
 
 # TODO replace with config file later
 train_options = {
-    'experiment_name': 'UNet_all_input_channels', # To be replaced once config file is working. 
+    # To be replaced once config file is working.
+    'experiment_name': 'UNet_all_input_channels',
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
@@ -117,8 +116,6 @@ print('-----------------------------------------------------------')
 print('Experiment Name: '+train_options['experiment_name'])
 print('-----------------------------------------------------------')
 
-
-
 # Get options for variables, amsrenv grid, cropping and upsampling.
 get_variable_options = get_variable_options(train_options)
 # To be used in test_upload.
@@ -142,8 +139,6 @@ print('Options initialised')
 
 # ### CUDA / GPU Setup
 # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-
-# In[3]:
 
 
 # Get GPU resources.
@@ -173,8 +168,6 @@ print('GPU and data setup complete.')
 
 # ### Example of Model, optimiser and loss function setup
 
-# In[4]:
-
 
 # Setup U-Net model, adam optimizer, loss function and dataloader.
 net = UNet(options=train_options).to(device)
@@ -192,8 +185,6 @@ print('Model setup complete')
 
 # ## Example of model training and validation loop
 # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes, i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu. This can be done by using 'net = net.cpu()'.
-
-# In[ ]:
 
 
 best_combined_score = -np.Inf  # Best weighted model score.
@@ -282,13 +273,8 @@ for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
     print(f"Combined score: {combined_score}%")
 
     # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
-    
+
     if combined_score > best_combined_score:
         best_combined_score = combined_score
-        # torch.save(obj={'model_state_dict': net.state_dict(),
-        #                 'optimizer_state_dict': optimizer.state_dict(),
-        #                 'epoch': epoch},
-        #            f='best_model.pth')
-        save_best_model(train_options,net,optimizer,epoch)
+        save_best_model(train_options, net, optimizer, epoch)
     # del inf_ys_flat, outputs_flat  # Free memory.
-
