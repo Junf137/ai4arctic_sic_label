@@ -16,7 +16,7 @@
 
 
 # -- Built-in modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES3, colour_str
+from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES1, colour_str
 from unet import UNet  # Convolutional Neural Network model
 # Custom dataloaders for regular training and validation.
 from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
@@ -48,7 +48,7 @@ os.environ['AI4ARCTIC_ENV'] = './'
 
 # TODO replace with config file later
 train_options = {
-    'experiment_name': 'Input_Channel_Experiment_Setup3', # To be replaced once config file is working. 
+    'experiment_name': 'Input_Channel_Experiment_Setup1_xinwei_val', # To be replaced once config file is working. 
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
@@ -65,7 +65,7 @@ train_options = {
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
-    'train_variables': SCENE_VARIABLES3,
+    'train_variables': SCENE_VARIABLES1,
     'charts': CHARTS,  # Charts to train on.
     'n_classes': {  # number of total classes in the reference charts, including the mask.
         'SIC': SIC_LOOKUP['n_classes'],
@@ -130,10 +130,21 @@ with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
 # Convert the original scene names to the preprocessed names.
 train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                '_prep.nc' for file in train_options['train_list']]
+
+
+# Selecting random validation scenes is currently disable.                              
 # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-np.random.seed(0)
-train_options['validate_list'] = np.random.choice(np.array(
-    train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+# np.random.seed(0)
+# train_options['validate_list'] = np.random.choice(np.array(
+#     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+
+
+# Change validation list to the selected list
+with open(train_options['path_to_env'] + 'datalists/val_list.json') as file:
+    train_options['validate_list'] = json.loads(file.read())
+
+train_options['validate_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc' for file in train_options['validate_list']]
+
 # Remove the validation scenes from the train list.
 train_options['train_list'] = [scene for scene in train_options['train_list']
                                if scene not in train_options['validate_list']]
@@ -285,10 +296,6 @@ for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
     
     if combined_score > best_combined_score:
         best_combined_score = combined_score
-        # torch.save(obj={'model_state_dict': net.state_dict(),
-        #                 'optimizer_state_dict': optimizer.state_dict(),
-        #                 'epoch': epoch},
-        #            f='best_model.pth')
         save_best_model(train_options,net,optimizer,epoch)
     # del inf_ys_flat, outputs_flat  # Free memory.
 
