@@ -24,7 +24,7 @@ from torch.utils.data import Dataset
 
 
 class AI4ArcticChallengeDataset(Dataset):
-    """Pytorch dataset for loading batches of patches of scenes from the ASID 
+    """Pytorch dataset for loading batches of patches of scenes from the ASID
     V2 data set."""
 
     def __init__(self, options, files):
@@ -92,8 +92,10 @@ class AI4ArcticChallengeDataset(Dataset):
             # Crop full resolution variables.
             patch[0:len(self.options['full_variables']), :, :] = \
                 scene[self.options['full_variables']].isel(
-                sar_lines=range(row_rand, row_rand + self.options['patch_size']),
-                sar_samples=range(col_rand, col_rand + self.options['patch_size'])).to_array().values
+                sar_lines=range(row_rand, row_rand +
+                                self.options['patch_size']),
+                sar_samples=range(col_rand, col_rand
+                                  + self.options['patch_size'])).to_array().values
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
                 patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
@@ -105,8 +107,12 @@ class AI4ArcticChallengeDataset(Dataset):
                     size=self.options['amsrenv_upsample_shape'],
                     mode=self.options['loader_upsampling']).squeeze(0)[
                     :,
-                    int(np.around(amsrenv_row_index_crop)): int(np.around(amsrenv_row_index_crop + self.options['patch_size'])),
-                    int(np.around(amsrenv_col_index_crop)): int(np.around(amsrenv_col_index_crop + self.options['patch_size']))].numpy()
+                    int(np.around(amsrenv_row_index_crop)): int(np.around
+                                                                (amsrenv_row_index_crop
+                                                                 + self.options['patch_size'])),
+                    int(np.around(amsrenv_col_index_crop)): int(np.around
+                                                                (amsrenv_col_index_crop
+                                                                 + self.options['patch_size']))].numpy()
 
         # In case patch does not contain any valid pixels - return None.
         else:
@@ -169,10 +175,10 @@ class AI4ArcticChallengeDataset(Dataset):
             # - Extract patches
             try:
                 scene_patch = self.random_crop(scene)
-            except:
+            except Exception:
                 print(f"Cropping in {self.files[scene_id]} failed.")
-                print(
-                    f"Scene size: {scene['SIC'].values.shape} for crop shape: ({self.options['patch_size']}, {self.options['patch_size']})")
+                print(f"Scene size: {scene['SIC'].values.shape} for crop shape: \
+                    ({self.options['patch_size']}, {self.options['patch_size']})")
                 print('Skipping scene.')
                 continue
 
@@ -207,7 +213,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
     def prep_scene(self, scene):
         """
-        Upsample low resolution to match charts and SAR resolution. Convert patches from 4D numpy array to 4D torch tensor.
+        Upsample low resolution to match charts and SAR resolution. Convert patches
+        from 4D numpy array to 4D torch tensor.
 
         Parameters
         ----------
@@ -221,7 +228,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
         """
         if len(self.options['amsrenv_variables']) > 0:
-            from icecream import ic
+            # from icecream import ic
             # print(1, scene['SIC'].values.shape)
             # print(2, scene['nersc_sar_primary'].values.shape)
             x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),

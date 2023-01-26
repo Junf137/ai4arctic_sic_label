@@ -18,10 +18,10 @@ CHARTS = ['SIC', 'SOD', 'FLOE']
 # Variables in the ASID3 challenge ready-to-train dataset
 SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
-    'nersc_sar_primary', 
+    'nersc_sar_primary',
     'nersc_sar_secondary',
     'sar_incidenceangle',
-    
+
     # -- Geographical variables -- #
     'distance_map',
 
@@ -33,12 +33,12 @@ SCENE_VARIABLES = [
     'btemp_23_8h', 'btemp_23_8v',
     'btemp_36_5h', 'btemp_36_5v',
     'btemp_89_0h', 'btemp_89_0v',
-    
+
     # -- Environmental variables -- #
     'u10m_rotated', 'v10m_rotated',
     't2m', 'skt', 'tcwv', 'tclw'
-    
-]    
+
+]
 
 # Sea Ice Concentration (SIC) code to class conversion lookup table.
 SIC_LOOKUP = {
@@ -186,17 +186,18 @@ COLOURS = {'red': '\033[0;31m',
            'blue': '\033[0;34m',
            'cyan': '\033[0;36m'}
 
+
 def colour_str(word, colour: str):
     """Function to colour strings."""
     return COLOURS[colour.lower()] + str(word) + COLOURS['black']
 
 
-SCENE_VARIABLES1=[
+SCENE_VARIABLES1 = [
     # -- Sentinel-1 variables -- #
-    'nersc_sar_primary', 
+    'nersc_sar_primary',
     'nersc_sar_secondary',
     # 'sar_incidenceangle',
-    
+
     # -- Geographical variables -- #
     # 'distance_map',
 
@@ -208,20 +209,20 @@ SCENE_VARIABLES1=[
     # 'btemp_23_8h', 'btemp_23_8v',
     # 'btemp_36_5h', 'btemp_36_5v',
     # 'btemp_89_0h', 'btemp_89_0v',
-    
+
     # -- Environmental variables -- #
     # 'u10m_rotated', 'v10m_rotated',
     # 't2m', 'skt', 'tcwv', 'tclw'
-    
-]    
+
+]
 
 
 SCENE_VARIABLES2 = [
     # -- Sentinel-1 variables -- #
-    'nersc_sar_primary', 
+    'nersc_sar_primary',
     'nersc_sar_secondary',
     'sar_incidenceangle',
-    
+
     # # -- Geographical variables -- #
     # 'distance_map',
 
@@ -233,20 +234,20 @@ SCENE_VARIABLES2 = [
     # 'btemp_23_8h', 'btemp_23_8v',
     # 'btemp_36_5h', 'btemp_36_5v',
     # 'btemp_89_0h', 'btemp_89_0v',
-    
+
     # # -- Environmental variables -- #
     'u10m_rotated', 'v10m_rotated',
     # 't2m', 'skt', 'tcwv', 'tclw'
-    
-]    
+
+]
 
 
 SCENE_VARIABLES3 = [
     # -- Sentinel-1 variables -- #
-    'nersc_sar_primary', 
+    'nersc_sar_primary',
     'nersc_sar_secondary',
     # 'sar_incidenceangle',
-    
+
     # # -- Geographical variables -- #
     # 'distance_map',
 
@@ -258,10 +259,10 @@ SCENE_VARIABLES3 = [
     # 'btemp_23_8h', 'btemp_23_8v',
     # 'btemp_36_5h', 'btemp_36_5v',
     # 'btemp_89_0h', 'btemp_89_0v',
-    
+
     # -- Environmental variables -- #
     'u10m_rotated', 'v10m_rotated',
-    't2m', 'skt', 
+    't2m', 'skt',
     # 'tcwv', 'tclw'
-    
-]    
+
+]

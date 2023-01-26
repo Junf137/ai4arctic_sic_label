@@ -2,35 +2,63 @@
 # coding: utf-8
 
 # # Quick start guide
-# This notebook serves as an example of how to train a simple model using pytorch and the ready-to-train AI4Arctic challenge dataset. Initially, a dictionary, 'train_options', is set up with relevant options for both the example U-Net Convolutional Neural Network model and the dataloader. Note that the weights of the U-Net will be initialised at random and therefore not deterministic - results will vary for every training run. Two lists (dataset.json and testset.json) include the names of the scenes relevant to training and testing, where the former can be altered if desired. Training data is loaded in parallel using the build-in torch Dataset and Dataloader classes, and works by randomly sampling a scene and performing a random crop to extract a patch. Each batch will then be compiled of X number of these patches with the patch size in the 'train_options'. An obstacle is different grid resolution sizes, which is overcome by upsampling low resolution variables, e.g. AMSR2, ERA5, to match the SAR pixels. A number of batches will be prepared in parallel and stored until use, depending on the number of workers (processes) spawned (this can be changed in 'num_workers' in 'train_options'). The model is trained on a fixed number of steps according to the number of batches in an epoch, defined by the 'epoch_len' parameter, and will run for a total number of epochs depending on the 'epochs' parameter. After each epoch, the model is evaluated. In this example, a random number of scenes are sampled among the training scenes (and removed from the list of training scenes) to act as a validation set used for the evaluation. The model is evaluated with the metrics, and if the current validation attempt is superior to the previous, then the model parameters are stored in the 'best_model' file in the directory.
+# This notebook serves as an example of how to train a simple model using pytorch and the ready-to-train AI4Arctic
+# challenge dataset. Initially, a dictionary, 'train_options', is set up with relevant options for both the example
+# U-Net Convolutional Neural Network model and the dataloader. Note that the weights of the U-Net will be initialised
+# at random and therefore not deterministic - results will vary for every training run. Two lists (dataset.json and
+# testset.json) include the names of the scenes relevant to training and testing, where the former can be altered
+# if desired. Training data is loaded in parallel using the build-in torch Dataset and Dataloader classes, and
+# works by randomly sampling a scene and performing a random crop to extract a patch. Each batch will then be compiled
+# of X number of these patches with the patch size in the 'train_options'. An obstacle is different grid resolution
+# sizes, which is overcome by upsampling low resolution variables, e.g. AMSR2, ERA5, to match the SAR pixels.
+# A number of batches will be prepared in parallel and stored until use, depending on the number of workers (processes)
+# spawned (this can be changed in 'num_workers' in 'train_options').
+# The model is trained on a fixed number of steps according to the number of batches in an epoch,
+# defined by the 'epoch_len' parameter, and will run for a total number of epochs depending on the 'epochs' parameter.
+# After each epoch, the model is evaluated. In this example, a random number of scenes are sampled among the training
+# scenes (and removed from the list of training scenes) to act as a validation set used for the evaluation.
+# The model is evaluated with the metrics, and if the current validation attempt is superior to the previous,
+# then the model parameters are stored in the 'best_model' file in the directory.
 #
-# The models are scored on the three sea ice parameters; Sea Ice Concentration (SIC), Stage of Development (SOD) and the Floe size (FLOE) with the $R²$ metric for the SIC, and the weighted F1 metric for the SOD and FLOE. The 3 scores are combined into a single metric by taking the weighted average with SIC and SOD being weighted with 2 and the FLOE with 1.
+# The models are scored on the three sea ice parameters; Sea Ice Concentration (SIC), Stage of Development (SOD) and
+# the Floe size (FLOE) with the $R²$ metric for the SIC, and the weighted F1 metric for the SOD and FLOE. The 3 scores
+# are combined into a single metric by taking the weighted average with SIC and SOD being weighted with 2 and the FLOE
+# with 1.
 #
-# Finally, once you are ready to test your model on the test scenes (without reference data), the 'test_upload' notebook will produce model outputs with your model of choice and save the output as a netCDF file, which can be uploaded to the AI4EO.eu website. The model outputs will be evaluated and then you will receive a score.
+# Finally, once you are ready to test your model on the test scenes (without reference data), the 'test_upload'
+# notebook will produce model outputs with your model of choice and save the output as a netCDF file, which can be
+# uploaded to the AI4EO.eu website. The model outputs will be evaluated and then you will receive a score.
 #
-# This quick start notebook is by no means necessary to utilize, and you are more than welcome to develop your own data pipeline. We do however require that the model output is stored in a netcdf file with xarray.dataarrays titled '{scene_name}_{chart}', i.e. 3 charts per scene / file (see how in 'test_upload'). In addition, you are more than welcome to create your own preprocessing scheme to prepare the raw AI4Arctic challenge dataset. However, we ask that the model output is in 80 m pixel spacing (original is 40 m), and that you follow the class numberings from the lookup tables in 'utils' - at least you will be evaluated in this way. Furthermore, we have included a function to convert the polygon_icechart to SIC, SOD and FLOE, you will have to incorporate it yourself.
+# This quick start notebook is by no means necessary to utilize, and you are more than welcome to develop your own
+# data pipeline. We do however require that the model output is stored in a netcdf file with xarray.dataarrays titled
+# '{scene_name}_{chart}', i.e. 3 charts per scene / file (see how in 'test_upload'). In addition, you are more than
+# welcome to create your own preprocessing scheme to prepare the raw AI4Arctic challenge dataset. However, we ask that
+# the model output is in 80 m pixel spacing (original is 40 m), and that you follow the class numberings from the
+# lookup tables in 'utils' - at least you will be evaluated in this way. Furthermore, we have included a function to
+# convert the polygon_icechart to SIC, SOD and FLOE, you will have to incorporate it yourself.
 #
-# The first cell imports the necessary Python packages, initializes the 'train_options' dictionary, the sample U-Net options, loads the dataset list and select validation scenes.
+# The first cell imports the necessary Python packages, initializes the 'train_options' dictionary, the sample U-Net
+# options, loads the dataset list and select validation scenes.
 
 # In[1]:
 
 
-# -- Built-in modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, SCENE_VARIABLES, colour_str
-from unet import UNet  # Convolutional Neural Network model
-# Custom dataloaders for regular training and validation.
-from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
-# Functions to calculate metrics and show the relevant chart colorbar.
-from functions import chart_cbar, r2_metric, f1_metric, compute_metrics
-from tqdm import tqdm  # Progress bar
-import xarray as xr
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
 import json
-import gc
 import os
-import sys
+
+import numpy as np
+import torch
+from tqdm import tqdm  # Progress bar
+
+# Functions to calculate metrics and show the relevant chart colorbar.
+from functions import compute_metrics, f1_metric, r2_metric
+# Custom dataloaders for regular training and validation.
+from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
+                     get_variable_options)
+from unet import UNet  # Convolutional Neural Network model
+# -- Built-in modules -- #
+from utils import (CHARTS, FLOE_LOOKUP, SCENE_VARIABLES, SIC_LOOKUP,
+                   SOD_LOOKUP, colour_str)
 
 # -- Environmental variables -- #
 # Fill in directory for data location.
@@ -182,7 +210,9 @@ print('Model setup complete')
 
 
 # ## Example of model training and validation loop
-# A simple model training loop following by a simple validation loop. Validation is carried out on full scenes, i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu. This can be done by using 'net = net.cpu()'.
+# A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
+# i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu. This can be\
+# done by using 'net = net.cpu()'.
 
 # In[ ]:
 
@@ -196,7 +226,8 @@ for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
     net.train()  # Set network to evaluation mode.
 
     # Loops though batches in queue.
-    for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader, total=train_options['epoch_len'], colour='red', position=0)):
+    for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader, total=train_options['epoch_len'],
+                                                colour='red', position=0)):
         # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
         loss_batch = 0  # Reset from previous batch.
 
@@ -241,7 +272,8 @@ for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
 
     net.eval()  # Set network to evaluation mode.
     # - Loops though scenes in queue.
-    for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val, total=len(train_options['validate_list']), colour='green', position=0):
+    for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val, total=len(train_options['validate_list']),
+                                          colour='green', position=0):
         torch.cuda.empty_cache()
 
         # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.

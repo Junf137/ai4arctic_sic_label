@@ -22,20 +22,24 @@ class UNet(torch.nn.Module):
     def __init__(self, options):
         super().__init__()
 
-        self.input_block = DoubleConv(options, input_n=len(options['train_variables']), output_n=options['unet_conv_filters'][0])
+        self.input_block = DoubleConv(options, input_n=len(options['train_variables']),
+                                      output_n=options['unet_conv_filters'][0])
 
         self.contract_blocks = torch.nn.ModuleList()
         for contract_n in range(1, len(options['unet_conv_filters'])):
             self.contract_blocks.append(
                 ContractingBlock(options=options,
                                  input_n=options['unet_conv_filters'][contract_n - 1],
-                                 output_n=options['unet_conv_filters'][contract_n]))  # only used to contract input patch.
+                                 output_n=options['unet_conv_filters'][contract_n]))
+            # only used to contract input patch.
 
-        self.bridge = ContractingBlock(options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1])
+        self.bridge = ContractingBlock(
+            options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1])
 
         self.expand_blocks = torch.nn.ModuleList()
         self.expand_blocks.append(
-            ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]))
+            ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1],
+                           output_n=options['unet_conv_filters'][-1]))
 
         for expand_n in range(len(options['unet_conv_filters']), 1, -1):
             self.expand_blocks.append(ExpandingBlock(options=options,
@@ -44,7 +48,8 @@ class UNet(torch.nn.Module):
 
         self.sic_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['SIC'])
         self.sod_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['SOD'])
-        self.floe_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['FLOE'])
+        self.floe_feature_map = FeatureMap(
+            input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['FLOE'])
 
     def forward(self, x):
         """Forward model pass."""
@@ -55,7 +60,7 @@ class UNet(torch.nn.Module):
         up_idx = len(x_contract)
         for expand_block in self.expand_blocks:
             x_expand = expand_block(x_expand, x_contract[up_idx - 1])
-            up_idx -= 1            
+            up_idx -= 1
 
         return {'SIC': self.sic_feature_map(x_expand),
                 'SOD': self.sod_feature_map(x_expand),
@@ -83,21 +88,21 @@ class DoubleConv(torch.nn.Module):
 
         self.double_conv = torch.nn.Sequential(
             torch.nn.Conv2d(in_channels=input_n,
-                      out_channels=output_n,
-                      kernel_size=options['conv_kernel_size'],
-                      stride=options['conv_stride_rate'],
-                      padding=options['conv_padding'],
-                      padding_mode=options['conv_padding_style'],
-                      bias=False),
+                            out_channels=output_n,
+                            kernel_size=options['conv_kernel_size'],
+                            stride=options['conv_stride_rate'],
+                            padding=options['conv_padding'],
+                            padding_mode=options['conv_padding_style'],
+                            bias=False),
             torch.nn.BatchNorm2d(output_n),
             torch.nn.ReLU(),
             torch.nn.Conv2d(in_channels=output_n,
-                      out_channels=output_n,
-                      kernel_size=options['conv_kernel_size'],
-                      stride=options['conv_stride_rate'],
-                      padding=options['conv_padding'],
-                      padding_mode=options['conv_padding_style'],
-                      bias=False),
+                            out_channels=output_n,
+                            kernel_size=options['conv_kernel_size'],
+                            stride=options['conv_stride_rate'],
+                            padding=options['conv_padding'],
+                            padding_mode=options['conv_padding_style'],
+                            bias=False),
             torch.nn.BatchNorm2d(output_n),
             torch.nn.ReLU()
         )
@@ -145,8 +150,8 @@ class ExpandingBlock(torch.nn.Module):
         x = torch.cat([x, x_skip], dim=1)
 
         return self.double_conv(x)
-    
-    
+
+
 def expand_padding(x, x_contract, padding_style: str = 'constant'):
     """
     Insure that x and x_skip H and W dimensions match.

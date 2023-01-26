@@ -16,9 +16,11 @@ import copy
 
 # -- Third-party modules -- #
 import numpy as np
+import xarray as xr
 
 # -- Proprietary modules -- #
-from utils import CHARTS, SIC_LOOKUP, SOD_LOOKUP, FLOE_LOOKUP, ICE_STRINGS, GROUP_NAMES, ICECHART_NOT_FILLED_VALUE, ICECHART_UNKNOWN, LOOKUP_NAMES
+from utils import (CHARTS, FLOE_LOOKUP, ICE_STRINGS, ICECHART_NOT_FILLED_VALUE,
+                   ICECHART_UNKNOWN, LOOKUP_NAMES, SIC_LOOKUP, SOD_LOOKUP)
 
 
 def convert_polygon_icechart(scene):
@@ -26,9 +28,12 @@ def convert_polygon_icechart(scene):
     Original polygon_icechart in ASIP3 scenes consists of codes to a lookup table `polygon_codes`.
 
     This function looks up codes and converts them. 3 variables in the xr scene are created; SIC, SOD and FLOE.
-    For SOD and FLOE the partial sea ice concentration is used to determine whether there is a dominant category in a polygon.
-    The SOD and FLOE are created using the lookup tables in utils, which dictate the conversion from ice code to class, As multiple codes can be
-    converted into a single class, these partial concentrations must also be added. In addition, empty codes, 'not filled values' and unknowns are
+    For SOD and FLOE the partial sea ice concentration is used to determine whether there is a dominant category
+    in a polygon.
+    The SOD and FLOE are created using the lookup tables in utils, which dictate the conversion
+    from ice code to class, As multiple codes can be
+    converted into a single class, these partial concentrations must also be added.
+    In addition, empty codes, 'not filled values' and unknowns are
     replaced appropriately.
 
     Parameters
@@ -37,9 +42,10 @@ def convert_polygon_icechart(scene):
         xarray dataset; scenes from the ASIP3 challenge dataset.
     """
     # Get codes from polygon_codes.
-    codes = np.stack(np.char.split(scene['polygon_codes'].values.astype(str), sep=';'), 0)[SIC_LOOKUP['total_sic_idx']:, :]
-    poly_type = np.stack((codes[:, 0] , codes[:, -1]))
-    codes = codes[:, :-2].astype(int) 
+    codes = np.stack(np.char.split(scene['polygon_codes'].values.astype(str), sep=';'), 0)[
+        SIC_LOOKUP['total_sic_idx']:, :]
+    poly_type = np.stack((codes[:, 0], codes[:, -1]))
+    codes = codes[:, :-2].astype(int)
 
     # Convert codes to classes for Total and Partial SIC.
     converted_codes = copy.deepcopy(codes)
@@ -60,7 +66,7 @@ def convert_polygon_icechart(scene):
         converted_codes[:, SIC_LOOKUP['sic_partial_idx'][0]] == ICECHART_NOT_FILLED_VALUE)
     # Assign total SIC to partial concentration when empty.
     converted_codes[:, SIC_LOOKUP['sic_partial_idx'][0]][ice_ct_ca_empty] = \
-            converted_codes[:, SIC_LOOKUP['total_sic_idx']][ice_ct_ca_empty]
+        converted_codes[:, SIC_LOOKUP['total_sic_idx']][ice_ct_ca_empty]
 
     # Convert codes to classes for partial SOD.
     for key, value in SOD_LOOKUP.items():
@@ -105,7 +111,7 @@ def convert_polygon_icechart(scene):
     # Arrays to loop over to find locations where partial SIC will be combined for SOD and FLOE.
     sod_bool_list = [sod_a_b_bool, sod_a_c_bool, sod_b_c_bool]
     floe_bool_list = [floe_a_b_bool, floe_a_c_bool, floe_b_c_bool]
-    compare_indexes = [[0, 1], [0, 2], [1,2]]
+    compare_indexes = [[0, 1], [0, 2], [1, 2]]
 
     # Arrays to store how much to add to partial SIC.
     sod_partial_add = np.zeros(converted_codes.shape)
@@ -115,7 +121,7 @@ def convert_polygon_icechart(scene):
     for idx, (compare_idx, sod_bool, floe_bool) in enumerate(zip(compare_indexes, sod_bool_list, floe_bool_list)):
         tmp_sod_bool_indexes = np.where(sod_bool)[0]
         tmp_floe_bool_indexes = np.where(floe_bool)[0]
-        if tmp_sod_bool_indexes.size:  #i.e. is array is not empty.
+        if tmp_sod_bool_indexes.size:  # i.e. is array is not empty.
             sod_partial_add[tmp_sod_bool_indexes, SIC_LOOKUP['sic_partial_idx'][compare_idx[0]]] = \
                 converted_codes[:, SIC_LOOKUP['sic_partial_idx'][compare_idx[1]]][tmp_sod_bool_indexes]
 
@@ -141,20 +147,20 @@ def convert_polygon_icechart(scene):
 
             if np.char.lower(poly_type[1, i]) == 'w':
                 sic[code_match] = SIC_LOOKUP[0]
-            
+
             # Check if there is a class combined normalized partial concentration, which is dominant in the polygon.
             if np.divide(np.max(tmp_sod_added[i, SIC_LOOKUP['sic_partial_idx']]),
-                    tmp_sod_added[i, SIC_LOOKUP['total_sic_idx']]) * 100 >= SOD_LOOKUP['threshold'] * 100:
+                         tmp_sod_added[i, SIC_LOOKUP['total_sic_idx']]) * 100 >= SOD_LOOKUP['threshold'] * 100:
 
                 # Find dominant partial ice type.
                 sod[code_match] = converted_codes[i, SOD_LOOKUP['sod_partial_idx']][
                     np.argmax(tmp_sod_added[i, SIC_LOOKUP['sic_partial_idx']])]
             else:
                 sod[code_match] = ICECHART_NOT_FILLED_VALUE
-            
+
             # Check if there is a class combined normalized partial concentration, which is dominant in the polygon.
             if np.divide(np.max(tmp_floe_added[i, SIC_LOOKUP['sic_partial_idx']]),
-                    tmp_floe_added[i, SIC_LOOKUP['total_sic_idx']]) * 100 >= FLOE_LOOKUP['threshold'] * 100:
+                         tmp_floe_added[i, SIC_LOOKUP['total_sic_idx']]) * 100 >= FLOE_LOOKUP['threshold'] * 100:
                 floe[code_match] = converted_codes[i, FLOE_LOOKUP['floe_partial_idx']][
                     np.argmax(tmp_floe_added[i, SIC_LOOKUP['sic_partial_idx']])]
             else:
@@ -175,14 +181,14 @@ def convert_polygon_icechart(scene):
     scene = scene.assign({'SIC': xr.DataArray(sic, dims=scene['polygon_icechart'].dims)})
     scene = scene.assign({'SOD': xr.DataArray(sod, dims=scene['polygon_icechart'].dims)})
     scene = scene.assign({'FLOE': xr.DataArray(floe, dims=scene['polygon_icechart'].dims)})
-    
+
     for chart in CHARTS:
         # Remove any unknowns.
         scene[chart].values[scene[chart].values == ICECHART_UNKNOWN] = LOOKUP_NAMES[chart]['mask']
-        
+
         scene[chart].attrs = ({
             'polygon': ICE_STRINGS[chart],
             'chart_fill_value': LOOKUP_NAMES[chart]['mask']
         })
-    
+
     return scene
