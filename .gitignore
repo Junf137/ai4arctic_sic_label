@@ -7,7 +7,7 @@ artifacts/
 wandb/
 .idea/
 misc/
-
+__pycache__/
 # tensorboard events
 events.*.*
 

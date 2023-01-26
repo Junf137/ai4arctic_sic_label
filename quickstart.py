@@ -21,8 +21,8 @@ import os
 import sys
 
 # -- Environmental variables -- #
-os.environ['AI4ARCTIC_DATA'] = '/home/m32patel/projects/def-dclausi/AI4arctic/dataset/train'  # Fill in directory for data location.
-os.environ['AI4ARCTIC_ENV'] = '/home/m32patel/projects/def-dclausi/AI4arctic/m32patel/'  # Fill in directory for environment with Ai4Arctic get-started package. 
+os.environ['AI4ARCTIC_DATA'] = '../dataset/train'  # Fill in directory for data location.
+os.environ['AI4ARCTIC_ENV'] = './'  # Fill in directory for environment with Ai4Arctic get-started package. 
 
 
 # In[2]:
