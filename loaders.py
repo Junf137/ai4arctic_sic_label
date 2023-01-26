@@ -15,7 +15,6 @@ __date__ = '2022-10-17'
 import os
 
 # -- Third-party modules -- #
-import copy
 import numpy as np
 import torch
 import xarray as xr
@@ -25,7 +24,8 @@ from torch.utils.data import Dataset
 
 
 class AI4ArcticChallengeDataset(Dataset):
-    """Pytorch dataset for loading batches of patches of scenes from the ASID V2 data set."""
+    """Pytorch dataset for loading batches of patches of scenes from the ASID 
+    V2 data set."""
 
     def __init__(self, options, files):
         self.options = options
@@ -37,8 +37,8 @@ class AI4ArcticChallengeDataset(Dataset):
 
     def __len__(self):
         """
-        Provide number of iterations per epoch. Function required by Pytorch dataset.
-
+        Provide number of iterations per epoch. Function required by Pytorch
+        dataset.
         Returns
         -------
         Number of iterations per epoch.
@@ -52,21 +52,27 @@ class AI4ArcticChallengeDataset(Dataset):
         Parameters
         ----------
         scene :
-            Xarray dataset; a scene from ASID3 ready-to-train challenge dataset.
+            Xarray dataset; a scene from ASID3 ready-to-train challenge
+            dataset.
 
         Returns
         -------
         patch :
-            Numpy array with shape (len(train_variables), patch_height, patch_width). None if empty patch.
+            Numpy array with shape (len(train_variables),
+            patch_height, patch_width). None if empty patch.
         """
-        patch = np.zeros((len(self.options['full_variables']) + len(self.options['amsrenv_variables']),
-                          self.options['patch_size'], self.options['patch_size']))
+        patch = np.zeros((len(self.options['full_variables']) +
+                          len(self.options['amsrenv_variables']),
+                          self.options['patch_size'],
+                          self.options['patch_size']))
 
         # Get random index to crop from.
         row_rand = np.random.randint(
-            low=0, high=scene['SIC'].values.shape[0] - self.options['patch_size'])
+            low=0, high=scene['SIC'].values.shape[0]
+            - self.options['patch_size'])
         col_rand = np.random.randint(
-            low=0, high=scene['SIC'].values.shape[1] - self.options['patch_size'])
+            low=0, high=scene['SIC'].values.shape[1]
+            - self.options['patch_size'])
         # Equivalent in amsr and env variable grid.
         amsrenv_row = row_rand / self.options['amsrenv_delta']
         # Used in determining the location of the crop in between pixels.
@@ -80,14 +86,14 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # - Discard patches with too many meaningless pixels (optional).
         if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size'],
-                                      col_rand: col_rand + self.options['patch_size']] != self.options['class_fill_values']['SIC']) > 1:
+                                      col_rand: col_rand + self.options['patch_size']]
+                  != self.options['class_fill_values']['SIC']) > 1:
 
             # Crop full resolution variables.
-            patch[0:len(self.options['full_variables']), :, :] = scene[self.options['full_variables']].isel(
-                sar_lines=range(row_rand, row_rand +
-                                self.options['patch_size']),
+            patch[0:len(self.options['full_variables']), :, :] = \
+                scene[self.options['full_variables']].isel(
+                sar_lines=range(row_rand, row_rand + self.options['patch_size']),
                 sar_samples=range(col_rand, col_rand + self.options['patch_size'])).to_array().values
-
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
                 patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
@@ -219,7 +225,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
             # print(1, scene['SIC'].values.shape)
             # print(2, scene['nersc_sar_primary'].values.shape)
             x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),
-                        torch.nn.functional.interpolate(
+                           torch.nn.functional.interpolate(
                 input=torch.from_numpy(
                     scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
                 size=scene['nersc_sar_primary'].values.shape,
