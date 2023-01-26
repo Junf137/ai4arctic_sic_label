@@ -175,8 +175,6 @@ def save_best_model(train_options:dict,net,optimizer,epoch:int):
     epoch: int
         The epoch number 
     
-
-
     '''
     print('saving model....')
     work_dir = os.path.abspath(os.path.join('./work_dirs',train_options['experiment_name']))
