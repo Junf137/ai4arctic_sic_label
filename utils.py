@@ -44,7 +44,8 @@ SCENE_VARIABLES = [
 SIC_LOOKUP = {
     'polygon_idx': 0,  # Index of polygon number.
     'total_sic_idx': 1,  # Total Sea Ice Concentration Index, CT.
-    'sic_partial_idx': [2, 5, 8],  # Partial SIC polygon code index. CA, CB, CC.
+    # Partial SIC polygon code index. CA, CB, CC.
+    'sic_partial_idx': [2, 5, 8],
     0: 0,
     1: 0,
     2: 0,
@@ -81,10 +82,13 @@ SIC_GROUPS = {
 
 # Stage of Development code to class conversion lookup table.
 SOD_LOOKUP = {
-    'sod_partial_idx': [3, 6, 9],  # Partial SIC polygon code index. SA, SB, SC.
-    'threshold': 0.7,  # < 1. Minimum partial percentage SIC of total SIC to select SOD. Otherwise ambiguous polygon.
-                       # larger than threshold.
-    'invalid': -9,  # Value for polygons where the SOD is ambiguous or not filled.
+    # Partial SIC polygon code index. SA, SB, SC.
+    'sod_partial_idx': [3, 6, 9],
+    # < 1. Minimum partial percentage SIC of total SIC to select SOD. Otherwise ambiguous polygon.
+    'threshold': 0.7,
+    # larger than threshold.
+    # Value for polygons where the SOD is ambiguous or not filled.
+    'invalid': -9,
     'water': 0,
     0: 0,
     80: 0,  # No stage of development
@@ -120,9 +124,12 @@ SOD_GROUPS = {
 
 # Ice floe/form code to class conversion lookup table.
 FLOE_LOOKUP = {
-    'floe_partial_idx': [4, 7, 10],  # Partial SIC polygon code index. FA, FB, FC.
-    'threshold': 0.5,  # < 1. Minimum partial concentration to select floe. Otherwise polygon may be ambiguous.
-    'invalid': -9,  # Value for polygons where the floe is ambiguous or not filled.
+    # Partial SIC polygon code index. FA, FB, FC.
+    'floe_partial_idx': [4, 7, 10],
+    # < 1. Minimum partial concentration to select floe. Otherwise polygon may be ambiguous.
+    'threshold': 0.5,
+    # Value for polygons where the floe is ambiguous or not filled.
+    'invalid': -9,
     'water': 0,
     0: 0,
     22: 255,  # Pancake ice
@@ -153,8 +160,10 @@ FLOE_GROUPS = {
     6: 'Bergs'
 }
 
-ICECHART_NOT_FILLED_VALUE = -9  # Used in converting polygon codes into the preprocessed ice charts.
-ICECHART_UNKNOWN = 99  # Used in converting polygon codes into the preprocessed ice charts.
+# Used in converting polygon codes into the preprocessed ice charts.
+ICECHART_NOT_FILLED_VALUE = -9
+# Used in converting polygon codes into the preprocessed ice charts.
+ICECHART_UNKNOWN = 99
 
 # Strings for each chart. Useful for plotting.
 ICE_STRINGS = {
@@ -190,79 +199,3 @@ COLOURS = {'red': '\033[0;31m',
 def colour_str(word, colour: str):
     """Function to colour strings."""
     return COLOURS[colour.lower()] + str(word) + COLOURS['black']
-
-
-SCENE_VARIABLES1 = [
-    # -- Sentinel-1 variables -- #
-    'nersc_sar_primary',
-    'nersc_sar_secondary',
-    # 'sar_incidenceangle',
-
-    # -- Geographical variables -- #
-    # 'distance_map',
-
-    # -- AMSR2 channels -- #
-    # 'btemp_6_9h', 'btemp_6_9v',
-    # 'btemp_7_3h', 'btemp_7_3v',
-    # 'btemp_10_7h', 'btemp_10_7v',
-    # 'btemp_18_7h', 'btemp_18_7v',
-    # 'btemp_23_8h', 'btemp_23_8v',
-    # 'btemp_36_5h', 'btemp_36_5v',
-    # 'btemp_89_0h', 'btemp_89_0v',
-
-    # -- Environmental variables -- #
-    # 'u10m_rotated', 'v10m_rotated',
-    # 't2m', 'skt', 'tcwv', 'tclw'
-
-]
-
-
-SCENE_VARIABLES2 = [
-    # -- Sentinel-1 variables -- #
-    'nersc_sar_primary',
-    'nersc_sar_secondary',
-    'sar_incidenceangle',
-
-    # # -- Geographical variables -- #
-    # 'distance_map',
-
-    # # -- AMSR2 channels -- #
-    # 'btemp_6_9h', 'btemp_6_9v',
-    # 'btemp_7_3h', 'btemp_7_3v',
-    # 'btemp_10_7h', 'btemp_10_7v',
-    # 'btemp_18_7h', 'btemp_18_7v',
-    # 'btemp_23_8h', 'btemp_23_8v',
-    # 'btemp_36_5h', 'btemp_36_5v',
-    # 'btemp_89_0h', 'btemp_89_0v',
-
-    # # -- Environmental variables -- #
-    'u10m_rotated', 'v10m_rotated',
-    # 't2m', 'skt', 'tcwv', 'tclw'
-
-]
-
-
-SCENE_VARIABLES3 = [
-    # -- Sentinel-1 variables -- #
-    'nersc_sar_primary',
-    'nersc_sar_secondary',
-    # 'sar_incidenceangle',
-
-    # # -- Geographical variables -- #
-    # 'distance_map',
-
-    # # -- AMSR2 channels -- #
-    # 'btemp_6_9h', 'btemp_6_9v',
-    # 'btemp_7_3h', 'btemp_7_3v',
-    # 'btemp_10_7h', 'btemp_10_7v',
-    # 'btemp_18_7h', 'btemp_18_7v',
-    # 'btemp_23_8h', 'btemp_23_8v',
-    # 'btemp_36_5h', 'btemp_36_5v',
-    # 'btemp_89_0h', 'btemp_89_0v',
-
-    # -- Environmental variables -- #
-    'u10m_rotated', 'v10m_rotated',
-    't2m', 'skt',
-    # 'tcwv', 'tclw'
-
-]

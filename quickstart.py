@@ -37,8 +37,7 @@
 # lookup tables in 'utils' - at least you will be evaluated in this way. Furthermore, we have included a function to
 # convert the polygon_icechart to SIC, SOD and FLOE, you will have to incorporate it yourself.
 #
-# The first cell imports the necessary Python packages, initializes the 'train_options' dictionary, the sample U-Net
-# options, loads the dataset list and select validation scenes.
+# The first cell imports the necessary Python packages, initializes the 'train_options' dictionary, the sample U-Net options, loads the dataset list and select validation scenes.
 
 # In[1]:
 
@@ -58,7 +57,7 @@ from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
-from utils import (colour_str)
+from utils import (colour_str,save_best_model)
 
 from icecream import ic
 
@@ -74,6 +73,20 @@ def parse_args():
 
     return args
 
+train_options = {
+    # -- Training options -- #
+    # Replace with data directory path.
+    'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
+    # Replace with environmment directory path.
+    'path_to_env': os.environ['AI4ARCTIC_ENV'],
+    'lr': 0.0001,  # Optimizer learning rate.
+    'epochs': 50,  # Number of epochs before training stop.
+    'epoch_len': 500,  # Number of batches for each epoch.
+    # Size of patches sampled. Used for both Width and Height.
+    'patch_size': 256,
+    'batch_size': 16,  # Number of patches for each batch.
+    # How to upscale low resolution variables to high resolution.
+    'loader_upsampling': 'nearest',
 
 def main():
 
@@ -157,7 +170,7 @@ def main():
 
     # In[ ]:
 
-    best_combined_score = 0  # Best weighted model score.
+best_combined_score = -np.Inf  # Best weighted model score.
 
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
@@ -244,14 +257,12 @@ def main():
                 f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
         print(f"Combined score: {combined_score}%")
 
-        # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
-        if combined_score > best_combined_score:
-            best_combined_score = combined_score
-            torch.save(obj={'model_state_dict': net.state_dict(),
-                            'optimizer_state_dict': optimizer.state_dict(),
-                            'epoch': epoch},
-                       f='best_model.pth')
-        # del inf_ys_flat, outputs_flat  # Free memory.
+    # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
+
+    if combined_score > best_combined_score:
+        best_combined_score = combined_score
+        save_best_model(train_options, net, optimizer, epoch)
+    # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 if __name__ == '__main__':
