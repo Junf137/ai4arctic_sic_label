@@ -171,7 +171,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
             # - Load scene
             scene = xr.open_dataset(os.path.join(
-                self.options['path_to_processed_data'], self.files[scene_id]))
+                self.options['path_to_train_data'], self.files[scene_id]))
             # - Extract patches
             try:
                 scene_patch = self.random_crop(scene)
@@ -266,8 +266,12 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Name of scene.
 
         """
-        scene = xr.open_dataset(os.path.join(
-            self.options['path_to_processed_data'], self.files[idx]))
+        if self.test is True:
+            scene = xr.open_dataset(os.path.join(
+                self.options['path_to_test_data'], self.files[idx]))
+        else:
+            scene = xr.open_dataset(os.path.join(
+                self.options['path_to_train_data'], self.files[idx]))
 
         x, y = self.prep_scene(scene)
         name = self.files[idx]

@@ -9,3 +9,4 @@ sklearn
 jupyterlab
 ipywidgets
 icecream
+mmcv

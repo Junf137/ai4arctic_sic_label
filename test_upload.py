@@ -27,6 +27,7 @@ from loaders import AI4ArcticChallengeTestDataset
 from unet import UNet
 from utils import colour_str
 
+## TODO : integrate cfg file with test_upload
 os.environ['AI4ARCTIC_DATA'] = '../dataset/train'  # Fill in directory for data location.
 os.environ['AI4ARCTIC_ENV'] = './'  # Fill in directory for environment with Ai4Arctic get-started package.
 
