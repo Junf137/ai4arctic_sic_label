@@ -37,29 +37,31 @@
 # lookup tables in 'utils' - at least you will be evaluated in this way. Furthermore, we have included a function to
 # convert the polygon_icechart to SIC, SOD and FLOE, you will have to incorporate it yourself.
 #
-# The first cell imports the necessary Python packages, initializes the 'train_options' dictionary, the sample U-Net options, loads the dataset list and select validation scenes.
+# The first cell imports the necessary Python packages, initializes the 'train_options' dictionary
+# the sample U-Net options, loads the dataset list and select validation scenes.
 
 # In[1]:
 
 
 import argparse
 import json
+import os.path as osp
+import shutil
 
 import numpy as np
 import torch
-from mmcv import Config
+from icecream import ic
+from mmcv import Config, mkdir_or_exist
 from tqdm import tqdm  # Progress bar
 
 # Functions to calculate metrics and show the relevant chart colorbar.
-from functions import compute_metrics
+from functions import compute_metrics, save_best_model
 # Custom dataloaders for regular training and validation.
-from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
-                     get_variable_options)
+from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset
+#  get_variable_options
 from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
-from utils import (colour_str,save_best_model)
-
-from icecream import ic
+from utils import colour_str
 
 # TODO: 1) Integrate Fernandos work_dirs with cfg file structure
 # TODO: 2) Add wandb support with cfg file structure
@@ -69,24 +71,11 @@ from icecream import ic
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
     parser.add_argument('config', help='train config file path')
+    parser.add_argument('--work-dir', help='the dir to save logs and models')
     args = parser.parse_args()
 
     return args
 
-train_options = {
-    # -- Training options -- #
-    # Replace with data directory path.
-    'path_to_processed_data': os.environ['AI4ARCTIC_DATA'],
-    # Replace with environmment directory path.
-    'path_to_env': os.environ['AI4ARCTIC_ENV'],
-    'lr': 0.0001,  # Optimizer learning rate.
-    'epochs': 50,  # Number of epochs before training stop.
-    'epoch_len': 500,  # Number of batches for each epoch.
-    # Size of patches sampled. Used for both Width and Height.
-    'patch_size': 256,
-    'batch_size': 16,  # Number of patches for each batch.
-    # How to upscale low resolution variables to high resolution.
-    'loader_upsampling': 'nearest',
 
 def main():
 
@@ -97,7 +86,7 @@ def main():
     ic(cfg.train_options)
     ic(train_options)
     # Get options for variables, amsrenv grid, cropping and upsampling.
-    get_variable_options_variable = get_variable_options(train_options)
+    # get_variable_options_variable = get_variable_options(train_options)
     # To be used in test_upload.
     # get_ipython().run_line_magic('store', 'train_options')
 
@@ -116,10 +105,21 @@ def main():
                                    if scene not in train_options['validate_list']]
     print('Options initialised')
 
+    # work_dir is determined in this priority: CLI > segment in file > filename
+    if args.work_dir is not None:
+        # update configs according to CLI args if args.work_dir is not None
+        cfg.work_dir = args.work_dir
+    elif cfg.get('work_dir', None) is None:
+        # use config filename as default work_dir if cfg.work_dir is None
+        cfg.work_dir = osp.join('./work_dirs',
+                                osp.splitext(osp.basename(args.config))[0])\
+
+    # create work_dir
+    mkdir_or_exist(osp.abspath(cfg.work_dir))
+    # dump config
+    shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
     # ### CUDA / GPU Setup
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-
-    # In[3]:
 
     # Get GPU resources.
     if torch.cuda.is_available():
@@ -168,9 +168,7 @@ def main():
     # i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu. This can be\
     # done by using 'net = net.cpu()'.
 
-    # In[ ]:
-
-best_combined_score = -np.Inf  # Best weighted model score.
+    best_combined_score = -np.Inf  # Best weighted model score.
 
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
@@ -261,7 +259,7 @@ best_combined_score = -np.Inf  # Best weighted model score.
 
     if combined_score > best_combined_score:
         best_combined_score = combined_score
-        save_best_model(train_options, net, optimizer, epoch)
+        save_best_model(cfg, net, optimizer, epoch)
     # del inf_ys_flat, outputs_flat  # Free memory.
 
 

@@ -153,9 +153,8 @@ def compute_combined_score(scores, charts, metrics):
     return np.round(combined_metric / sum_weight, 3)
 
 
-
 # -- functions to save models -- #
-def save_best_model(train_options:dict,net,optimizer,epoch:int):
+def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
     '''
     Saves the input model in the inside the directory "/work_dirs/"experiment_name"/
     The models with be save as best_model.pth.
@@ -170,22 +169,18 @@ def save_best_model(train_options:dict,net,optimizer,epoch:int):
     ----------
     train_options : Dict
         The dictory which stores the train_options from quickstart
-    net : 
+    net :
         The pytorch model
-    optimizer : 
+    optimizer :
         The optimizer that the model uses.
     epoch: int
-        The epoch number 
-    
+        The epoch number
+
     '''
     print('saving model....')
-    work_dir = os.path.abspath(os.path.join('./work_dirs',train_options['experiment_name']))
-    print('working directory: '+work_dir)
-    os.makedirs(work_dir, exist_ok=True)
-
     torch.save(obj={'model_state_dict': net.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'epoch': epoch,
-                        'train_options':train_options # TODO replace with config file later
-                        },
-                   f=os.path.join(work_dir,'best_model.pth'))
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'epoch': epoch,
+                    # 'train_options': train_options  # TODO replace with config file later
+                    },
+               f=os.path.join(cfg.work_dir, 'best_model.pth'))
