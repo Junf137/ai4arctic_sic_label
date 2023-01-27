@@ -9,4 +9,5 @@ sklearn
 jupyterlab
 ipywidgets
 icecream
-mmcv
+opencv-python-headless
+mmcv==1.7.1
