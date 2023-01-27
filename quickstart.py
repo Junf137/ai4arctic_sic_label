@@ -67,7 +67,6 @@ from icecream import ic
 # TODO: 3) Do inference at the end of training and create a ready to upload package in the work_dirs
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
     parser.add_argument('config', help='train config file path')
