@@ -33,6 +33,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
     parser.add_argument('config', help='train config file path')
     parser.add_argument('checkpoint', help='the checkpoint path')
+    parser.add_argument('--work-dir', help='the dir to save logs and models')
     args = parser.parse_args()
 
     return args
