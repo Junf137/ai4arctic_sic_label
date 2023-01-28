@@ -129,3 +129,7 @@ def main():
     upload_package.to_netcdf(osp.join(cfg.work_dirs, 'upload_package.nc'), mode='w',
                              format='netcdf4', engine='h5netcdf', encoding=encoding)
     print('Testing completed.')
+
+
+if __name__ == '__main__':
+    main()
