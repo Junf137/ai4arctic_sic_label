@@ -21,4 +21,5 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 1, }
+                 'epochs': 1,
+                 'num_val_scenes': 1, }

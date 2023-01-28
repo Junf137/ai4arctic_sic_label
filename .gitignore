@@ -1,5 +1,5 @@
 *.swp
-#work_dirs/
+work_dirs/
 *.log.json
 .vscode/
 batchlogs/
@@ -8,6 +8,7 @@ wandb/
 .idea/
 misc/
 __pycache__/
+# work_dirs/
 # tensorboard events
 events.*.*
 
@@ -156,3 +157,4 @@ core.*
 __pycache__/functions.cpython-39.pyc
 best_model
 # filename.pickle
+

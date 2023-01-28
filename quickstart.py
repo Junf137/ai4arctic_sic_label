@@ -40,9 +40,6 @@
 # The first cell imports the necessary Python packages, initializes the 'train_options' dictionary
 # the sample U-Net options, loads the dataset list and select validation scenes.
 
-# In[1]:
-
-
 import argparse
 import json
 import os.path as osp
@@ -57,13 +54,13 @@ from tqdm import tqdm  # Progress bar
 # Functions to calculate metrics and show the relevant chart colorbar.
 from functions import compute_metrics, save_best_model
 # Custom dataloaders for regular training and validation.
-from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset
+from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
 #  get_variable_options
 from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
 
-# TODO: 1) Integrate Fernandos work_dirs with cfg file structure
+# TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
 # TODO: 2) Add wandb support with cfg file structure
 # TODO: 3) Do inference at the end of training and create a ready to upload package in the work_dirs
 
@@ -78,7 +75,6 @@ def parse_args():
 
 
 def main():
-
     args = parse_args()
     cfg = Config.fromfile(args.config)
 
@@ -86,7 +82,7 @@ def main():
     ic(cfg.train_options)
     ic(train_options)
     # Get options for variables, amsrenv grid, cropping and upsampling.
-    # get_variable_options_variable = get_variable_options(train_options)
+    train_options = get_variable_options(train_options)
     # To be used in test_upload.
     # get_ipython().run_line_magic('store', 'train_options')
 
@@ -259,7 +255,7 @@ def main():
 
     if combined_score > best_combined_score:
         best_combined_score = combined_score
-        save_best_model(cfg, net, optimizer, epoch)
+        save_best_model(cfg, train_options, net, optimizer, epoch)
     # del inf_ys_flat, outputs_flat  # Free memory.
 
 
