@@ -20,13 +20,15 @@ import numpy as np
 import torch
 import xarray as xr
 from mmcv import Config, mkdir_or_exist
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 # --Proprietary modules -- #
 from functions import chart_cbar
 from loaders import AI4ArcticChallengeTestDataset, get_variable_options
 from unet import UNet
 from utils import colour_str
+
+import wandb
 
 
 def parse_args():
@@ -43,6 +45,12 @@ def main():
     args = parse_args()
     cfg = Config.fromfile(args.config)
 
+    # delete later
+    run = wandb.init(project='ai4arctic_test', name='test_1', entity='ai4arctic')
+    table = wandb.Table(columns=['ID', 'Image'])
+
+    # delete later
+
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
@@ -56,8 +64,12 @@ def main():
     mkdir_or_exist(osp.abspath(cfg.work_dir))
 
     train_options = cfg.train_options
-    train_options = get_variable_options(train_options)
 
+    from icecream import ic
+
+    ic(train_options)
+
+    train_options = get_variable_options(train_options)
     if torch.cuda.is_available():
         print(colour_str('GPU available!', 'green'))
         print('Total number of available devices: ', colour_str(torch.cuda.device_count(), 'orange'))
@@ -67,7 +79,7 @@ def main():
         print(colour_str('GPU not available.', 'red'))
         device = torch.device('cpu')
     # ### Load the model and stored parameters
-    weights = torch.load('best_model')['model_state_dict']
+    weights = torch.load(args.checkpoint)['model_state_dict']
     weights_2 = {}
 
     for key, value in weights.items():
@@ -75,7 +87,7 @@ def main():
 
     # Setup U-Net model, adam optimizer, loss function and dataloader.
     net = UNet(options=train_options).to(device)
-    net.load_state_dict(weights_2)
+    net.load_state_dict(weights)
     print('Model successfully loaded.')
 
     # ### Prepare the scene list, dataset and dataloaders
@@ -107,9 +119,27 @@ def main():
                                                                    dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
 
         # - Show the scene inference.
-        fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
+        fig, axs = plt.subplots(nrows=1, ncols=5, figsize=(20, 20))
         for idx, chart in enumerate(train_options['charts']):
-            ax = axs[idx]
+            for j in range(0, 2):
+                ax = axs[j]
+                img = torch.squeeze(inf_x, dim=0).cpu().numpy()[j]
+                if j == 0:
+                    ax.set_title('HH')
+                else:
+                    ax.set_title('HV')
+                ax.imshow(img, cmap='gray')
+
+            # ic(idx)
+            # if idx in range(0, 2):
+            #     ax = axs[idx]
+            #     ic(inf_x.shape)
+            #     ic(torch.squeeze(inf_x, dim=0).shape)
+            #     img = torch.squeeze(inf_x, dim=0).cpu().numpy()[idx]
+            #     # [idx].cpu().numpy().astype(float)
+            #     ic(img.shape)
+            #     ax.imshow(img, cmap='gray')
+            ax = axs[idx+2]
             output[chart] = output[chart].astype(float)
             output[chart][masks] = np.nan
             ax.imshow(output[chart], vmin=0, vmax=train_options['n_classes']
@@ -120,16 +150,20 @@ def main():
 
         plt.suptitle(f"Scene: {scene_name}", y=0.65)
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0.5, hspace=-0)
-        fig.savefig(f"{osp.join(cfg.work_dirs,'inference',scene_name)}.png", format='png', dpi=128, bbox_inches="tight")
+        fig.savefig(f"{osp.join(cfg.work_dir,'inference',scene_name)}.png", format='png', dpi=128, bbox_inches="tight")
         plt.close('all')
+        table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir,'inference',scene_name)}.png"))
 
+    run.log({"test_visualization": table})
     # - Save upload_package with zlib compression.
     print('Saving upload_package. Compressing data with zlib.')
     compression = dict(zlib=True, complevel=1)
     encoding = {var: compression for var in upload_package.data_vars}
-    upload_package.to_netcdf(osp.join(cfg.work_dirs, 'upload_package.nc'), mode='w',
-                             format='netcdf4', engine='h5netcdf', encoding=encoding)
+    upload_package.to_netcdf(osp.join(cfg.work_dir, f'{osp.splitext(osp.basename(args.config))[0]}_upload_package.nc'),
+                             mode='w', format='netcdf4', engine='h5netcdf', encoding=encoding)
     print('Testing completed.')
+    print("File saved succesfully at", osp.join(cfg.work_dir,
+          f'{osp.splitext(osp.basename(args.config))[0]}_upload_package.nc'))
 
 
 if __name__ == '__main__':
