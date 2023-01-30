@@ -29,5 +29,5 @@ cd $HOME/projects/def-dclausi/fer96/ai4arctic_challenge
 
 echo "starting training..."
 
-python quickstart_all.py
+python quickstart_setup_6.py
 
