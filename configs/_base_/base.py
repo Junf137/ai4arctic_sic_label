@@ -141,6 +141,9 @@ FLOE_LOOKUP = {
 
 
 train_options = {
+    # -- Random Seed -- #
+    'seed': 420,
+    #'seed': 710,
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_train_data': '../dataset/train',
