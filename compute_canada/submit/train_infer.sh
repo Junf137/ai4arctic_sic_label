@@ -2,7 +2,7 @@
 #SBATCH --nodes 1
 #SBATCH --gpus-per-node=v100:1 # request a GPU
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=4 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
+#SBATCH --cpus-per-task=8 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=25G
 #SBATCH --time=2:00:00
 #SBATCH --output=/home/fer96/projects/def-dclausi/fer96/ai4arctic_challenge/compute_canada_output/%j.out
@@ -30,10 +30,10 @@ echo "starting training..."
 config=$1 
 # get the basename for the config file, basename is an inbuilt shell command
 config_basename=$(basename $config .py) 
-python quickstart.py $1 
+python quickstart.py $1
 
 # the above python script will generate a .env at the workdir/config-name/.env
-env=./work_dir/$config_basename/.env 
+env=./work_dir/$config_basename/.env
 
 echo 'Reading environment file'
 # read the .env file and save them as environment variable
