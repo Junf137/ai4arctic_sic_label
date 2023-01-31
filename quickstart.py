@@ -62,6 +62,7 @@ from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
 from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
+from test_upload_function import test
 
 # TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
 # TODO: 2) Add wandb support with cfg file structure
@@ -261,7 +262,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             cfg.env_dict['CHECKPOINT'] = model_path
             # print("export CHECKPOINT=%s" % (pipes.quote(str(model_path))))
 
-        # del inf_ys_flat, outputs_flat  # Free memory.
+    return model_path
+    # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 def main():
@@ -370,7 +372,8 @@ def main():
         #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
         #  This can be done by using 'net = net.cpu()'.
 
-        train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
+        test(net, checkpoint_path, device, cfg)
         dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
         from icecream import ic
         ic(os.environ['CHECKPOINT'])
