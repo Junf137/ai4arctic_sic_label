@@ -1,3 +1,4 @@
+opencv-python-headless
 xarray==2022.10.0
 h5netcdf
 numpy
@@ -9,6 +10,5 @@ sklearn
 jupyterlab
 ipywidgets
 icecream
-opencv-python-headless
 mmcv==1.7.1
 wandb

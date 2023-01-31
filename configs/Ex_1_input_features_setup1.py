@@ -16,11 +16,12 @@ SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
     'nersc_sar_primary',
     'nersc_sar_secondary',
-    'sar_incidenceangle',
 ]
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 1,
-                 'num_val_scenes': 1,
-                 'batch_size': 1}
+                 'epochs': 40,
+                 'num_val_scenes': 10,
+                 'batch_size': 8
+                 }
+

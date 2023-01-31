@@ -5,9 +5,9 @@
 #SBATCH --cpus-per-task=4 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=25G
 #SBATCH --time=2:00:00
-#SBATCH --output=/home/m32patel/projects/def-dclausi/AI4arctic/m32patel/compute_canada/output/%j.out
+#SBATCH --output=/home/fer96/projects/def-dclausi/fer96/ai4arctic_challenge/compute_canada_output/%j.out
 #SBATCH --account=def-dclausi
-#SBATCH --mail-user=muhammed.computecanada@gmail.com
+#SBATCH --mail-user=fernandopena961226@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
@@ -18,7 +18,7 @@ module load python/3.9.6
 
 echo "Loading module done"
 
-source ~/env7_ai4arctic/bin/activate
+source ~/Ai4Artic2/bin/activate
 
 
 echo "Activating virtual environment done"
