@@ -340,7 +340,7 @@ def main():
     # os.environ['RESUME'] = 'allow'
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="ai4arctic_test",
+    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="feature_variation",
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
         # Define the metrics and make them such that they are not added to the summary

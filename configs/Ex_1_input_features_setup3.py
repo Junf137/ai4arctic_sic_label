@@ -31,13 +31,15 @@ SCENE_VARIABLES = [
     # 'btemp_89_0h', 'btemp_89_0v',
 
     # -- Environmental variables -- #
-    # 'u10m_rotated', 'v10m_rotated',
-    't2m', 
-    # 'skt', 'tcwv', 'tclw'
+    'u10m_rotated', 'v10m_rotated',
+    # 't2m', 'skt', 'tcwv', 'tclw'
+
 ]
+
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 40,
-                 'num_val_scenes': 10,
-                 'batch_size': 8}
+                 'num_workers': 0,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 0,  # Number of parallel processes during validation.
+                }
