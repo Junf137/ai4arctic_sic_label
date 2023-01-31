@@ -1,5 +1,5 @@
 *.swp
-#work_dirs/
+work_dirs/
 *.log.json
 .vscode/
 batchlogs/
@@ -8,12 +8,16 @@ wandb/
 .idea/
 misc/
 __pycache__/
+# work_dirs/
 # tensorboard events
 events.*.*
 
+*.nc
+inference/
 *.zip
 *.out
 *.pkl
+# *.pickle
 # pytorch path files
 *.pth
 # Byte-compiled / optimized / DLL files
@@ -151,3 +155,6 @@ core.*
 # Pyre type checker
 .pyre/
 __pycache__/functions.cpython-39.pyc
+best_model
+# filename.pickle
+
