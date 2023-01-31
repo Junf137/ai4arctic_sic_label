@@ -9,18 +9,19 @@
 @License :   (C)Copyright 2022-2023, VIP Lab
 @Desc    :   None
 '''
-
-_base_ = ['./base.py']
+_base_ = ['../_base_/base.py']
 
 SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
     'nersc_sar_primary',
     'nersc_sar_secondary',
-    'sar_incidenceangle',
 ]
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 1,
-                 'num_val_scenes': 1,
-                 'batch_size': 1}
+                 'epochs': 40,
+                 'num_val_scenes': 10,
+                 'batch_size': 8,
+                 'num_workers': 4,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 4,  # Number of parallel processes during validation.
+                 }

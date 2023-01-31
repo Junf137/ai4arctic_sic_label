@@ -42,11 +42,10 @@
 
 import argparse
 import json
+import random
 import os
 import os.path as osp
-import pipes
 import shutil
-import subprocess
 
 import numpy as np
 import torch
@@ -92,11 +91,20 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    np.random.seed(0)
-    train_options['validate_list'] = np.random.choice(np.array(
-        train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    # # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+    # # np.random.seed(0)
+    # train_options['validate_list'] = np.random.choice(np.array(
+    #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
 
+    # load validation list
+    with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
+        train_options['validate_list'] = json.loads(file.read())
+    # Convert the original scene names to the preprocessed names.
+    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                      '_prep.nc' for file in train_options['validate_list']]
+
+    # from icecream import ic
+    # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
                                    if scene not in train_options['validate_list']]
@@ -259,11 +267,23 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 def main():
     args = parse_args()
     cfg = Config.fromfile(args.config)
-
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
     cfg.env_dict = {}
+
+    # set seed for everything
+    seed = train_options['seed']
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+    # torch.backends.cudnn.enabled = True
+
     # To be used in test_upload.
     # get_ipython().run_line_magic('store', 'train_options')
 
@@ -274,9 +294,16 @@ def main():
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
     # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    np.random.seed(0)
-    train_options['validate_list'] = np.random.choice(np.array(
-        train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    # np.random.seed(train_options.seed)
+    # train_options['validate_list'] = np.random.choice(np.array(
+#     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+
+    # load validation list
+    with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
+        train_options['validate_list'] = json.loads(file.read())
+    # Convert the original scene names to the preprocessed names.
+    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                      '_prep.nc' for file in train_options['validate_list']]
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
                                    if scene not in train_options['validate_list']]
@@ -322,7 +349,7 @@ def main():
     # os.environ['RESUME'] = 'allow'
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="ai4arctic_test",
+    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="feature_variation",
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
         # Define the metrics and make them such that they are not added to the summary
@@ -344,7 +371,7 @@ def main():
         #  This can be done by using 'net = net.cpu()'.
 
         train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
-        dump_env(cfg.env_dict, osp.join(cfg.work_dir,'.env'))
+        dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
         from icecream import ic
         ic(os.environ['CHECKPOINT'])
         ic(os.environ['WANDB_MODE'])

@@ -44,10 +44,6 @@ def parse_args():
 def main():
     args = parse_args()
     cfg = Config.fromfile(args.config)
-
-    run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='ai4arctic_test', entity='ai4arctic', resume='must')
-    table = wandb.Table(columns=['ID', 'Image'])
-
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
@@ -86,6 +82,10 @@ def main():
     net = UNet(options=train_options).to(device)
     net.load_state_dict(weights)
     print('Model successfully loaded.')
+
+    run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='feature_variation',
+                     entity='ai4arctic', resume='must', config=train_options)
+    table = wandb.Table(columns=['ID', 'Image'])
 
     # ### Prepare the scene list, dataset and dataloaders
     with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
