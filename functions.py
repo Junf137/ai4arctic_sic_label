@@ -167,6 +167,8 @@ def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
 
     Parameters
     ----------
+    cfg : mmcv.Config
+        The config file object of mmcv
     train_options : Dict
         The dictory which stores the train_options from quickstart
     net :
@@ -187,3 +189,5 @@ def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
                     },
                f=os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth'))
     print(f"model saved successfully at {os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')}")
+
+    return os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')
