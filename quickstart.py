@@ -258,8 +258,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
             wandb.save(model_path)
-            os.environ['CHECKPOINT'] = model_path
-            cfg.env_dict['CHECKPOINT'] = model_path
+            # os.environ['CHECKPOINT'] = model_path
+            # cfg.env_dict['CHECKPOINT'] = model_path
             # print("export CHECKPOINT=%s" % (pipes.quote(str(model_path))))
 
     return model_path
@@ -272,7 +272,7 @@ def main():
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
-    cfg.env_dict = {}
+    # cfg.env_dict = {}
 
     # set seed for everything
     seed = train_options['seed']
@@ -344,8 +344,8 @@ def main():
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
 
-    cfg.env_dict['WANDB_RUN_ID'] = id
-    cfg.env_dict['RESUME'] = 'allow'
+    # cfg.env_dict['WANDB_RUN_ID'] = id
+    # cfg.env_dict['RESUME'] = 'allow'
 
     # os.environ['WANDB_RUN_ID'] = id
     # os.environ['RESUME'] = 'allow'
@@ -374,10 +374,10 @@ def main():
 
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
         test(net, checkpoint_path, device, cfg)
-        dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
-        from icecream import ic
-        ic(os.environ['CHECKPOINT'])
-        ic(os.environ['WANDB_MODE'])
+        # dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
+        # from icecream import ic
+        # ic(os.environ['CHECKPOINT'])
+        # ic(os.environ['WANDB_MODE'])
 
 
 if __name__ == '__main__':
