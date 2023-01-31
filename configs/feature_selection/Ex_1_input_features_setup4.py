@@ -10,7 +10,7 @@
 @Desc    :   None
 '''
 
-_base_ = ['./base.py']
+_base_ = ['../_base_/base.py']
 
 SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
@@ -31,11 +31,10 @@ SCENE_VARIABLES = [
     # 'btemp_89_0h', 'btemp_89_0v',
 
     # -- Environmental variables -- #
-    'u10m_rotated', 'v10m_rotated',
-    # 't2m', 'skt', 'tcwv', 'tclw'
-
+    # 'u10m_rotated', 'v10m_rotated',
+    't2m', 
+    # 'skt', 'tcwv', 'tclw'
 ]
-
 
 
 train_options = {'train_variables': SCENE_VARIABLES,

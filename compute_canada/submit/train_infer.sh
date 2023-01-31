@@ -18,7 +18,7 @@ module load python/3.9.6
 
 echo "Loading module done"
 
-source ~/Ai4Artic2/bin/activate
+source ~/Ai4Artic4/bin/activate
 
 
 echo "Activating virtual environment done"
@@ -32,12 +32,7 @@ config=$1
 config_basename=$(basename $config .py) 
 python quickstart.py $1
 
-# the above python script will generate a .env at the workdir/config-name/.env
-env=./work_dir/$config_basename/.env
 
-echo 'Reading environment file'
-# read the .env file and save them as environment variable
-while read line; do export $line; done < $env
 
 echo "Starting testing"
 python test_upload.py $1 $CHECKPOINT
