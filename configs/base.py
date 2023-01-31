@@ -152,7 +152,7 @@ train_options = {
     'epoch_len': 1,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
     'patch_size': 256,
-    'batch_size': 2,  # Number of patches for each batch.
+    'batch_size': 8,  # Number of patches for each batch.
     # How to upscale low resolution variables to high resolution.
     'loader_upsampling': 'nearest',
 
