@@ -45,11 +45,8 @@ def main():
     args = parse_args()
     cfg = Config.fromfile(args.config)
 
-    # delete later
-    run = wandb.init(project='ai4arctic_test', name='test_1', entity='ai4arctic')
+    run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='ai4arctic_test', entity='ai4arctic', resume='must')
     table = wandb.Table(columns=['ID', 'Image'])
-
-    # delete later
 
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
@@ -57,7 +54,7 @@ def main():
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
+        cfg.work_dir = osp.join('./work_dir',
                                 osp.splitext(osp.basename(args.config))[0])\
 
     # create work_dir
@@ -164,6 +161,8 @@ def main():
     print('Testing completed.')
     print("File saved succesfully at", osp.join(cfg.work_dir,
           f'{osp.splitext(osp.basename(args.config))[0]}_upload_package.nc'))
+    wandb.save(osp.join(cfg.work_dir,
+                        f'{osp.splitext(osp.basename(args.config))[0]}_upload_package.nc'))
 
 
 if __name__ == '__main__':

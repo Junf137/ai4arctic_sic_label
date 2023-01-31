@@ -42,19 +42,23 @@
 
 import argparse
 import json
+import os
 import os.path as osp
+import pipes
 import shutil
+import subprocess
 
 import numpy as np
 import torch
-from icecream import ic
 from mmcv import Config, mkdir_or_exist
 from tqdm import tqdm  # Progress bar
 
+import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
 from functions import compute_metrics, save_best_model
 # Custom dataloaders for regular training and validation.
-from loaders import AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset, get_variable_options
+from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
+                     get_variable_options)
 #  get_variable_options
 from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
@@ -73,28 +77,21 @@ def parse_args():
 
     return args
 
+# Load training list.
 
-def main():
-    args = parse_args()
-    cfg = Config.fromfile(args.config)
 
-    train_options = cfg.train_options
-    ic(cfg.train_options)
-    ic(train_options)
-    # Get options for variables, amsrenv grid, cropping and upsampling.
-    train_options = get_variable_options(train_options)
-    # To be used in test_upload.
-    # get_ipython().run_line_magic('store', 'train_options')
+def create_train_and_validation_scene_list(train_options):
+    '''
+    Creates the a train and validation scene list. Adds these two list to the config file train_options
 
-    # Load training list.
+    '''
     with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
         train_options['train_list'] = json.loads(file.read())
+
     # Convert the original scene names to the preprocessed names.
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
-                                '_prep.nc' for file in train_options['train_list']]
+                                   '_prep.nc' for file in train_options['train_list']]
 
-
-    # Selecting random validation scenes is currently disable.                              
     # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
     # np.random.seed(0)
     # train_options['validate_list'] = np.random.choice(np.array(
@@ -112,70 +109,47 @@ def main():
                                 if scene not in train_options['validate_list']]
     print('Options initialised')
 
-    # work_dir is determined in this priority: CLI > segment in file > filename
-    if args.work_dir is not None:
-        # update configs according to CLI args if args.work_dir is not None
-        cfg.work_dir = args.work_dir
-    elif cfg.get('work_dir', None) is None:
-        # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])\
 
-    # create work_dir
-    mkdir_or_exist(osp.abspath(cfg.work_dir))
-    # dump config
-    shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
-    # ### CUDA / GPU Setup
-    # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
+def create_dataloaders(train_options):
+    '''
+    Create train and validation dataloader based on the train and validation list inside train_options.
 
-    # Get GPU resources.
-    if torch.cuda.is_available():
-        print(colour_str('GPU available!', 'green'))
-        print('Total number of available devices: ',
-              colour_str(torch.cuda.device_count(), 'orange'))
-        device = torch.device(f"cuda:{train_options['gpu_id']}")
-
-    else:
-        print(colour_str('GPU not available.', 'red'))
-        device = torch.device('cpu')
-
+    '''
     # Custom dataset and dataloader.
     dataset = AI4ArcticChallengeDataset(
         files=train_options['train_list'], options=train_options)
-    dataloader = torch.utils.data.DataLoader(
+
+    dataloader_train = torch.utils.data.DataLoader(
         dataset, batch_size=None, shuffle=True, num_workers=train_options['num_workers'], pin_memory=True)
     # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
+
     dataset_val = AI4ArcticChallengeTestDataset(
         options=train_options, files=train_options['validate_list'])
+
+    # dataset_val = AI4ArcticChallengeDataset(
+    #     files=train_options['validate_list'], options=train_options)
+
     dataloader_val = torch.utils.data.DataLoader(
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
 
-    print('GPU and data setup complete.')
+    return dataloader_train, dataloader_val
 
-    # ### Example of Model, optimiser and loss function setup
 
-   
+def dump_env(dictionary: dict, path: str):
+    with open(path, "w") as f:
+        for k, v in dictionary.items():
+            f.write(f"{k}={v}\n")
 
-    # Setup U-Net model, adam optimizer, loss function and dataloader.
-    net = UNet(options=train_options).to(device)
-    optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
-    # Selects the kernel with the best performance for the GPU and given input size.
-    torch.backends.cudnn.benchmark = True
 
-    # Loss functions to use for each sea ice parameter.
-    # The ignore_index argument discounts the masked values, ensuring that the model is not
-    # using these pixels to train on.
-    # It is equivalent to multiplying the loss of the relevant masked pixel with 0.
+def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
+    '''
+    Trains the model.
+
+    '''
+    best_combined_score = -np.Inf  # Best weighted model score.
+
     loss_functions = {chart: torch.nn.CrossEntropyLoss(ignore_index=train_options['class_fill_values'][chart])
                       for chart in train_options['charts']}
-    print('Model setup complete')
-
-    # ## Example of model training and validation loop
-    # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
-    # i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu. This can be\
-    # done by using 'net = net.cpu()'.
-
-    best_combined_score = -np.Inf  # Best weighted model score.
 
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
@@ -184,7 +158,7 @@ def main():
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader, total=train_options['epoch_len'],
+        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
                                                     colour='red', position=0)):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             loss_batch = 0  # Reset from previous batch.
@@ -230,8 +204,8 @@ def main():
 
         net.eval()  # Set network to evaluation mode.
         # - Loops though scenes in queue.
-        for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val, total=len(train_options['validate_list']),
-                                              colour='green', position=0):
+        for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val,
+                                              total=len(train_options['validate_list']), colour='green', position=0):
             torch.cuda.empty_cache()
 
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
@@ -248,26 +222,139 @@ def main():
                 inf_ys_flat[chart] = np.append(
                     inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
 
-            # del inf_x, inf_y, masks, output  # Free memory.
-
         # - Compute the relevant scores.
         combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
                                                  metrics=train_options['chart_metric'])
 
         print("")
-        print(f"Final batch loss: {loss_batch:.3f}")
         print(f"Epoch {epoch} score:")
+
         for chart in train_options['charts']:
-            print(
-                f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
+            print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
+
+            # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
+            wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
+
         print(f"Combined score: {combined_score}%")
+        print(f"Epoch Loss: {loss_epoch:.3f}")
 
-    # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
+        # Log combine score and epoch loss to wandb
+        wandb.log({"Combined score": combined_score,
+                   "Epoch Loss": loss_epoch}, step=epoch)
 
-    if combined_score > best_combined_score:
-        best_combined_score = combined_score
-        save_best_model(cfg, train_options, net, optimizer, epoch)
-    # del inf_ys_flat, outputs_flat  # Free memory.
+        # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
+
+        if combined_score > best_combined_score:
+            best_combined_score = combined_score
+
+            # Log the best combine score, and the metrics that make that best combine score in summary in wandb.
+            wandb.run.summary["Best Combined Score"] = best_combined_score
+            for chart in train_options['charts']:
+                wandb.run.summary[f"{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
+            wandb.run.summary["Epoch Loss"] = loss_epoch
+
+            # Save the best model in work_dirs
+            model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
+            wandb.save(model_path)
+            os.environ['CHECKPOINT'] = model_path
+            cfg.env_dict['CHECKPOINT'] = model_path
+            # print("export CHECKPOINT=%s" % (pipes.quote(str(model_path))))
+
+        # del inf_ys_flat, outputs_flat  # Free memory.
+
+
+def main():
+    args = parse_args()
+    cfg = Config.fromfile(args.config)
+
+    train_options = cfg.train_options
+    # Get options for variables, amsrenv grid, cropping and upsampling.
+    train_options = get_variable_options(train_options)
+    cfg.env_dict = {}
+    # To be used in test_upload.
+    # get_ipython().run_line_magic('store', 'train_options')
+
+    # Load training list.
+    with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
+        train_options['train_list'] = json.loads(file.read())
+    # Convert the original scene names to the preprocessed names.
+    train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
+                                   '_prep.nc' for file in train_options['train_list']]
+    # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+    np.random.seed(0)
+    train_options['validate_list'] = np.random.choice(np.array(
+        train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    # Remove the validation scenes from the train list.
+    train_options['train_list'] = [scene for scene in train_options['train_list']
+                                   if scene not in train_options['validate_list']]
+    print('Options initialised')
+
+    # work_dir is determined in this priority: CLI > segment in file > filename
+    if args.work_dir is not None:
+        # update configs according to CLI args if args.work_dir is not None
+        cfg.work_dir = args.work_dir
+    elif cfg.get('work_dir', None) is None:
+        # use config filename as default work_dir if cfg.work_dir is None
+        cfg.work_dir = osp.join('./work_dir',
+                                osp.splitext(osp.basename(args.config))[0])\
+
+    # create work_dir
+    mkdir_or_exist(osp.abspath(cfg.work_dir))
+    # dump config
+    shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
+    # ### CUDA / GPU Setup
+    # Get GPU resources.
+    if torch.cuda.is_available():
+        print(colour_str('GPU available!', 'green'))
+        print('Total number of available devices: ',
+              colour_str(torch.cuda.device_count(), 'orange'))
+        device = torch.device(f"cuda:{train_options['gpu_id']}")
+
+    else:
+        print(colour_str('GPU not available.', 'red'))
+        device = torch.device('cpu')
+    print('GPU setup completed!')
+
+    net = UNet(options=train_options).to(device)
+    optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
+
+    # generate wandb run id, to be used to link the run with test_upload
+    id = wandb.util.generate_id()
+    # subprocess.run(['export'])
+
+    cfg.env_dict['WANDB_RUN_ID'] = id
+    cfg.env_dict['RESUME'] = 'allow'
+
+    # os.environ['WANDB_RUN_ID'] = id
+    # os.environ['RESUME'] = 'allow'
+
+    # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
+    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="ai4arctic_test",
+                    entity="ai4arctic", config=train_options, id=id, resume="allow"):
+
+        # Define the metrics and make them such that they are not added to the summary
+        wandb.define_metric("Epoch Loss", summary="none")
+        wandb.define_metric("Combined score", summary="none")
+        wandb.define_metric("SIC r2_metric", summary="none")
+        wandb.define_metric("SOD f1_metric", summary="none")
+        wandb.define_metric("FLOE f1_metric", summary="none")
+
+        create_train_and_validation_scene_list(train_options)
+
+        dataloader_train, dataloader_val = create_dataloaders(train_options)
+
+        print('Data setup complete.')
+
+        # ## Example of model training and validation loop
+        # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
+        #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
+        #  This can be done by using 'net = net.cpu()'.
+
+        train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
+        dump_env(cfg.env_dict, osp.join(cfg.work_dir,'.env'))
+        from icecream import ic
+        ic(os.environ['CHECKPOINT'])
+        ic(os.environ['WANDB_MODE'])
 
 
 if __name__ == '__main__':
