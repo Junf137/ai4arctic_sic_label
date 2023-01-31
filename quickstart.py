@@ -281,12 +281,23 @@ def main():
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
     # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    np.random.seed(0)
-    train_options['validate_list'] = np.random.choice(np.array(
-        train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
-    # Remove the validation scenes from the train list.
-    train_options['train_list'] = [scene for scene in train_options['train_list']
-                                   if scene not in train_options['validate_list']]
+    
+    
+    # np.random.seed(0)
+    # train_options['validate_list'] = np.random.choice(np.array(
+    #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    # # Remove the validation scenes from the train list.
+    # train_options['train_list'] = [scene for scene in train_options['train_list']
+    #                                if scene not in train_options['validate_list']]
+
+
+
+    
+    with open(train_options['path_to_env'] + 'datalists/val_list.json') as file:
+        train_options['validate_list'] = json.loads(file.read())
+    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                '_prep.nc' for file in train_options['validate_list']]
+
     print('Options initialised')
 
     # work_dir is determined in this priority: CLI > segment in file > filename
