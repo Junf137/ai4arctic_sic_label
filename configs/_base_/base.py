@@ -62,30 +62,6 @@ SIC_LOOKUP = {
     'n_classes': 12
 }
 
-# Sea Ice Concentration (SIC) code to class conversion lookup table.
-SIC_LOOKUP = {
-    'polygon_idx': 0,  # Index of polygon number.
-    'total_sic_idx': 1,  # Total Sea Ice Concentration Index, CT.
-    'sic_partial_idx': [2, 5, 8],  # Partial SIC polygon code index. CA, CB, CC.
-    0: 0,
-    1: 0,
-    2: 0,
-    55: 0,
-    10: 1,  # 10 %
-    20: 2,  # 20 %
-    30: 3,  # 30 %
-    40: 4,  # 40 %
-    50: 5,  # 50 %
-    60: 6,  # 60 %
-    70: 7,  # 70 %
-    80: 8,  # 80 %
-    90: 9,  # 90 %
-    91: 10,  # 100 %
-    92: 10,  # Fast ice
-    'mask': 255,
-    'n_classes': 12
-}
-
 # Stage of Development code to class conversion lookup table.
 SOD_LOOKUP = {
     'sod_partial_idx': [3, 6, 9],  # Partial SIC polygon code index. SA, SB, SC.
@@ -146,8 +122,8 @@ train_options = {
     #'seed': 710,
     # -- Training options -- #
     # Replace with data directory path.
-    'path_to_train_data': '../dataset/train',
-    'path_to_test_data': '../dataset/test',
+    'path_to_train_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train',
+    'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/datase/testt',
     # Replace with environmment directory path.
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
