@@ -267,8 +267,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
     return model_path
     # del inf_ys_flat, outputs_flat  # Free memory.
-    return model_path
-    # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 def main():
@@ -279,7 +277,6 @@ def main():
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
-    # cfg['experiment_name']=
     # cfg.env_dict = {}
 
     # set seed for everything
@@ -290,7 +287,7 @@ def main():
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    # torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
     # torch.backends.cudnn.enabled = True
 
@@ -360,10 +357,7 @@ def main():
         #  This can be done by using 'net = net.cpu()'.
 
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
-        print('Training Complete')
-        print('Testing...')
         test(net, checkpoint_path, device, cfg)
-        print('Testing Complete')
         # dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
         # from icecream import ic
         # ic(os.environ['CHECKPOINT'])
