@@ -72,6 +72,7 @@ from test_upload_function import test
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
     parser.add_argument('config', help='train config file path')
+    parser.add_argument('--wandb-project', help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     args = parser.parse_args()
 
@@ -92,17 +93,17 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    # np.random.seed(0)
-    train_options['validate_list'] = np.random.choice(np.array(
-        train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    # # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+    # # np.random.seed(0)
+    # train_options['validate_list'] = np.random.choice(np.array(
+    #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
 
-    # # load validation list
-    # with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
-    #     train_options['validate_list'] = json.loads(file.read())
-    # # Convert the original scene names to the preprocessed names.
-    # train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
-    #                                   '_prep.nc' for file in train_options['validate_list']]
+    # load validation list
+    with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
+        train_options['validate_list'] = json.loads(file.read())
+    # Convert the original scene names to the preprocessed names.
+    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                      '_prep.nc' for file in train_options['validate_list']]
 
     # from icecream import ic
     # ic(train_options['validate_list'])
@@ -335,7 +336,7 @@ def main():
     # os.environ['RESUME'] = 'allow'
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="feature_variation",
+    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
         # Define the metrics and make them such that they are not added to the summary

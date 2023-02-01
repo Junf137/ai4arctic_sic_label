@@ -10,7 +10,7 @@
 @Desc    :   None
 '''
 
-_base_ = ['./base.py']
+_base_ = ['../_base_/base.py']
 
 SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
