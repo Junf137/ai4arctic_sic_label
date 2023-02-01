@@ -148,9 +148,9 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
     print('Saving upload_package. Compressing data with zlib.')
     compression = dict(zlib=True, complevel=1)
     encoding = {var: compression for var in upload_package.data_vars}
-    upload_package.to_netcdf(osp.join(cfg.work_dir, '_upload_package.nc'),
+    upload_package.to_netcdf(osp.join(experiment_name, '_upload_package.nc'),
                              # f'{osp.splitext(osp.basename(cfg))[0]}
                              mode='w', format='netcdf4', engine='h5netcdf', encoding=encoding)
     print('Testing completed.')
-    print("File saved succesfully at", osp.join(cfg.work_dir, '_upload_package.nc'))
-    wandb.save(osp.join(cfg.work_dir, '_upload_package.nc'))
+    print("File saved succesfully at", osp.join(experiment_name, '_upload_package.nc'))
+    wandb.save(osp.join(experiment_name, '_upload_package.nc'))
