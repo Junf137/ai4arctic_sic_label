@@ -62,6 +62,7 @@ from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
 from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
+
 from test_upload_function import test
 
 # TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
@@ -152,16 +153,16 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
     loss_functions = {chart: torch.nn.CrossEntropyLoss(ignore_index=train_options['class_fill_values'][chart])
                       for chart in train_options['charts']}
-
+    print('Training...')
     # -- Training Loop -- #
-    for epoch in tqdm(iterable=range(train_options['epochs']), position=0):
+    for epoch in tqdm(iterable=range(train_options['epochs'])):
         # gc.collect()  # Collect garbage to free memory.
         loss_sum = torch.tensor([0.])  # To sum the batch losses during the epoch.
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
         for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
-                                                    colour='red', position=0)):
+                                                    colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             loss_batch = 0  # Reset from previous batch.
 
@@ -205,9 +206,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         inf_ys_flat = {chart: np.array([]) for chart in train_options['charts']}
 
         net.eval()  # Set network to evaluation mode.
+        print('Validating...')
         # - Loops though scenes in queue.
         for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val,
-                                              total=len(train_options['validate_list']), colour='green', position=0):
+                                              total=len(train_options['validate_list']), colour='green'):
             torch.cuda.empty_cache()
 
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
@@ -225,6 +227,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
 
         # - Compute the relevant scores.
+        print('Computing Metrics on Val dataset')
         combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
                                                  metrics=train_options['chart_metric'])
 
@@ -258,21 +261,26 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
             wandb.save(model_path)
-            os.environ['CHECKPOINT'] = model_path
-            cfg.env_dict['CHECKPOINT'] = model_path
+            # os.environ['CHECKPOINT'] = model_path
+            # cfg.env_dict['CHECKPOINT'] = model_path
             # print("export CHECKPOINT=%s" % (pipes.quote(str(model_path))))
 
+    return model_path
+    # del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
     # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 def main():
     args = parse_args()
+    from icecream import ic
+    ic(args.config)
     cfg = Config.fromfile(args.config)
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
-    cfg.env_dict = {}
+    # cfg['experiment_name']=
+    # cfg.env_dict = {}
 
     # set seed for everything
     seed = train_options['seed']
@@ -282,34 +290,12 @@ def main():
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
     # torch.backends.cudnn.enabled = True
 
     # To be used in test_upload.
     # get_ipython().run_line_magic('store', 'train_options')
-
-    # Load training list.
-    with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
-        train_options['train_list'] = json.loads(file.read())
-    # Convert the original scene names to the preprocessed names.
-    train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
-                                   '_prep.nc' for file in train_options['train_list']]
-    # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    # np.random.seed(train_options.seed)
-    # train_options['validate_list'] = np.random.choice(np.array(
-#     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
-
-    # load validation list
-    with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
-        train_options['validate_list'] = json.loads(file.read())
-    # Convert the original scene names to the preprocessed names.
-    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
-                                      '_prep.nc' for file in train_options['validate_list']]
-    # Remove the validation scenes from the train list.
-    train_options['train_list'] = [scene for scene in train_options['train_list']
-                                   if scene not in train_options['validate_list']]
-    print('Options initialised')
 
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
@@ -320,6 +306,7 @@ def main():
         cfg.work_dir = osp.join('./work_dir',
                                 osp.splitext(osp.basename(args.config))[0])\
 
+    ic(cfg.work_dir)
     # create work_dir
     mkdir_or_exist(osp.abspath(cfg.work_dir))
     # dump config
@@ -344,8 +331,8 @@ def main():
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
 
-    cfg.env_dict['WANDB_RUN_ID'] = id
-    cfg.env_dict['RESUME'] = 'allow'
+    # cfg.env_dict['WANDB_RUN_ID'] = id
+    # cfg.env_dict['RESUME'] = 'allow'
 
     # os.environ['WANDB_RUN_ID'] = id
     # os.environ['RESUME'] = 'allow'
@@ -373,11 +360,14 @@ def main():
         #  This can be done by using 'net = net.cpu()'.
 
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
+        print('Training Complete')
+        print('Testing...')
         test(net, checkpoint_path, device, cfg)
-        dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
-        from icecream import ic
-        ic(os.environ['CHECKPOINT'])
-        ic(os.environ['WANDB_MODE'])
+        print('Testing Complete')
+        # dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
+        # from icecream import ic
+        # ic(os.environ['CHECKPOINT'])
+        # ic(os.environ['WANDB_MODE'])
 
 
 if __name__ == '__main__':

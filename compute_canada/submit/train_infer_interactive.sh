@@ -23,13 +23,13 @@ config_basename=$(basename $config .py)
 env=./work_dir/$config_basename/.env
 # echo $env
 # echo $(ls -a)
-
+echo $1
 echo $CHECKPOINT
 python quickstart.py $1
 
-echo 'Reading environment file'
-while read line; do export $line; done < $env
+# echo 'Reading environment file'
+# while read line; do export $line; done < $env
 
-echo $CHECKPOINT
-python test_upload.py $1 $CHECKPOINT
+# echo $CHECKPOINT
+# python test_upload.py $1 $CHECKPOINT
 
