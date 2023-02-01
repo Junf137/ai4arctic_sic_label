@@ -38,11 +38,12 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 40,
+                 'epochs': 15,
                  'num_val_scenes': 10,
-                 'batch_size': 8,
+                 'batch_size': 16,
                  'num_workers': 4,  # Number of parallel processes to fetch data.
                  'num_workers_val': 4,  # Number of parallel processes during validation.
+                 'patch_size': 1024,
                  'path_to_train_data': '../../dataset/train',
                  'path_to_test_data': '../../dataset/test',
                  }

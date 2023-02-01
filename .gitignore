@@ -1,5 +1,6 @@
 *.swp
 work_dirs/
+work_dir/
 *.log.json
 .vscode/
 batchlogs/

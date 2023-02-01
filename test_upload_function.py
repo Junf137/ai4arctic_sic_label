@@ -73,7 +73,7 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
     # run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='feature_variation',
     #                  entity='ai4arctic', resume='must', config=train_options)
-    experiment_name= osp.splitext(osp.basename(cfg.work_dir))[0]
+    experiment_name = osp.splitext(osp.basename(cfg.work_dir))[0]
     artifact = wandb.Artifact(experiment_name, 'dataset')
     table = wandb.Table(columns=['ID', 'Image'])
 
@@ -148,9 +148,9 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
     print('Saving upload_package. Compressing data with zlib.')
     compression = dict(zlib=True, complevel=1)
     encoding = {var: compression for var in upload_package.data_vars}
-    upload_package.to_netcdf(osp.join(experiment_name, '_upload_package.nc'),
+    upload_package.to_netcdf(osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'),
                              # f'{osp.splitext(osp.basename(cfg))[0]}
                              mode='w', format='netcdf4', engine='h5netcdf', encoding=encoding)
     print('Testing completed.')
-    print("File saved succesfully at", osp.join(experiment_name, '_upload_package.nc'))
-    wandb.save(osp.join(experiment_name, '_upload_package.nc'))
+    print("File saved succesfully at", osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'))
+    wandb.save(osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'))
