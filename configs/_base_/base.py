@@ -123,7 +123,7 @@ train_options = {
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_train_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train',
-    'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/datase/testt',
+    'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/test',
     # Replace with environmment directory path.
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.

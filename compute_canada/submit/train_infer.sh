@@ -24,7 +24,8 @@ source ~/Ai4Artic4/bin/activate
 echo "Activating virtual environment done"
 
 #cd /project/def-dclausi/share/whale/mmwhale/
-cd $HOME/projects/def-dclausi/AI4arctic/$USER
+# cd $HOME/projects/def-dclausi/AI4arctic/$USER
+cd /home/fer96/projects/def-dclausi/fer96/ai4arctic_challenge
 
 echo "starting training..."
 config=$1 
