@@ -1,12 +1,12 @@
 #!/bin/bash 
 set -e
 array=(
-#
-"configs/setup1.py"  
-# "configs/custom_configs/igarss/faster_rcnn_r50_fpn_512.py"
-# "configs/custom_configs/igarss/faster_rcnn_r50_fpn_768.py"
-# "configs/custom_configs/igarss/faster_rcnn_r50_fpn_1024.py"
-
+"configs/feature_selection/Ex_1_input_features_setup1.py"
+"configs/feature_selection/Ex_1_input_features_setup2.py"
+"configs/feature_selection/Ex_1_input_features_setup3.py"
+"configs/feature_selection/Ex_1_input_features_setup4.py"
+"configs/feature_selection/Ex_1_input_features_setup5.py"
+"configs/feature_selection/Ex_1_input_features_setup6.py"
 )
 
 
