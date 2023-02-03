@@ -118,7 +118,7 @@ FLOE_LOOKUP = {
 
 train_options = {
     # -- Random Seed -- #
-    'seed': 420,
+    'seed': 390,
     #'seed': 710,
     # -- Training options -- #
     # Replace with data directory path.

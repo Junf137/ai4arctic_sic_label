@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --nodes 1
-#SBATCH --gpus-per-node=v100:1 # request a GPU
+#SBATCH --gpus-per-node=v100l:1 # request a GPU
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=8 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
-#SBATCH --mem=75G
+#SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
+#SBATCH --mem=64G
 #SBATCH --time=20:00:00
 #SBATCH --output=/home/fer96/projects/def-dclausi/fer96/ai4arctic_challenge/compute_canada_output/%j.out
 #SBATCH --account=def-dclausi
@@ -29,11 +29,12 @@ cd /home/fer96/projects/def-dclausi/fer96/ai4arctic_challenge
 
 echo "starting training..."
 config=$1 
-# get the basename for the config file, basename is an inbuilt shell command
-config_basename=$(basename $config .py) 
-python quickstart.py $1
+# config=$1 
+# # get the basename for the config file, basename is an inbuilt shell command
+# config_basename=$(basename $config .py) 
+
+# python quickstart.py $1 --wandb-project=$2
+
+python quickstart.py $1 
 
 
-
-echo "Starting testing"
-python test_upload.py $1 $CHECKPOINT

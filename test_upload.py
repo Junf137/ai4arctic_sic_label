@@ -82,8 +82,8 @@ def main():
     net = UNet(options=train_options).to(device)
     net.load_state_dict(weights)
     print('Model successfully loaded.')
-    run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='feature_variation',
-                     entity='ai4arctic', resume='must', config=train_options)
+    run = wandb.init( project='feature_variation',
+                     entity='ai4arctic', config=train_options)
     table = wandb.Table(columns=['ID', 'Image'])
     # ### Prepare the scene list, dataset and dataloaders
     with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
