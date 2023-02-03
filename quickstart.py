@@ -73,6 +73,7 @@ from test_upload_function import test
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
     parser.add_argument('config', help='train config file path')
+    parser.add_argument('--wandb-project', help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     args = parser.parse_args()
 
@@ -277,6 +278,7 @@ def main():
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
+    # cfg['experiment_name']=
     # cfg.env_dict = {}
 
     # set seed for everything
@@ -287,7 +289,7 @@ def main():
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
     # torch.backends.cudnn.enabled = True
 
@@ -335,7 +337,7 @@ def main():
     # os.environ['RESUME'] = 'allow'
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project="feature_variation",
+    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
         # Define the metrics and make them such that they are not added to the summary
@@ -357,7 +359,10 @@ def main():
         #  This can be done by using 'net = net.cpu()'.
 
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
+        print('Training Complete')
+        print('Testing...')
         test(net, checkpoint_path, device, cfg)
+        print('Testing Complete')
         # dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
         # from icecream import ic
         # ic(os.environ['CHECKPOINT'])

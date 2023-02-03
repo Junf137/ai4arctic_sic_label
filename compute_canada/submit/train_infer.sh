@@ -33,8 +33,14 @@ config=$1
 # # get the basename for the config file, basename is an inbuilt shell command
 # config_basename=$(basename $config .py) 
 
-# python quickstart.py $1 --wandb-project=$2
+python quickstart.py $1 --wandb-project=$2
 
-python quickstart.py $1 
+# # the above python script will generate a .env at the workdir/config-name/.env
+# env=./work_dir/$config_basename/.env
 
+# echo 'Reading environment file'
+# # read the .env file and save them as environment variable
+# while read line; do export $line; done < $env
 
+# echo "Starting testing"
+# python test_upload.py $1 $CHECKPOINT

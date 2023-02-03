@@ -10,13 +10,11 @@ array=(
 # "configs/feature_selection/Ex_1_input_features_setup_all.py"
 )
 
-
-# wandb_project=patch_variation
+wandb_project=patch_variation
 
 for i in "${!array[@]}"; do
    # bash test_echo.sh ${array[i]} ${array2[i]}
-   # sbatch train_infer.sh ${array[i]} $wandb_project
-   sbatch train_infer.sh ${array[i]} 
+   sbatch train_infer.sh ${array[i]} $wandb_project
    # echo  ${array[i]} $wandb_project
    echo "task successfully submitted" 
    sleep 10
