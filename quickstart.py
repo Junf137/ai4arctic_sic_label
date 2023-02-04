@@ -129,9 +129,6 @@ def create_dataloaders(train_options):
     dataset_val = AI4ArcticChallengeTestDataset(
         options=train_options, files=train_options['validate_list'])
 
-    # dataset_val = AI4ArcticChallengeDataset(
-    #     files=train_options['validate_list'], options=train_options)
-
     dataloader_val = torch.utils.data.DataLoader(
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
 
@@ -261,10 +258,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
             wandb.save(model_path)
-            # os.environ['CHECKPOINT'] = model_path
-            # cfg.env_dict['CHECKPOINT'] = model_path
-            # print("export CHECKPOINT=%s" % (pipes.quote(str(model_path))))
-
     return model_path
     # del inf_ys_flat, outputs_flat  # Free memory.
 
@@ -362,10 +355,6 @@ def main():
         print('Testing...')
         test(net, checkpoint_path, device, cfg)
         print('Testing Complete')
-        # dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
-        # from icecream import ic
-        # ic(os.environ['CHECKPOINT'])
-        # ic(os.environ['WANDB_MODE'])
 
 
 if __name__ == '__main__':

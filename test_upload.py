@@ -82,8 +82,8 @@ def main():
     net = UNet(options=train_options).to(device)
     net.load_state_dict(weights)
     print('Model successfully loaded.')
-    run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='feature_variation',
-                     entity='ai4arctic', resume='must', config=train_options)
+    run = wandb.init(project='feature_variation',
+                     entity='ai4arctic', config=train_options)
     table = wandb.Table(columns=['ID', 'Image'])
     # ### Prepare the scene list, dataset and dataloaders
     with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
@@ -124,16 +124,6 @@ def main():
                 else:
                     ax.set_title('HV')
                 ax.imshow(img, cmap='gray')
-
-            # ic(idx)
-            # if idx in range(0, 2):
-            #     ax = axs[idx]
-            #     ic(inf_x.shape)
-            #     ic(torch.squeeze(inf_x, dim=0).shape)
-            #     img = torch.squeeze(inf_x, dim=0).cpu().numpy()[idx]
-            #     # [idx].cpu().numpy().astype(float)
-            #     ic(img.shape)
-            #     ax.imshow(img, cmap='gray')
             ax = axs[idx+2]
             output[chart] = output[chart].astype(float)
             output[chart][masks] = np.nan
