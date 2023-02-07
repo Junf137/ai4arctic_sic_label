@@ -100,7 +100,7 @@ def create_train_and_validation_scene_list(train_options):
     #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
 
     # load validation list
-    with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
+    with open(train_options['path_to_env'] + train_options['val_path']) as file:
         train_options['validate_list'] = json.loads(file.read())
     # Convert the original scene names to the preprocessed names.
     train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
