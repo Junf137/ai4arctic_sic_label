@@ -38,7 +38,8 @@ def chart_cbar(ax, n_classes, chart, cmap='vridis'):
     """
     arranged = np.arange(0, n_classes)
     cmap = plt.get_cmap(cmap, n_classes - 1)
-    norm = mpl.colors.BoundaryNorm(arranged - 0.5, cmap.N)  # Get colour boundaries. -0.5 to center ticks for each color.
+    # Get colour boundaries. -0.5 to center ticks for each color.
+    norm = mpl.colors.BoundaryNorm(arranged - 0.5, cmap.N)
     arranged = arranged[:-1]  # Discount the mask class.
     cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ticks=arranged, fraction=0.0485, pad=0.049, ax=ax)
     cbar.set_label(label=ICE_STRINGS[chart])
@@ -47,11 +48,11 @@ def chart_cbar(ax, n_classes, chart, cmap='vridis'):
 
 def compute_metrics(true, pred, charts, metrics):
     """
-    Calculates metrics for each chart and the combined score. true and pred must be 1d arrays of equal length. 
+    Calculates metrics for each chart and the combined score. true and pred must be 1d arrays of equal length.
 
     Parameters
     ----------
-    true : 
+    true :
         ndarray, 1d contains all true pixels. Must be numpy array.
     pred :
         ndarray, 1d contains all predicted pixels. Must be numpy array.
@@ -72,8 +73,9 @@ def compute_metrics(true, pred, charts, metrics):
         if true[chart].ndim == 1 and pred[chart].ndim == 1:
             scores[chart] = np.round(metrics[chart]['func'](true=true[chart], pred=pred[chart]) * 100, 3)
         else:
-            print(f"true and pred must be 1D numpy array, got {true['SIC'].ndim} and {pred['SIC'].ndim} dimensions with shape {true['SIC'].shape} and {pred.shape}, respectively")
-    
+            print(f"true and pred must be 1D numpy array, got {true['SIC'].ndim} \
+                and {pred['SIC'].ndim} dimensions with shape {true['SIC'].shape} and {pred.shape}, respectively")
+
     combined_score = compute_combined_score(scores=scores, charts=charts, metrics=metrics)
 
     return combined_score, scores
@@ -85,7 +87,7 @@ def r2_metric(true, pred):
 
     Parameters
     ----------
-    true : 
+    true :
         ndarray, 1d contains all true pixels. Must by numpy array.
     pred :
         ndarray, 1d contains all predicted pixels. Must by numpy array.
@@ -94,20 +96,20 @@ def r2_metric(true, pred):
     -------
     r2 : float
         The calculated r2 score.
-        
+
     """
     r2 = r2_score(y_true=true, y_pred=pred)
-    
+
     return r2
-    
-    
+
+
 def f1_metric(true, pred):
     """
     Calculate the weighted f1 metric.
 
     Parameters
     ----------
-    true : 
+    true :
         ndarray, 1d contains all true pixels.
     pred :
         ndarray, 1d contains all predicted pixels.
@@ -116,10 +118,10 @@ def f1_metric(true, pred):
     -------
     f1 : float
         The calculated f1 score.
-        
+
     """
     f1 = f1_score(y_true=true, y_pred=pred, average='weighted')
-    
+
     return f1
 
 
@@ -140,20 +142,19 @@ def compute_combined_score(scores, charts, metrics):
     -------
     : float
         The combined weighted score.
-        
+
     """
     combined_metric = 0
     sum_weight = 0
     for chart in charts:
         combined_metric += scores[chart] * metrics[chart]['weight']
         sum_weight += metrics[chart]['weight']
-    
+
     return np.round(combined_metric / sum_weight, 3)
 
 
-
 # -- functions to save models -- #
-def save_best_model(train_options:dict,net,optimizer,epoch:int):
+def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
     '''
     Saves the input model in the inside the directory "/work_dirs/"experiment_name"/
     The models with be save as best_model.pth.
@@ -166,24 +167,27 @@ def save_best_model(train_options:dict,net,optimizer,epoch:int):
 
     Parameters
     ----------
+    cfg : mmcv.Config
+        The config file object of mmcv
     train_options : Dict
         The dictory which stores the train_options from quickstart
-    net : 
+    net :
         The pytorch model
-    optimizer : 
+    optimizer :
         The optimizer that the model uses.
     epoch: int
-        The epoch number 
-    
+        The epoch number
+
     '''
     print('saving model....')
-    work_dir = os.path.abspath(os.path.join('./work_dirs',train_options['experiment_name']))
-    print('working directory: '+work_dir)
-    os.makedirs(work_dir, exist_ok=True)
-
+    config_file_name = os.path.basename(cfg.work_dir)
+    # print(config_file_name)
     torch.save(obj={'model_state_dict': net.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'epoch': epoch,
-                        'train_options':train_options # TODO replace with config file later
-                        },
-                   f=os.path.join(work_dir,'best_model.pth'))
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'epoch': epoch,
+                    'train_options': train_options  # TODO replace with config file later
+                    },
+               f=os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth'))
+    print(f"model saved successfully at {os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')}")
+
+    return os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')

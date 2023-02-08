@@ -20,7 +20,6 @@ echo "Loading module done"
 
 source ~/env7_ai4arctic/bin/activate
 
-
 echo "Activating virtual environment done"
 
 #cd /project/def-dclausi/share/whale/mmwhale/
@@ -28,5 +27,7 @@ cd $HOME/projects/def-dclausi/AI4arctic/$USER
 
 echo "starting training..."
 
-python quickstart_1.py
+export WANDB_MODE=offline
 
+python quickstart.py $1 
+python test_upload.py $1 $CHECKPOINT
