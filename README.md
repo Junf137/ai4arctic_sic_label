@@ -1,7 +1,9 @@
 # AI4ArcticSeaIceChallenge
 
-# Installation:
-Requirements:
+## Dependencies
+The following packages and versions were used to develop and test the code along with the dependancies installed with pip:
+- python==3.9.11
+- jupyterlab==3.4.5
 - xarray==2022.10.0
 - h5netcdf
 - numpy
@@ -98,4 +100,21 @@ To run test_upload.py
 Run `test_upload.py <path_to_config_file.py> <path to pytorch checkpoint file.pth>` 
 
 
-TODO: add more
+
+## Data visualization
+### Dependencies
+- cmocean
+
+### Usage
+All visualization code in this repository (see also `vip_ai4arctic/visualization` repo) is in the `data_visualization` directory.
+
+The `vis_single_scene.ipynb` notebook provides an example visualization and link to the plotting function.
+
+#### Visualize imagery & charts for a single scene (from NetCDF):
+`python r2t_vis.py {filepath.nc}`
+
+#### Visualize imagery & charts for all scenes in a directory (from NetCDF):
+`python vis_all_train.py {dir}`
+
+#### Export imagery & charts from NetCDF to file:
+`python export_data.py {in_dir} {out_dir}`
