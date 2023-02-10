@@ -28,7 +28,7 @@ COmpute canada does not have support for Conda environments. So we'll use the in
 
 The repo contains a [create_env.sh](create_env.sh) which will create a virtual environment for you in **compute canada**.
 
-To create a new environment `create_env.sh <envname>`.
+To create a new environment ` bash create_env.sh <envname>`.
 <br/> This will create a new env in the `~/<envname>` folder, which is nothing but root folder.
 
 ## Activating the environment
