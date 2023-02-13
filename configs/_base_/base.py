@@ -36,6 +36,8 @@ SCENE_VARIABLES = [
     'u10m_rotated', 'v10m_rotated',
     't2m', 'skt', 'tcwv', 'tclw'
 
+    # -- Auxilary Variables -- #
+    'aux_time'
 ]
 
 # Sea Ice Concentration (SIC) code to class conversion lookup table.

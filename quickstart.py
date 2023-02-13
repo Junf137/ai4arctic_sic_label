@@ -46,6 +46,7 @@ import random
 import os
 import os.path as osp
 import shutil
+from icecream import ic
 
 import numpy as np
 import torch
@@ -139,10 +140,6 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-def dump_env(dictionary: dict, path: str):
-    with open(path, "w") as f:
-        for k, v in dictionary.items():
-            f.write(f"{k}={v}\n")
 
 
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
@@ -272,7 +269,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
 def main():
     args = parse_args()
-    from icecream import ic
     ic(args.config)
     cfg = Config.fromfile(args.config)
     train_options = cfg.train_options
@@ -363,10 +359,7 @@ def main():
         print('Testing...')
         test(net, checkpoint_path, device, cfg)
         print('Testing Complete')
-        # dump_env(cfg.env_dict, osp.join(cfg.work_dir, '.env'))
-        # from icecream import ic
-        # ic(os.environ['CHECKPOINT'])
-        # ic(os.environ['WANDB_MODE'])
+
 
 
 if __name__ == '__main__':

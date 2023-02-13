@@ -13,6 +13,9 @@ __date__ = '2022-10-17'
 
 # -- Built-in modules -- #
 import os
+import datetime
+from dateutil import relativedelta
+import re
 
 # -- Third-party modules -- #
 import numpy as np
@@ -61,27 +64,22 @@ class AI4ArcticChallengeDataset(Dataset):
             patch_height, patch_width). None if empty patch.
         """
         patch = np.zeros((len(self.options['full_variables']) +
-                          len(self.options['amsrenv_variables']),
+                          len(self.options['amsrenv_variables'])+
+                          len(self.options['auxiliary_variables']),
                           self.options['patch_size'],
                           self.options['patch_size']))
 
         # Get random index to crop from.
-        row_rand = np.random.randint(
-            low=0, high=scene['SIC'].values.shape[0]
-            - self.options['patch_size'])
-        col_rand = np.random.randint(
-            low=0, high=scene['SIC'].values.shape[1]
-            - self.options['patch_size'])
+        row_rand = np.random.randint(low=0, high=scene['SIC'].values.shape[0] - self.options['patch_size'])
+        col_rand = np.random.randint(low=0, high=scene['SIC'].values.shape[1]- self.options['patch_size'])
         # Equivalent in amsr and env variable grid.
         amsrenv_row = row_rand / self.options['amsrenv_delta']
         # Used in determining the location of the crop in between pixels.
         amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))
-        amsrenv_row_index_crop = amsrenv_row_dec * \
-            self.options['amsrenv_delta'] * amsrenv_row_dec
+        amsrenv_row_index_crop = amsrenv_row_dec * self.options['amsrenv_delta'] * amsrenv_row_dec
         amsrenv_col = col_rand / self.options['amsrenv_delta']
         amsrenv_col_dec = int(amsrenv_col - int(amsrenv_col))
-        amsrenv_col_index_crop = amsrenv_col_dec * \
-            self.options['amsrenv_delta'] * amsrenv_col_dec
+        amsrenv_col_index_crop = amsrenv_col_dec * self.options['amsrenv_delta'] * amsrenv_col_dec
 
         # - Discard patches with too many meaningless pixels (optional).
         if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size'],
@@ -112,7 +110,25 @@ class AI4ArcticChallengeDataset(Dataset):
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
                                                                  + self.options['patch_size']))].numpy()
+            # Only add auxiliary_variables if they are called
+            if len(self.options['auxiliary_variables']) > 0:
 
+                aux_feat_list = []
+
+                if 'aux_time' in self.options['auxiliary_variables']:
+                    # Get Scene time 
+                    scene_id = scene.attrs['scene_id']
+                    # Convert Scene time to number data
+                    norm_time = get_norm_month(scene_id)
+
+                    #
+                    time_array =  np.full((self.options['patch_size'],self.options['patch_size']),norm_time)
+
+                    aux_feat_list.add(time_array,)
+
+                aux_np_array = np.stack(aux_feat_list,axis=0)
+
+                patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = aux_np_array
         # In case patch does not contain any valid pixels - return None.
         else:
             patch = None
@@ -314,11 +330,45 @@ def get_variable_options(train_options: dict):
                                                int(train_options['patch_size'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']))
-    train_options['sar_variables'] = [variable for variable in train_options['train_variables']
-                                      if 'sar' in variable or 'map' in variable]
-    train_options['full_variables'] = np.hstack(
-        (train_options['charts'], train_options['sar_variables']))
-    train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables']
-                                          if 'sar' not in variable and 'map' not in variable]
+    train_options['sar_variables'] = [variable for variable in train_options['train_variables'] if 'sar' in variable or 'map' in variable]
+    train_options['full_variables'] = np.hstack((train_options['charts'], train_options['sar_variables']))
+    train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables'] if 'sar' not in variable and 'map' not in variable and 'aux' not in variable]
+    train_options['auxiliary_variables'] = [variable for variable in train_options['train_variables'] if 'aux' in variable]
 
     return train_options
+
+
+
+
+def get_norm_month(file_name):
+
+    pattern = re.compile(r'\d{8}T\d{6}')
+
+    # Search for the first match in the string
+    match = re.search(pattern, file_name)
+
+    first_date = match.group(0)
+
+
+
+
+
+
+
+    # parse the date string into a datetime object
+    date = datetime.datetime.strptime(first_date, "%Y%m%dT%H%M%S")
+    
+    # calculate the number of days between January 1st and the given date
+
+    delta = relativedelta.relativedelta(date, datetime.datetime(date.year, 1, 1))
+
+
+
+    # delta = (date - datetime.datetime(date.year, 1, 1)).days
+
+    months = delta.months
+    norm_months =  2*months/11-1
+
+    return norm_months
+
+
