@@ -34,7 +34,7 @@ SCENE_VARIABLES = [
 
     # -- Environmental variables -- #
     'u10m_rotated', 'v10m_rotated',
-    't2m', 'skt', 'tcwv', 'tclw'
+    't2m', 'skt', 'tcwv', 'tclw',
 
     # -- Auxilary Variables -- #
     'aux_time'

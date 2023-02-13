@@ -127,9 +127,6 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-
-
-
 cfg = Config.fromfile("configs/Unit_test/test_time_feature.py")
 train_options = cfg.train_options
 # Get options for variables, amsrenv grid, cropping and upsampling.
@@ -145,9 +142,6 @@ np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
-
-
-
 
 
 # ### CUDA / GPU Setup
@@ -173,6 +167,8 @@ dataloader_train, dataloader_val = create_dataloaders(train_options)
 
 
 train_features, train_labels = next(iter(dataloader_train))
+val_features, val_labels,  masks, name = next(iter(dataloader_val))
+
 
 
 

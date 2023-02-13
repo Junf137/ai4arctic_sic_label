@@ -32,7 +32,10 @@ SCENE_VARIABLES = [
 
     # -- Environmental variables -- #
     # 'u10m_rotated', 'v10m_rotated',
-    # 't2m', 'skt', 'tcwv', 'tclw'
+    # 't2m', 'skt', 'tcwv', 'tclw',
+
+    # -- Auxilary Variables -- #
+    'aux_time'
 
 ]
 
@@ -42,5 +45,6 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 40,
                  'num_workers': 4,  # Number of parallel processes to fetch data.
                  'num_workers_val': 4,  # Number of parallel processes during validation.
+                'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
                 }
 

@@ -69,6 +69,8 @@ class AI4ArcticChallengeDataset(Dataset):
                           self.options['patch_size'],
                           self.options['patch_size']))
 
+
+
         # Get random index to crop from.
         row_rand = np.random.randint(low=0, high=scene['SIC'].values.shape[0] - self.options['patch_size'])
         col_rand = np.random.randint(low=0, high=scene['SIC'].values.shape[1]- self.options['patch_size'])
@@ -95,7 +97,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                   + self.options['patch_size'])).to_array().values
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
-                patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
+                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :] = torch.nn.functional.interpolate(
                     input=torch.from_numpy(scene[self.options['amsrenv_variables']].to_array().values[
                         :,
                         int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
@@ -124,7 +126,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     #
                     time_array =  np.full((self.options['patch_size'],self.options['patch_size']),norm_time)
 
-                    aux_feat_list.add(time_array,)
+                    aux_feat_list.append(time_array,)
 
                 aux_np_array = np.stack(aux_feat_list,axis=0)
 
@@ -190,7 +192,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # - Extract patches
             try:
                 scene_patch = self.random_crop(scene)
-            except Exception:
+            except Exception as e:
                 print(f"Cropping in {self.files[scene_id]} failed.")
                 print(f"Scene size: {scene['SIC'].values.shape} for crop shape: \
                     ({self.options['patch_size']}, {self.options['patch_size']})")
@@ -242,20 +244,50 @@ class AI4ArcticChallengeTestDataset(Dataset):
         y :
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
         """
+
+        x_feat_list = []
+
+        sar_var_x = torch.from_numpy(
+                scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
+
+        x_feat_list.append(sar_var_x)
+
+
         if len(self.options['amsrenv_variables']) > 0:
             # from icecream import ic
             # print(1, scene['SIC'].values.shape)
             # print(2, scene['nersc_sar_primary'].values.shape)
-            x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),
-                           torch.nn.functional.interpolate(
-                input=torch.from_numpy(
+            asmr_env__var_x = torch.nn.functional.interpolate(input=torch.from_numpy(
                     scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
                 size=scene['nersc_sar_primary'].values.shape,
-                mode=self.options['loader_upsampling'])),
-                axis=1)
-        else:
-            x = torch.from_numpy(
-                scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
+                mode=self.options['loader_upsampling'])
+
+            x_feat_list.append(asmr_env__var_x)
+
+        # Only add auxiliary_variables if they are called
+        if len(self.options['auxiliary_variables']) > 0:
+
+            aux_feat_list = []
+
+            if 'aux_time' in self.options['auxiliary_variables']:
+                # Get Scene time 
+                scene_id = scene.attrs['scene_id']
+                # Convert Scene time to number data
+                norm_time = get_norm_month(scene_id)
+
+                #
+                time_array =  np.full(scene['nersc_sar_primary'].values.shape,norm_time)
+
+                aux_feat_list.append(time_array,)
+
+            aux_var_x = torch.from_numpy(np.stack(aux_feat_list,axis=0)).unsqueeze(0)
+
+            x_feat_list.append(aux_var_x)
+            
+        x =  torch.cat(x_feat_list,axis=1)       
+        # else:
+        #     x = torch.from_numpy(
+        #         scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
         if not self.test:
             y = {
                 chart: scene[chart].values for chart in self.options['charts']}
@@ -348,12 +380,6 @@ def get_norm_month(file_name):
     match = re.search(pattern, file_name)
 
     first_date = match.group(0)
-
-
-
-
-
-
 
     # parse the date string into a datetime object
     date = datetime.datetime.strptime(first_date, "%Y%m%dT%H%M%S")
