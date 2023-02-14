@@ -1,13 +1,8 @@
 #!/bin/bash 
 set -e
 array=(
-"configs/feature_selection/Ex_1_input_features_setup1.py"
-"configs/feature_selection/Ex_1_input_features_setup2.py"
-"configs/feature_selection/Ex_1_input_features_setup3.py"
-"configs/feature_selection/Ex_1_input_features_setup4.py"
-"configs/feature_selection/Ex_1_input_features_setup5.py"
-"configs/feature_selection/Ex_1_input_features_setup6.py"
-"configs/feature_selection/Ex_1_input_features_setup_all.py"
+"configs/feature_selection/Ex_3_input_features_HH_HV_time.py"
+"configs/feature_selection/Ex_3_input_features_HH_HV.py"
 )
 
 wandb_project=feature_variation
