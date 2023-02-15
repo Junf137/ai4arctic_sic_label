@@ -37,7 +37,9 @@ SCENE_VARIABLES = [
     't2m', 'skt', 'tcwv', 'tclw',
 
     # -- Auxilary Variables -- #
-    'aux_time'
+    'aux_time',
+    'aux_lat',
+    'aux_long'
 ]
 
 # Sea Ice Concentration (SIC) code to class conversion lookup table.
@@ -187,4 +189,16 @@ train_options = {
     'conv_dilation_rate': (1, 1),  # Dilation rate of convolutional kernels.
     'conv_padding': (1, 1),  # Number of padded pixels in convolutional layers.
     'conv_padding_style': 'zeros',  # Style of padding.
+
+
+    # -- Latitude and Longitude Information for Normalization -- #
+    'latitude':{
+        'mean': 69.12526250065734, 
+        'std': 7.03179625261593
+        },
+
+    'longitude':{
+        'mean': -56.38966259295485, 
+        'std': 31.32935694114249
+        }
 }

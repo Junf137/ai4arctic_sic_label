@@ -126,7 +126,37 @@ class AI4ArcticChallengeDataset(Dataset):
                     #
                     time_array =  np.full((self.options['patch_size'],self.options['patch_size']),norm_time)
 
-                    aux_feat_list.append(time_array,)
+                    aux_feat_list.append(time_array)
+
+                if 'aux_lat' in self.options['auxiliary_variables']:
+                    # Get Latitude
+                    lat_array = scene['sar_grid2d_latitude'].values
+
+                    lat_array =  (lat_array - self.options['latitude']['mean'])/self.options['latitude']['std']
+
+                    # Interpolate to size of original scene
+                    inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=scene['nersc_sar_primary'].values.shape,
+                        mode=self.options['loader_upsampling']).numpy()
+                    # Crop to correct patch size
+                    crop_inter_lat_array = inter_lat_array[0,0,row_rand: row_rand + self.options['patch_size'],col_rand: col_rand + self.options['patch_size'] ]
+                    # Append to array
+                    aux_feat_list.append(crop_inter_lat_array)
+                    
+
+                if 'aux_long' in self.options['auxiliary_variables']:
+                    # Get Longuitude
+                    long_array = scene['sar_grid2d_longitude'].values
+
+                    long_array =  (long_array - self.options['longitude']['mean'])/self.options['longitude']['std']
+
+                    # Interpolate to size of original scene
+                    inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=scene['nersc_sar_primary'].values.shape,
+                        mode=self.options['loader_upsampling']).numpy()
+                    # Crop to correct patch size
+                    crop_inter_long_array = inter_long_array[0,0,row_rand: row_rand + self.options['patch_size'],col_rand: col_rand + self.options['patch_size'] ]
+                    # Append to array
+                    aux_feat_list.append(crop_inter_long_array)
+
 
                 aux_np_array = np.stack(aux_feat_list,axis=0)
 
@@ -253,21 +283,24 @@ class AI4ArcticChallengeTestDataset(Dataset):
         x_feat_list.append(sar_var_x)
 
 
+        size = scene['nersc_sar_primary'].values.shape
+
         if len(self.options['amsrenv_variables']) > 0:
             # from icecream import ic
             # print(1, scene['SIC'].values.shape)
             # print(2, scene['nersc_sar_primary'].values.shape)
             asmr_env__var_x = torch.nn.functional.interpolate(input=torch.from_numpy(
                     scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
-                size=scene['nersc_sar_primary'].values.shape,
+                size=size,
                 mode=self.options['loader_upsampling'])
 
             x_feat_list.append(asmr_env__var_x)
 
         # Only add auxiliary_variables if they are called
+
+
         if len(self.options['auxiliary_variables']) > 0:
 
-            aux_feat_list = []
 
             if 'aux_time' in self.options['auxiliary_variables']:
                 # Get Scene time 
@@ -276,14 +309,41 @@ class AI4ArcticChallengeTestDataset(Dataset):
                 norm_time = get_norm_month(scene_id)
 
                 #
-                time_array =  np.full(scene['nersc_sar_primary'].values.shape,norm_time)
+                time_array =  torch.from_numpy(np.full(scene['nersc_sar_primary'].values.shape,norm_time)).view(1,1,size[0],size[1])
 
-                aux_feat_list.append(time_array,)
+                x_feat_list.append(time_array,)
 
-            aux_var_x = torch.from_numpy(np.stack(aux_feat_list,axis=0)).unsqueeze(0)
+            if 'aux_lat' in self.options['auxiliary_variables']:
+                # Get Latitude
+                lat_array = scene['sar_grid2d_latitude'].values
 
-            x_feat_list.append(aux_var_x)
-            
+                lat_array =  (lat_array - self.options['latitude']['mean'])/self.options['latitude']['std']
+
+                
+                # Interpolate to size of original scene
+                inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=size,
+                    mode=self.options['loader_upsampling'])
+
+                # Append to array
+                x_feat_list.append(inter_lat_array)
+                    
+
+            if 'aux_long' in self.options['auxiliary_variables']:
+                # Get Longitude
+                long_array = scene['sar_grid2d_longitude'].values
+
+                long_array =  (long_array - self.options['longitude']['mean'])/self.options['longitude']['std']
+
+                # Interpolate to size of original scene
+                inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=size,
+                    mode=self.options['loader_upsampling'])
+
+                # Append to array
+                x_feat_list.append(inter_long_array)
+
+
+            # x_feat_list.append(aux_var_x)
+
         x =  torch.cat(x_feat_list,axis=1)       
         # else:
         #     x = torch.from_numpy(
