@@ -17,13 +17,14 @@ SCENE_VARIABLES = [
     'nersc_sar_primary',
     'nersc_sar_secondary',
     # -- Auxilary Variables -- #
-    'aux_time'
+    'aux_lat',
+    'aux_long'
 ]
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 50,
-                 'num_workers': 4,  # Number of parallel processes to fetch data.
-                 'num_workers_val': 4,  # Number of parallel processes during validation.
+                 'num_workers': 12,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 12,  # Number of parallel processes during validation.
                 }
 

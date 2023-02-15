@@ -16,6 +16,10 @@ SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
     'nersc_sar_primary',
     'nersc_sar_secondary',
+    # -- Auxilary Variables -- #
+    'aux_time'
+    'aux_lat',
+    'aux_long'
 ]
 
 

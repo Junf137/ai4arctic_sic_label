@@ -1,7 +1,10 @@
 #!/bin/bash 
 set -e
 array=(
-"configs/feature_selection/Ex_3_input_features_HH_HV_time.py"
+"configs/feature_selection/Ex_3_input_features_HH_HV_Position.py"
+"configs/feature_selection/Ex_3_input_features_HH_HV_Time_Position_linear_int.py"
+"configs/feature_selection/Ex_3_input_features_HH_HV_Time_Position.py"
+"configs/feature_selection/Ex_3_input_features_HH_HV_Time.py"
 "configs/feature_selection/Ex_3_input_features_HH_HV.py"
 )
 
