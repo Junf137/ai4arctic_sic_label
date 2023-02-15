@@ -129,7 +129,7 @@ train_options = {
     'path_to_train_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train',
     'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/test',
     # Which validation set is going to be used
-    'val_path': 'datalists/valset1.json',
+    'val_path': 'datalists/valset2.json',
     # Replace with environmment directory path.
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
