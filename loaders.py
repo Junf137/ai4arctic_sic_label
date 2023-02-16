@@ -318,7 +318,9 @@ class AI4ArcticChallengeTestDataset(Dataset):
             masks = (x.squeeze()[0, :, :] ==
                      self.options['train_fill_value']).squeeze()
 
-        return x, y, masks, name
+        original_size = scene['SIC'].values.shape
+
+        return x, y, masks, name, original_size
 
 
 def get_variable_options(train_options: dict):

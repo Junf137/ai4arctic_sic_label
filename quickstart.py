@@ -205,7 +205,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val,
+        for inf_x, inf_y, masks, name, original_size in tqdm(iterable=dataloader_val,
                                               total=len(train_options['validate_list']), colour='green'):
             torch.cuda.empty_cache()
 
