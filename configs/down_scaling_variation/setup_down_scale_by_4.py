@@ -47,5 +47,5 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'num_workers_val': 12,  # Number of parallel processes during validation.
                  'path_to_train_data': '../../dataset/train',
                  'path_to_test_data': '../../dataset/test',
-                 'down_sample_scale': 1,
+                 'down_sample_scale': 4,
                  }
