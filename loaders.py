@@ -262,11 +262,12 @@ class AI4ArcticChallengeTestDataset(Dataset):
             x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
 
         
-        y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
-        y_charts = torch.nn.functional.interpolate(y_charts, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
+
 
 
         if not self.test:
+            y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
+            y_charts = torch.nn.functional.interpolate(y_charts, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
 
             y = {}
 
@@ -318,7 +319,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
             masks = (x.squeeze()[0, :, :] ==
                      self.options['train_fill_value']).squeeze()
 
-        original_size = scene['SIC'].values.shape
+        original_size = scene['nersc_sar_primary'].values.shape
 
         return x, y, masks, name, original_size
 
