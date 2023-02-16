@@ -97,7 +97,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                   + self.options['patch_size'])).to_array().values
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
-                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :] = torch.nn.functional.interpolate(
+                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :,:] = torch.nn.functional.interpolate(
                     input=torch.from_numpy(scene[self.options['amsrenv_variables']].to_array().values[
                         :,
                         int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
