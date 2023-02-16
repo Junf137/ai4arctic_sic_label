@@ -40,5 +40,5 @@ train_options = {'train_variables': SCENE_VARIABLES,
 
                  'patch_size': 256,
                  'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
-                 'down_sample_scale': 2,
+                 'down_sample_scale': 5,
 }
