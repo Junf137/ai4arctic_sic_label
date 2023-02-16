@@ -262,11 +262,20 @@ class AI4ArcticChallengeTestDataset(Dataset):
             x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
 
         
-        scene[self.options['charts']].isel().to_array().values
+        y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
+        y_charts = torch.nn.functional.interpolate(y_charts, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
+
 
         if not self.test:
-            y = {
-                chart: scene[chart].values                      for chart in self.options['charts']}
+
+            y = {}
+
+            for idx, chart in enumerate(self.options['charts']):
+                y[chart] = y_charts[:, idx].squeeze().numpy()
+
+
+            # y = {
+            #     chart: scene[chart].values   for chart in self.options['charts']}
 
         else:
             y = None
@@ -327,16 +336,22 @@ def get_variable_options(train_options: dict):
         Updated with amsrenv options.
         Updated with correct true patch size
     """
+
+
+
+    # Patch size before down sample
+    train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size'] 
+
     train_options['amsrenv_delta'] = 50 / \
         (train_options['pixel_spacing'] // 40)
-    train_options['amsrenv_patch'] = train_options['patch_size'] / \
+    train_options['amsrenv_patch'] = train_options['patch_size_before_down_sample'] / \
         train_options['amsrenv_delta']
     train_options['amsrenv_patch_dec'] = int(
         train_options['amsrenv_patch'] - int(train_options['amsrenv_patch']))
-    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size'] +
+    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size_before_down_sample'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']),
-                                               int(train_options['patch_size'] +
+                                               int(train_options['patch_size_before_down_sample'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']))
     train_options['sar_variables'] = [variable for variable in train_options['train_variables']
@@ -345,8 +360,5 @@ def get_variable_options(train_options: dict):
         (train_options['charts'], train_options['sar_variables']))
     train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables']
                                           if 'sar' not in variable and 'map' not in variable]
-
-    # Patch size before down sample
-    train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size'] 
 
     return train_options

@@ -25,8 +25,8 @@ SCENE_VARIABLES = [
     # 'btemp_89_0h', 'btemp_89_0v',
 
     # -- Environmental variables -- #
-    # 'u10m_rotated', 'v10m_rotated',
-    # 't2m', 'skt', 'tcwv', 'tclw'
+    'u10m_rotated', 'v10m_rotated',
+    't2m', 'skt', 'tcwv', 'tclw'
 
 ]
 
