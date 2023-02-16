@@ -355,7 +355,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         else:
             y = None
 
-        return x, y
+        return x.float(), y
 
     def __getitem__(self, idx):
         """

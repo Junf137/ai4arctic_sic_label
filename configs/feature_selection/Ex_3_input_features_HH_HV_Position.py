@@ -18,7 +18,7 @@ SCENE_VARIABLES = [
     'nersc_sar_secondary',
     # -- Auxilary Variables -- #
     'aux_lat',
-    'aux_long'
+    'aux_long',
 ]
 
 
