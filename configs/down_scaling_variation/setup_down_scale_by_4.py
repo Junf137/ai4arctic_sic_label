@@ -16,10 +16,10 @@ SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
     'nersc_sar_primary',
     'nersc_sar_secondary',
-    # 'sar_incidenceangle',
+    'sar_incidenceangle',
 
     # -- Geographical variables -- #
-    # 'distance_map',
+    'distance_map',
 
     # -- AMSR2 channels -- #
     # 'btemp_6_9h', 'btemp_6_9v',
@@ -40,12 +40,12 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 50,
+                 'epochs': 1,
                  'num_val_scenes': 10,
                  'batch_size': 8,
-                 'num_workers': 12,  # Number of parallel processes to fetch data.
-                 'num_workers_val': 12,  # Number of parallel processes during validation.
-                 'path_to_train_data': '../../dataset/train',
-                 'path_to_test_data': '../../dataset/test',
-                 'down_sample_scale': 4,
+                 'num_workers': 1,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 1,  # Number of parallel processes during validation.
+                 'path_to_train_data': '/home/xinweic/projects/def-dclausi/share/ai4arctic/dataset/train',
+                 'path_to_test_data': '/home/xinweic/projects/def-dclausi/share/ai4arctic/dataset/test',
+                 'down_sample_scale': 5,
                  }

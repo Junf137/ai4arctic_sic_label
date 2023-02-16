@@ -4,10 +4,10 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=64G
-#SBATCH --time=12:00:00
-#SBATCH --output=/home/m32patel/projects/def-dclausi/share/ai4arctic/m32patel/ai4arctic_challenge/compute_canada/output/%j.out
-#SBATCH --account=def-dclausi
-#SBATCH --mail-user=muhammed.computecanada@gmail.com
+#SBATCH --time=40:00:00
+#SBATCH --output=/home/xinweic/projects/def-dclausi/xinweic/ai4arctic_challenge/compute_canada/output/%j.out
+#SBATCH --account=def-ka3scott
+#SBATCH --mail-user=xinwei.chen@uwaterloo.ca
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
@@ -18,13 +18,14 @@ module load python/3.9.6
 
 echo "Loading module done"
 
-source ~/env_ai4arctic/bin/activate
+source ~/ai4arctic/bin/activate
+
 
 
 echo "Activating virtual environment done"
 
 #cd /project/def-dclausi/share/whale/mmwhale/
-cd $HOME/projects/def-dclausi/share/ai4arctic/$USER/ai4arctic_challenge/
+cd /home/xinweic/projects/def-dclausi/xinweic/ai4arctic_challenge/
 
 
 echo "starting training..."
