@@ -255,9 +255,18 @@ class AI4ArcticChallengeTestDataset(Dataset):
         else:
             x = torch.from_numpy(
                 scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
+
+
+        # Downscale if needed
+        if (self.options['down_sample_scale'] != 1):
+            x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
+
+        
+        scene[self.options['charts']].isel().to_array().values
+
         if not self.test:
             y = {
-                chart: scene[chart].values for chart in self.options['charts']}
+                chart: scene[chart].values                      for chart in self.options['charts']}
 
         else:
             y = None
