@@ -143,19 +143,19 @@ class AI4ArcticChallengeDataset(Dataset):
 
 
         # Downscale if needed
-        if (self.options['down_sample_scale'] == 1):
+        if (self.options['down_sample_scale'] != 1):
             x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
 
         # Store charts in y dictionary.
 
-        patches_y = torch.from_numpy(patches[:,:len(self.options['charts'])]).type(torch.long)
+        patches_y = torch.from_numpy(patches[:,:len(self.options['charts'])])
 
-        if (self.options['down_sample_scale'] == 1):
+        if (self.options['down_sample_scale'] != 1):
             patches_y = torch.nn.functional.interpolate(patches_y, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
 
         y = {}
         for idx, chart in enumerate(self.options['charts']):
-            y[chart] = patches_y[:, idx]
+            y[chart] = patches_y[:, idx].type(torch.long)
 
 
 
@@ -174,7 +174,7 @@ class AI4ArcticChallengeDataset(Dataset):
         """
         # Placeholder to fill with data.
         patches = np.zeros((self.options['batch_size'], self.patch_c,
-                            self.options['patch_size'], self.options['patch_size']))
+                            self.options['patch_size_before_down_sample'], self.options['patch_size_before_down_sample']))
         sample_n = 0
 
         # Continue until batch is full.

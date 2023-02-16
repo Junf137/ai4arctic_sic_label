@@ -167,6 +167,6 @@ dataloader_train, dataloader_val = create_dataloaders(train_options)
 #%%
 
 train_features, train_labels = next(iter(dataloader_train))
-val_features, val_labels, masks, name = next(iter(dataloader_val))
+# val_features, val_labels, masks, name = next(iter(dataloader_val))
 
 # %%

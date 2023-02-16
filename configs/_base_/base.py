@@ -124,6 +124,8 @@ train_options = {
     'path_to_train_data': '../dataset/train',
     'path_to_test_data': '../dataset/test',
     # Replace with environmment directory path.
+    'val_path': 'datalists/valset.json',
+    
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
     'epochs': 50,  # Number of epochs before training stop.

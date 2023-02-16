@@ -39,6 +39,6 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'num_workers_val': 1,  # Number of parallel processes during validation.
 
                  'patch_size': 256,
-                 'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2/train',
-                 'down_sample_scale': 1,
+                 'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
+                 'down_sample_scale': 2,
 }
