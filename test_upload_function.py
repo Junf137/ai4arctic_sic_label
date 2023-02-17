@@ -1,4 +1,3 @@
-
 # # AutoICE - test model and prepare upload package
 # This notebook tests the 'best_model', created in the quickstart notebook,
 # with the tests scenes exempt of reference data.
@@ -76,8 +75,9 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
             # Upsample to match the correct size
             if train_options['down_sample_scale'] != 1:
-                output = torch.nn.functional.interpolate(output, size = original_size, mode = 'nearest')
-                output = torch.nn.functional.interpolate(masks, size = original_size, mode = 'nearest')
+                for chart in train_options['charts']:
+                    output[chart] = torch.nn.functional.interpolate(output[chart], size = original_size, mode = 'nearest')
+
 
 
         for chart in train_options['charts']:
