@@ -3,8 +3,8 @@
 #SBATCH --gpus-per-node=v100l:1 # request a GPU
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
-#SBATCH --mem=64G
-#SBATCH --time=00:30:00
+#SBATCH --mem=128G
+#SBATCH --time=100:00:00
 #SBATCH --output=/home/xinweic/projects/def-dclausi/xinweic/ai4arctic_challenge/compute_canada/output/%j.out
 #SBATCH --account=def-ka3scott
 #SBATCH --mail-user=xinwei.chen@uwaterloo.ca
