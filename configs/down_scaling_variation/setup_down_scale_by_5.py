@@ -43,8 +43,8 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 100,
                  'num_val_scenes': 10,
                  'batch_size': 32,
-                 'num_workers': 4,  # Number of parallel processes to fetch data.
-                 'num_workers_val': 4,  # Number of parallel processes during validation.
+                 'num_workers': 12,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 12,  # Number of parallel processes during validation.
                  'path_to_train_data': '/home/xinweic/projects/def-dclausi/share/ai4arctic/dataset/train',
                  'path_to_test_data': '/home/xinweic/projects/def-dclausi/share/ai4arctic/dataset/test',
                  'down_sample_scale': 5,
