@@ -46,6 +46,7 @@ import random
 import os
 import os.path as osp
 import shutil
+from icecream import ic
 
 import numpy as np
 import torch
@@ -59,9 +60,10 @@ from functions import compute_metrics, save_best_model
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
-from unet import UNet  # Convolutional Neural Network model
+from unet import UNet, UNet_sep_dec  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
+
 from test_upload_function import test
 
 # TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
@@ -93,13 +95,13 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    # np.random.seed(0)
+    # # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+    # # np.random.seed(0)
     # train_options['validate_list'] = np.random.choice(np.array(
     #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
 
     # load validation list
-    with open(train_options['path_to_env'] + 'datalists/valset.json') as file:
+    with open(train_options['path_to_env'] + train_options['val_path']) as file:
         train_options['validate_list'] = json.loads(file.read())
     # Convert the original scene names to the preprocessed names.
     train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
@@ -109,7 +111,7 @@ def create_train_and_validation_scene_list(train_options):
     # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
-                                   if scene not in train_options['validate_list']]
+                                if scene not in train_options['validate_list']]
     print('Options initialised')
 
 
@@ -135,10 +137,6 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-def dump_env(dictionary: dict, path: str):
-    with open(path, "w") as f:
-        for k, v in dictionary.items():
-            f.write(f"{k}={v}\n")
 
 
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
@@ -205,7 +203,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val,
+        for inf_x, inf_y, masks, name, original_size in tqdm(iterable=dataloader_val,
                                               total=len(train_options['validate_list']), colour='green'):
             torch.cuda.empty_cache()
 
@@ -275,7 +273,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
 def main():
     args = parse_args()
-    from icecream import ic
     ic(args.config)
     cfg = Config.fromfile(args.config)
     train_options = cfg.train_options
@@ -327,8 +324,11 @@ def main():
     print('GPU setup completed!')
 
     net = UNet(options=train_options).to(device)
-    optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
+    # net = UNet_sep_dec(options=train_options).to(device)
 
+    # optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
+    optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
+    
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
@@ -367,6 +367,7 @@ def main():
         print('Testing...')
         test(net, checkpoint_path, device, cfg)
         print('Testing Complete')
+
 
 
 if __name__ == '__main__':
