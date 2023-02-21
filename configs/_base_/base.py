@@ -124,15 +124,19 @@ train_options = {
     'path_to_train_data': '../dataset/train',
     'path_to_test_data': '../dataset/test',
     # Replace with environmment directory path.
+    'val_path': 'datalists/valset.json',
+    
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
-    'epochs': 50,  # Number of epochs before training stop.
+    'epochs': 100,  # Number of epochs before training stop.
     'epoch_len': 500,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
     'patch_size': 256,
     'batch_size': 8,  # Number of patches for each batch.
     # How to upscale low resolution variables to high resolution.
     'loader_upsampling': 'nearest',
+    # Down Sampling scale (If it is by 2 the image will get downsample by 2)
+    'down_sample_scale': 1,
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
