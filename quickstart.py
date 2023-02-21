@@ -59,7 +59,7 @@ from functions import compute_metrics, save_best_model
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
-from unet import UNet  # Convolutional Neural Network model
+from unet import UNet, UNet_sep_dec  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
 from test_upload_function import test
@@ -316,8 +316,11 @@ def main():
     print('GPU setup completed!')
 
     net = UNet(options=train_options).to(device)
-    optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
+    # net = UNet_sep_dec(options=train_options).to(device)
 
+    # optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
+    optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
+    
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
     # subprocess.run(['export'])

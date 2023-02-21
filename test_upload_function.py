@@ -74,6 +74,11 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
         with torch.no_grad(), torch.cuda.amp.autocast():
             output = net(inf_x)
 
+            masks_int = masks.to(torch.uint8)
+            masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
+            masks = torch.gt(masks_int, 0)
+            
+            # masks = torch.nn.functional.interpolate(masks.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
             # Upsample to match the correct size
             if train_options['down_sample_scale'] != 1:
                 for chart in train_options['charts']:

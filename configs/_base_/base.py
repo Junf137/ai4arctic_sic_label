@@ -128,7 +128,7 @@ train_options = {
     
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
-    'epochs': 50,  # Number of epochs before training stop.
+    'epochs': 100,  # Number of epochs before training stop.
     'epoch_len': 500,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
     'patch_size': 256,
