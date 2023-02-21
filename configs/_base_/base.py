@@ -130,9 +130,7 @@ train_options = {
     'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/test',
     # Which validation set is going to be used
     'val_path': 'datalists/valset2.json',
-    # Replace with environmment directory path.
-    'val_path': 'datalists/valset.json',
-    
+
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
     'epochs': 100,  # Number of epochs before training stop.

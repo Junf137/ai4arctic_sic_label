@@ -128,7 +128,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     norm_time = get_norm_month(scene_id)
 
                     #
-                    time_array =  np.full((self.options['patch_size'],self.options['patch_size']),norm_time)
+                    time_array =  np.full((self.options['patch_size_before_down_sample'],self.options['patch_size_before_down_sample']),norm_time)
 
                     aux_feat_list.append(time_array)
 
@@ -142,7 +142,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=scene['nersc_sar_primary'].values.shape,
                         mode=self.options['loader_upsampling']).numpy()
                     # Crop to correct patch size
-                    crop_inter_lat_array = inter_lat_array[0,0,row_rand: row_rand + self.options['patch_size'],col_rand: col_rand + self.options['patch_size'] ]
+                    crop_inter_lat_array = inter_lat_array[0,0,row_rand: row_rand + self.options['patch_size_before_down_sample'],col_rand: col_rand + self.options['patch_size_before_down_sample'] ]
                     # Append to array
                     aux_feat_list.append(crop_inter_lat_array)
                     
@@ -157,7 +157,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=scene['nersc_sar_primary'].values.shape,
                         mode=self.options['loader_upsampling']).numpy()
                     # Crop to correct patch size
-                    crop_inter_long_array = inter_long_array[0,0,row_rand: row_rand + self.options['patch_size'],col_rand: col_rand + self.options['patch_size'] ]
+                    crop_inter_long_array = inter_long_array[0,0,row_rand: row_rand + self.options['patch_size_before_down_sample'],col_rand: col_rand + self.options['patch_size_before_down_sample'] ]
                     # Append to array
                     aux_feat_list.append(crop_inter_long_array)
 

@@ -26,9 +26,10 @@ SCENE_VARIABLES = [
 train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 1,
                  'epoch_len': 1, 
-                 'num_workers': 12,  # Number of parallel processes to fetch data.
-                 'num_workers_val': 12,  # Number of parallel processes during validation.
+                 'num_workers': 4,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 4,  # Number of parallel processes during validation.
                  'down_sample_scale': 5,
+                 'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
 
                 }
 
