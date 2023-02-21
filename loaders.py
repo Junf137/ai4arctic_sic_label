@@ -13,6 +13,9 @@ __date__ = '2022-10-17'
 
 # -- Built-in modules -- #
 import os
+import datetime
+from dateutil import relativedelta
+import re
 
 # -- Third-party modules -- #
 import numpy as np
@@ -61,9 +64,12 @@ class AI4ArcticChallengeDataset(Dataset):
             patch_height, patch_width). None if empty patch.
         """
         patch = np.zeros((len(self.options['full_variables']) +
-                          len(self.options['amsrenv_variables']),
+                          len(self.options['amsrenv_variables'])+
+                          len(self.options['auxiliary_variables']),
                           self.options['patch_size_before_down_sample'],
                           self.options['patch_size_before_down_sample']))
+
+
 
         # Get random index to crop from.
         row_rand = np.random.randint(
@@ -76,12 +82,10 @@ class AI4ArcticChallengeDataset(Dataset):
         amsrenv_row = row_rand / self.options['amsrenv_delta']
         # Used in determining the location of the crop in between pixels.
         amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))
-        amsrenv_row_index_crop = amsrenv_row_dec * \
-            self.options['amsrenv_delta'] * amsrenv_row_dec
+        amsrenv_row_index_crop = amsrenv_row_dec * self.options['amsrenv_delta'] * amsrenv_row_dec
         amsrenv_col = col_rand / self.options['amsrenv_delta']
         amsrenv_col_dec = int(amsrenv_col - int(amsrenv_col))
-        amsrenv_col_index_crop = amsrenv_col_dec * \
-            self.options['amsrenv_delta'] * amsrenv_col_dec
+        amsrenv_col_index_crop = amsrenv_col_dec * self.options['amsrenv_delta'] * amsrenv_col_dec
 
         # - Discard patches with too many meaningless pixels (optional).
         if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size_before_down_sample'],
@@ -97,7 +101,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                   + self.options['patch_size_before_down_sample'])).to_array().values
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
-                patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
+                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :,:] = torch.nn.functional.interpolate(
                     input=torch.from_numpy(scene[self.options['amsrenv_variables']].to_array().values[
                         :,
                         int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
@@ -112,7 +116,55 @@ class AI4ArcticChallengeDataset(Dataset):
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
                                                                  + self.options['patch_size_before_down_sample']))].numpy()
+            # Only add auxiliary_variables if they are called
+            if len(self.options['auxiliary_variables']) > 0:
 
+                aux_feat_list = []
+
+                if 'aux_time' in self.options['auxiliary_variables']:
+                    # Get Scene time 
+                    scene_id = scene.attrs['scene_id']
+                    # Convert Scene time to number data
+                    norm_time = get_norm_month(scene_id)
+
+                    #
+                    time_array =  np.full((self.options['patch_size_before_down_sample'],self.options['patch_size_before_down_sample']),norm_time)
+
+                    aux_feat_list.append(time_array)
+
+                if 'aux_lat' in self.options['auxiliary_variables']:
+                    # Get Latitude
+                    lat_array = scene['sar_grid2d_latitude'].values
+
+                    lat_array =  (lat_array - self.options['latitude']['mean'])/self.options['latitude']['std']
+
+                    # Interpolate to size of original scene
+                    inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=scene['nersc_sar_primary'].values.shape,
+                        mode=self.options['loader_upsampling']).numpy()
+                    # Crop to correct patch size
+                    crop_inter_lat_array = inter_lat_array[0,0,row_rand: row_rand + self.options['patch_size_before_down_sample'],col_rand: col_rand + self.options['patch_size_before_down_sample'] ]
+                    # Append to array
+                    aux_feat_list.append(crop_inter_lat_array)
+                    
+
+                if 'aux_long' in self.options['auxiliary_variables']:
+                    # Get Longuitude
+                    long_array = scene['sar_grid2d_longitude'].values
+
+                    long_array =  (long_array - self.options['longitude']['mean'])/self.options['longitude']['std']
+
+                    # Interpolate to size of original scene
+                    inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=scene['nersc_sar_primary'].values.shape,
+                        mode=self.options['loader_upsampling']).numpy()
+                    # Crop to correct patch size
+                    crop_inter_long_array = inter_long_array[0,0,row_rand: row_rand + self.options['patch_size_before_down_sample'],col_rand: col_rand + self.options['patch_size_before_down_sample'] ]
+                    # Append to array
+                    aux_feat_list.append(crop_inter_long_array)
+
+
+                aux_np_array = np.stack(aux_feat_list,axis=0)
+
+                patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = aux_np_array
         # In case patch does not contain any valid pixels - return None.
         else:
             patch = None
@@ -189,7 +241,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # - Extract patches
             try:
                 scene_patch = self.random_crop(scene)
-            except Exception:
+            except Exception as e:
                 print(f"Cropping in {self.files[scene_id]} failed.")
                 print(f"Scene size: {scene['SIC'].values.shape} for crop shape: \
                     ({self.options['patch_size']}, {self.options['patch_size']})")
@@ -241,20 +293,80 @@ class AI4ArcticChallengeTestDataset(Dataset):
         y :
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
         """
+
+        x_feat_list = []
+
+        sar_var_x = torch.from_numpy(
+                scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
+
+        x_feat_list.append(sar_var_x)
+
+
+        size = scene['nersc_sar_primary'].values.shape
+
         if len(self.options['amsrenv_variables']) > 0:
             # from icecream import ic
             # print(1, scene['SIC'].values.shape)
             # print(2, scene['nersc_sar_primary'].values.shape)
-            x = torch.cat((torch.from_numpy(scene[self.options['sar_variables']].to_array().values).unsqueeze(0),
-                           torch.nn.functional.interpolate(
-                input=torch.from_numpy(
+            asmr_env__var_x = torch.nn.functional.interpolate(input=torch.from_numpy(
                     scene[self.options['amsrenv_variables']].to_array().values).unsqueeze(0),
-                size=scene['nersc_sar_primary'].values.shape,
-                mode=self.options['loader_upsampling'])),
-                axis=1)
-        else:
-            x = torch.from_numpy(
-                scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
+                size=size,
+                mode=self.options['loader_upsampling'])
+
+            x_feat_list.append(asmr_env__var_x)
+
+        # Only add auxiliary_variables if they are called
+
+
+        if len(self.options['auxiliary_variables']) > 0:
+
+
+            if 'aux_time' in self.options['auxiliary_variables']:
+                # Get Scene time 
+                scene_id = scene.attrs['scene_id']
+                # Convert Scene time to number data
+                norm_time = get_norm_month(scene_id)
+
+                #
+                time_array =  torch.from_numpy(np.full(scene['nersc_sar_primary'].values.shape,norm_time)).view(1,1,size[0],size[1])
+
+                x_feat_list.append(time_array,)
+
+            if 'aux_lat' in self.options['auxiliary_variables']:
+                # Get Latitude
+                lat_array = scene['sar_grid2d_latitude'].values
+
+                lat_array =  (lat_array - self.options['latitude']['mean'])/self.options['latitude']['std']
+
+                
+                # Interpolate to size of original scene
+                inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=size,
+                    mode=self.options['loader_upsampling'])
+
+                # Append to array
+                x_feat_list.append(inter_lat_array)
+                    
+
+            if 'aux_long' in self.options['auxiliary_variables']:
+                # Get Longitude
+                long_array = scene['sar_grid2d_longitude'].values
+
+                long_array =  (long_array - self.options['longitude']['mean'])/self.options['longitude']['std']
+
+                # Interpolate to size of original scene
+                inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size=size,
+                    mode=self.options['loader_upsampling'])
+
+                # Append to array
+                x_feat_list.append(inter_long_array)
+
+
+            # x_feat_list.append(aux_var_x)
+
+        x =  torch.cat(x_feat_list,axis=1)       
+        # else:
+        #     x = torch.from_numpy(
+        #         scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
 
 
         # Downscale if needed
@@ -281,7 +393,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         else:
             y = None
 
-        return x, y
+        return x.float(), y
 
     def __getitem__(self, idx):
         """
@@ -357,11 +469,39 @@ def get_variable_options(train_options: dict):
                                                int(train_options['patch_size_before_down_sample'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']))
-    train_options['sar_variables'] = [variable for variable in train_options['train_variables']
-                                      if 'sar' in variable or 'map' in variable]
-    train_options['full_variables'] = np.hstack(
-        (train_options['charts'], train_options['sar_variables']))
-    train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables']
-                                          if 'sar' not in variable and 'map' not in variable]
+    train_options['sar_variables'] = [variable for variable in train_options['train_variables'] if 'sar' in variable or 'map' in variable]
+    train_options['full_variables'] = np.hstack((train_options['charts'], train_options['sar_variables']))
+    train_options['amsrenv_variables'] = [variable for variable in train_options['train_variables'] if 'sar' not in variable and 'map' not in variable and 'aux' not in variable]
+    train_options['auxiliary_variables'] = [variable for variable in train_options['train_variables'] if 'aux' in variable]
 
     return train_options
+
+
+
+
+def get_norm_month(file_name):
+
+    pattern = re.compile(r'\d{8}T\d{6}')
+
+    # Search for the first match in the string
+    match = re.search(pattern, file_name)
+
+    first_date = match.group(0)
+
+    # parse the date string into a datetime object
+    date = datetime.datetime.strptime(first_date, "%Y%m%dT%H%M%S")
+    
+    # calculate the number of days between January 1st and the given date
+
+    delta = relativedelta.relativedelta(date, datetime.datetime(date.year, 1, 1))
+
+
+
+    # delta = (date - datetime.datetime(date.year, 1, 1)).days
+
+    months = delta.months
+    norm_months =  2*months/11-1
+
+    return norm_months
+
+

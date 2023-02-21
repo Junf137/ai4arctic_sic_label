@@ -34,8 +34,12 @@ SCENE_VARIABLES = [
 
     # -- Environmental variables -- #
     'u10m_rotated', 'v10m_rotated',
-    't2m', 'skt', 'tcwv', 'tclw'
+    't2m', 'skt', 'tcwv', 'tclw',
 
+    # -- Auxilary Variables -- #
+    'aux_time',
+    'aux_lat',
+    'aux_long'
 ]
 
 # Sea Ice Concentration (SIC) code to class conversion lookup table.
@@ -118,14 +122,14 @@ FLOE_LOOKUP = {
 
 train_options = {
     # -- Random Seed -- #
-    'seed': 710,
+    'seed': 390,
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_train_data': '../dataset/train',
     'path_to_test_data': '../dataset/test',
-    # Replace with environmment directory path.
-    'val_path': 'datalists/valset.json',
-    
+    # Which validation set is going to be used
+    'val_path': 'datalists/valset2.json',
+
     'path_to_env': './',
     'lr': 0.0001,  # Optimizer learning rate.
     'epochs': 100,  # Number of epochs before training stop.
@@ -186,4 +190,16 @@ train_options = {
     'conv_dilation_rate': (1, 1),  # Dilation rate of convolutional kernels.
     'conv_padding': (1, 1),  # Number of padded pixels in convolutional layers.
     'conv_padding_style': 'zeros',  # Style of padding.
+
+
+    # -- Latitude and Longitude Information for Normalization -- #
+    'latitude':{
+        'mean': 69.12526250065734, 
+        'std': 7.03179625261593
+        },
+
+    'longitude':{
+        'mean': -56.38966259295485, 
+        'std': 31.32935694114249
+        }
 }
