@@ -35,44 +35,18 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
         device (str): The device to run the inference on
         cfg (Config): mmcv based Config object, Can be considered dict
     """
-    # args = parse_args()
-    # cfg = Config.fromfile(cfg)
-    # # work_dir is determined in this priority: CLI > segment in file > filename
-    # if args.work_dir is not None:
-    #     # update configs according to CLI args if args.work_dir is not None
-    #     cfg.work_dir = args.work_dir
-    # elif cfg.get('work_dir', None) is None:
-    #     # use config filename as default work_dir if cfg.work_dir is None
-    #     cfg.work_dir = osp.join('./work_dir',
-    #                             osp.splitext(osp.basename(cfg))[0])\
-
-    # create work_dir
-    # mkdir_or_exist(osp.abspath(cfg.work_dir))
-
     train_options = cfg.train_options
     train_options = get_variable_options(train_options)
-    # if torch.cuda.is_available():
-    #     print(colour_str('GPU available!', 'green'))
-    #     print('Total number of available devices: ', colour_str(torch.cuda.device_count(), 'orange'))
-    #     device = torch.device(f"cuda:{train_options['gpu_id']}")
-
-    # else:
-    #     print(colour_str('GPU not available.', 'red'))
-    #     device = torch.device('cpu')
-    # ### Load the model and stored parameters
     weights = torch.load(checkpoint)['model_state_dict']
-    weights_2 = {}
+    # weights_2 = {}
 
-    for key, value in weights.items():
-        weights_2[key[7:]] = value
+    # for key, value in weights.items():
+    #     weights_2[key[7:]] = value
 
     # Setup U-Net model, adam optimizer, loss function and dataloader.
     # net = UNet(options=train_options).to(device)
     net.load_state_dict(weights)
     print('Model successfully loaded.')
-
-    # run = wandb.init(id=os.environ['WANDB_RUN_ID'], project='feature_variation',
-    #                  entity='ai4arctic', resume='must', config=train_options)
     experiment_name = osp.splitext(osp.basename(cfg.work_dir))[0]
     artifact = wandb.Artifact(experiment_name, 'dataset')
     table = wandb.Table(columns=['ID', 'Image'])
@@ -91,7 +65,7 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
     os.makedirs(osp.join(cfg.work_dir, 'inference'), exist_ok=True)
     net.eval()
-    for inf_x, _, masks, scene_name in tqdm(iterable=asid_loader,
+    for inf_x, _, masks, scene_name, original_size in tqdm(iterable=asid_loader,
                                             total=len(train_options['test_list']), colour='green', position=0):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
         torch.cuda.empty_cache()
@@ -99,6 +73,18 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
         with torch.no_grad(), torch.cuda.amp.autocast():
             output = net(inf_x)
+
+            masks_int = masks.to(torch.uint8)
+            masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
+            masks = torch.gt(masks_int, 0)
+            
+            # masks = torch.nn.functional.interpolate(masks.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
+            # Upsample to match the correct size
+            if train_options['down_sample_scale'] != 1:
+                for chart in train_options['charts']:
+                    output[chart] = torch.nn.functional.interpolate(output[chart], size = original_size, mode = 'nearest')
+
+
 
         for chart in train_options['charts']:
             output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
@@ -116,16 +102,6 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
                 else:
                     ax.set_title('HV')
                 ax.imshow(img, cmap='gray')
-
-            # ic(idx)
-            # if idx in range(0, 2):
-            #     ax = axs[idx]
-            #     ic(inf_x.shape)
-            #     ic(torch.squeeze(inf_x, dim=0).shape)
-            #     img = torch.squeeze(inf_x, dim=0).cpu().numpy()[idx]
-            #     # [idx].cpu().numpy().astype(float)
-            #     ic(img.shape)
-            #     ax.imshow(img, cmap='gray')
             ax = axs[idx+2]
             output[chart] = output[chart].astype(float)
             output[chart][masks] = np.nan
@@ -143,7 +119,6 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
     artifact.add(table, experiment_name)
     wandb.log_artifact(artifact)
-    # wandb.log({"test_visualization": table})
     # - Save upload_package with zlib compression.
     print('Saving upload_package. Compressing data with zlib.')
     compression = dict(zlib=True, complevel=1)
