@@ -173,30 +173,30 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                 # - Calculate loss.
                 for chart in train_options['charts']:
-                    loss_batch += loss_functions[chart](
+                    train_loss_batch += loss_functions[chart](
                         input=output[chart], target=batch_y[chart].to(device))
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
 
             # - Backward pass.
-            loss_batch.backward()
+            train_loss_batch.backward()
 
             # - Optimizer step
             optimizer.step()
 
             # - Add batch loss.
-            loss_sum += loss_batch.detach().item()
+            train_loss_sum += train_loss_batch.detach().item()
 
             # - Average loss for displaying
-            loss_epoch = torch.true_divide(loss_sum, i + 1).detach().item()
-            print('\rMean training loss: ' + f'{loss_epoch:.3f}', end='\r')
+            train_loss_epoch = torch.true_divide(train_loss_sum, i + 1).detach().item()
+            print('\rMean training loss: ' + f'{train_loss_epoch:.3f}', end='\r')
             # del output, batch_x, batch_y # Free memory.
         # del loss_sum
 
         # -- Validation Loop -- #
         # For printing after the validation loop.
-        loss_batch = loss_batch.detach().item()
+
 
         # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
         outputs_flat = {chart: np.array([]) for chart in train_options['charts']}
@@ -222,6 +222,15 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     outputs_flat[chart], output[chart][~masks[chart]])
                 inf_ys_flat[chart] = np.append(
                     inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
+                val_loss_batch += loss_functions[chart](
+                        input=output[chart], target=batch_y[chart].to(device))
+
+            # - Add batch loss.
+            val_loss_sum += val_loss_batch.detach().item()
+
+            # - Average loss for displaying
+            val_loss_epoch = torch.true_divide(val_loss_sum, i + 1).detach().item()
+
 
         # - Compute the relevant scores.
         print('Computing Metrics on Val dataset')
@@ -238,11 +247,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
 
         print(f"Combined score: {combined_score}%")
-        print(f"Epoch Loss: {loss_epoch:.3f}")
+        print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
+        print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
 
         # Log combine score and epoch loss to wandb
         wandb.log({"Combined score": combined_score,
-                   "Epoch Loss": loss_epoch}, step=epoch)
+                   "Train Epoch Loss": train_loss_epoch,
+                   "Validation Epoch Loss": val_loss_epoch}, step=epoch)
 
         # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
 
@@ -253,7 +264,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             wandb.run.summary["Best Combined Score"] = best_combined_score
             for chart in train_options['charts']:
                 wandb.run.summary[f"{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
-            wandb.run.summary["Epoch Loss"] = loss_epoch
+            wandb.run.summary["Train Epoch Loss"] = train_loss_epoch
 
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
@@ -333,7 +344,8 @@ def main():
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
         # Define the metrics and make them such that they are not added to the summary
-        wandb.define_metric("Epoch Loss", summary="none")
+        wandb.define_metric("Train Epoch Loss", summary="none")
+        wandb.define_metric("Validation Epoch Loss", summary="none")
         wandb.define_metric("Combined score", summary="none")
         wandb.define_metric("SIC r2_metric", summary="none")
         wandb.define_metric("SOD f1_metric", summary="none")
