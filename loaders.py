@@ -62,16 +62,16 @@ class AI4ArcticChallengeDataset(Dataset):
         """
         patch = np.zeros((len(self.options['full_variables']) +
                           len(self.options['amsrenv_variables']),
-                          self.options['patch_size'],
-                          self.options['patch_size']))
+                          self.options['patch_size_before_down_sample'],
+                          self.options['patch_size_before_down_sample']))
 
         # Get random index to crop from.
         row_rand = np.random.randint(
             low=0, high=scene['SIC'].values.shape[0]
-            - self.options['patch_size'])
+            - self.options['patch_size_before_down_sample'])
         col_rand = np.random.randint(
             low=0, high=scene['SIC'].values.shape[1]
-            - self.options['patch_size'])
+            - self.options['patch_size_before_down_sample'])
         # Equivalent in amsr and env variable grid.
         amsrenv_row = row_rand / self.options['amsrenv_delta']
         # Used in determining the location of the crop in between pixels.
@@ -84,17 +84,17 @@ class AI4ArcticChallengeDataset(Dataset):
             self.options['amsrenv_delta'] * amsrenv_col_dec
 
         # - Discard patches with too many meaningless pixels (optional).
-        if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size'],
-                                      col_rand: col_rand + self.options['patch_size']]
+        if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size_before_down_sample'],
+                                      col_rand: col_rand + self.options['patch_size_before_down_sample']]
                   != self.options['class_fill_values']['SIC']) > 1:
 
             # Crop full resolution variables.
             patch[0:len(self.options['full_variables']), :, :] = \
                 scene[self.options['full_variables']].isel(
                 sar_lines=range(row_rand, row_rand +
-                                self.options['patch_size']),
+                                self.options['patch_size_before_down_sample']),
                 sar_samples=range(col_rand, col_rand
-                                  + self.options['patch_size'])).to_array().values
+                                  + self.options['patch_size_before_down_sample'])).to_array().values
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
                 patch[len(self.options['full_variables']):, :, :] = torch.nn.functional.interpolate(
@@ -108,15 +108,15 @@ class AI4ArcticChallengeDataset(Dataset):
                     :,
                     int(np.around(amsrenv_row_index_crop)): int(np.around
                                                                 (amsrenv_row_index_crop
-                                                                 + self.options['patch_size'])),
+                                                                 + self.options['patch_size_before_down_sample'])),
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
-                                                                 + self.options['patch_size']))].numpy()
+                                                                 + self.options['patch_size_before_down_sample']))].numpy()
 
         # In case patch does not contain any valid pixels - return None.
         else:
             patch = None
-
+        
         return patch
 
     def prep_dataset(self, patches):
@@ -135,14 +135,29 @@ class AI4ArcticChallengeDataset(Dataset):
         y : Dict
             Dictionary with 3D torch tensors for each chart; reference data for training data x.
         """
+
+
         # Convert training data to tensor.
         x = torch.from_numpy(
             patches[:, len(self.options['charts']):]).type(torch.float)
 
+
+        # Downscale if needed
+        if (self.options['down_sample_scale'] != 1):
+            x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
+
         # Store charts in y dictionary.
+
+        patches_y = torch.from_numpy(patches[:,:len(self.options['charts'])])
+
+        if (self.options['down_sample_scale'] != 1):
+            patches_y = torch.nn.functional.interpolate(patches_y, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
+
         y = {}
         for idx, chart in enumerate(self.options['charts']):
-            y[chart] = torch.from_numpy(patches[:, idx]).type(torch.long)
+            y[chart] = patches_y[:, idx].type(torch.long)
+
+
 
         return x, y
 
@@ -159,7 +174,7 @@ class AI4ArcticChallengeDataset(Dataset):
         """
         # Placeholder to fill with data.
         patches = np.zeros((self.options['batch_size'], self.patch_c,
-                            self.options['patch_size'], self.options['patch_size']))
+                            self.options['patch_size_before_down_sample'], self.options['patch_size_before_down_sample']))
         sample_n = 0
 
         # Continue until batch is full.
@@ -240,9 +255,28 @@ class AI4ArcticChallengeTestDataset(Dataset):
         else:
             x = torch.from_numpy(
                 scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
+
+
+        # Downscale if needed
+        if (self.options['down_sample_scale'] != 1):
+            x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
+
+        
+
+
+
         if not self.test:
-            y = {
-                chart: scene[chart].values for chart in self.options['charts']}
+            y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
+            y_charts = torch.nn.functional.interpolate(y_charts, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
+
+            y = {}
+
+            for idx, chart in enumerate(self.options['charts']):
+                y[chart] = y_charts[:, idx].squeeze().numpy()
+
+
+            # y = {
+            #     chart: scene[chart].values   for chart in self.options['charts']}
 
         else:
             y = None
@@ -285,7 +319,9 @@ class AI4ArcticChallengeTestDataset(Dataset):
             masks = (x.squeeze()[0, :, :] ==
                      self.options['train_fill_value']).squeeze()
 
-        return x, y, masks, name
+        original_size = scene['nersc_sar_primary'].values.shape
+
+        return x, y, masks, name, original_size
 
 
 def get_variable_options(train_options: dict):
@@ -301,17 +337,24 @@ def get_variable_options(train_options: dict):
     -------
     train_options: dict
         Updated with amsrenv options.
+        Updated with correct true patch size
     """
+
+
+
+    # Patch size before down sample
+    train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size'] 
+
     train_options['amsrenv_delta'] = 50 / \
         (train_options['pixel_spacing'] // 40)
-    train_options['amsrenv_patch'] = train_options['patch_size'] / \
+    train_options['amsrenv_patch'] = train_options['patch_size_before_down_sample'] / \
         train_options['amsrenv_delta']
     train_options['amsrenv_patch_dec'] = int(
         train_options['amsrenv_patch'] - int(train_options['amsrenv_patch']))
-    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size'] +
+    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size_before_down_sample'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']),
-                                               int(train_options['patch_size'] +
+                                               int(train_options['patch_size_before_down_sample'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']))
     train_options['sar_variables'] = [variable for variable in train_options['train_variables']
