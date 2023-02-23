@@ -16,7 +16,8 @@ import os
 import datetime
 from dateutil import relativedelta
 import re
-
+from tqdm import tqdm
+import pickle
 # -- Third-party modules -- #
 import numpy as np
 import torch
@@ -32,6 +33,77 @@ class AI4ArcticChallengeDataset(Dataset):
     def __init__(self, options, files):
         self.options = options
         self.files = files
+
+        # If Downscaling, down sample data and put in on memory
+        if (self.options['down_sample_scale'] == 1):
+            self.downsample = False
+        else:
+            self.downsample = True
+        
+        if self.downsample:
+            self.scenes = []
+            self.amsrs = []
+            self.aux_times = []
+            self.aux_lats = []
+            self.aux_longs = []
+            for file in tqdm(self.files):
+                scene = xr.open_dataset(os.path.join(
+                    self.options['path_to_train_data'], file))
+                
+                temp_scene = scene[self.options['full_variables']].to_array()
+                temp_scene = torch.from_numpy(np.expand_dims(temp_scene,0))
+                temp_scene = torch.nn.functional.interpolate(temp_scene,
+                            size = (temp_scene.size(2)//self.options['down_sample_scale'],
+                                temp_scene.size(3)//self.options['down_sample_scale']),
+                            mode = self.options['loader_upsampling'])
+                temp_scene = torch.squeeze(temp_scene)
+                
+                self.scenes.append(temp_scene)
+                
+                if len(self.options['amsrenv_variables']) > 0:
+                    temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
+                    self.amsrs.append(temp_amsr)
+
+                if len(self.options['auxiliary_variables']) > 0:
+                    if 'aux_time' in self.options['auxiliary_variables']:
+                        # Get Scene time 
+                        scene_id = scene.attrs['scene_id']
+                        # Convert Scene time to number data
+                        norm_time = get_norm_month(scene_id)
+                        time_array =  torch.from_numpy(np.full((self.options['patch_size_before_down_sample'],self.options['patch_size_before_down_sample']),norm_time))
+                        time_array = torch.nn.functional.interpolate(time_array,
+                            size = (temp_scene.size(2)//self.options['down_sample_scale'],
+                                temp_scene.size(3)//self.options['down_sample_scale']),
+                            mode = self.options['loader_upsampling']).numpy()
+                        self.aux_times.append(time_array)
+
+
+                    if 'aux_lat' in self.options['auxiliary_variables']:
+                        # Get Latitude
+                        lat_array = scene['sar_grid2d_latitude'].values
+
+                        lat_array =  (lat_array - self.options['latitude']['mean'])/self.options['latitude']['std']
+
+                        # Interpolate to size of original scene
+                        inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size = (temp_scene.size(2)//self.options['down_sample_scale'],
+                                temp_scene.size(3)//self.options['down_sample_scale']),
+                            mode=self.options['loader_upsampling']).numpy()
+                        self.aux_lats.append(inter_lat_array)
+
+                    if 'aux_long' in self.options['auxiliary_variables']:
+                        # Get Longuitude
+                        long_array = scene['sar_grid2d_longitude'].values
+
+                        long_array =  (long_array - self.options['longitude']['mean'])/self.options['longitude']['std']
+
+                        # Interpolate to size of original scene
+                        inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1,1,lat_array.shape[0],lat_array.shape[1])),size = (temp_scene.size(2)//self.options['down_sample_scale'],
+                                temp_scene.size(3)//self.options['down_sample_scale']),
+                            mode=self.options['loader_upsampling']).numpy()
+                        self.aux_longs.append(inter_long_array)
+
+ 
+            
 
         # Channel numbers in patches, includes reference channel.
         self.patch_c = len(
@@ -171,6 +243,104 @@ class AI4ArcticChallengeDataset(Dataset):
         
         return patch
 
+    def random_crop_downsample(self, idx):
+        """
+        Perform random cropping in scene.
+
+        Parameters
+        ----------
+        idx :
+            Index from self.files to parse 
+
+        Returns
+        -------
+        patch :
+            Numpy array with shape (len(train_variables),
+            patch_height, patch_width). None if empty patch.
+        """
+        patch = np.zeros((len(self.options['full_variables']) +
+                          len(self.options['amsrenv_variables'])+
+                          len(self.options['auxiliary_variables']),
+                          self.options['patch_size'],
+                          self.options['patch_size']))
+
+        
+
+        # Get random index to crop from.
+        row_rand = np.random.randint(
+            low=0, high=self.scenes[idx].size(1)
+            - self.options['patch_size'])
+        col_rand = np.random.randint(
+            low=0, high=self.scenes[idx].size(2)
+            - self.options['patch_size'])
+        # Equivalent in amsr and env variable grid.
+        amsrenv_row = row_rand / self.options['amsrenv_delta']
+        # Used in determining the location of the crop in between pixels.
+        amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))
+        amsrenv_row_index_crop = amsrenv_row_dec * self.options['amsrenv_delta'] * amsrenv_row_dec
+        amsrenv_col = col_rand / self.options['amsrenv_delta']
+        amsrenv_col_dec = int(amsrenv_col - int(amsrenv_col))
+        amsrenv_col_index_crop = amsrenv_col_dec * self.options['amsrenv_delta'] * amsrenv_col_dec
+
+        # - Discard patches with too many meaningless pixels (optional).
+        if np.sum(self.scenes[idx][0, row_rand: row_rand + self.options['patch_size'],
+                                      col_rand: col_rand + self.options['patch_size']].numpy()
+                  != self.options['class_fill_values']['SIC']) > 1:
+
+            # Crop full resolution variables.
+            patch[0:len(self.options['full_variables']), :, :] = \
+                self.scenes[idx][:, row_rand:row_rand + int(self.options['patch_size']),
+                        col_rand:col_rand + int(self.options['patch_size'])].numpy()
+            if len(self.options['amsrenv_variables']) > 0:
+                # Crop and upsample low resolution variables.
+                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :,:] = torch.nn.functional.interpolate(
+                    input=torch.from_numpy(self.amsrs[idx][:,
+                        int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
+                        int(amsrenv_col): int(amsrenv_col + np.ceil(self.options['amsrenv_patch']))]
+                    ).unsqueeze(0),
+                    size=self.options['amsrenv_upsample_shape'],
+                    mode=self.options['loader_upsampling']).squeeze(0)[
+                    :,
+                    int(np.around(amsrenv_row_index_crop)): int(np.around
+                                                                (amsrenv_row_index_crop
+                                                                 + self.options['patch_size'])),
+                    int(np.around(amsrenv_col_index_crop)): int(np.around
+                                                                (amsrenv_col_index_crop
+                                                                 + self.options['patch_size']))].numpy()
+            # Only add auxiliary_variables if they are called
+            if len(self.options['auxiliary_variables']) > 0:
+
+                aux_feat_list = []
+
+                if 'aux_time' in self.options['auxiliary_variables']:
+                    aux_feat_list.append(self.aux_times[idx])
+
+                if 'aux_lat' in self.options['auxiliary_variables']:
+                    # Interpolate to size of original scene
+                    inter_lat_array = self.aux_lats[idx]
+                    crop_inter_lat_array = inter_lat_array[0,0,row_rand: row_rand + self.options['patch_size'],col_rand: col_rand + self.options['patch_size'] ]
+                    # Append to array
+                    aux_feat_list.append(crop_inter_lat_array)
+                    
+
+                if 'aux_long' in self.options['auxiliary_variables']:
+                        # Interpolate to size of original scene
+                    inter_long_array = self.aux_longs[idx]
+                    # Crop to correct patch size
+                    crop_inter_long_array = inter_long_array[0,0,row_rand: row_rand + self.options['patch_size'],col_rand: col_rand + self.options['patch_size'] ]
+                    # Append to array
+                    aux_feat_list.append(crop_inter_long_array)
+
+
+                aux_np_array = np.stack(aux_feat_list,axis=0)
+
+                patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = aux_np_array
+        # In case patch does not contain any valid pixels - return None.
+        else:
+            patch = None
+        
+        return patch
+
     def prep_dataset(self, patches):
         """
         Convert patches from 4D numpy array to 4D torch tensor.
@@ -195,14 +365,14 @@ class AI4ArcticChallengeDataset(Dataset):
 
 
         # Downscale if needed
-        if (self.options['down_sample_scale'] != 1):
+        if self.downsample:
             x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
 
         # Store charts in y dictionary.
 
         patches_y = torch.from_numpy(patches[:,:len(self.options['charts'])])
 
-        if (self.options['down_sample_scale'] != 1):
+        if self.downsample:
             patches_y = torch.nn.functional.interpolate(patches_y, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
 
         y = {}
@@ -225,7 +395,11 @@ class AI4ArcticChallengeDataset(Dataset):
             Dictionary with 3D torch tensors for each chart; reference data for training data x.
         """
         # Placeholder to fill with data.
-        patches = np.zeros((self.options['batch_size'], self.patch_c,
+        if self.downsample:
+            patches = np.zeros((self.options['batch_size'], self.patch_c,
+                            self.options['patch_size'], self.options['patch_size']))
+        else:
+            patches = np.zeros((self.options['batch_size'], self.patch_c,
                             self.options['patch_size_before_down_sample'], self.options['patch_size_before_down_sample']))
         sample_n = 0
 
@@ -235,18 +409,27 @@ class AI4ArcticChallengeDataset(Dataset):
             scene_id = np.random.randint(
                 low=0, high=len(self.files), size=1).item()
 
-            # - Load scene
-            scene = xr.open_dataset(os.path.join(
-                self.options['path_to_train_data'], self.files[scene_id]))
             # - Extract patches
             try:
-                scene_patch = self.random_crop(scene)
+                if self.downsample:
+                    scene_patch = self.random_crop_downsample(scene_id)
+                else:
+                    scene = xr.open_dataset(os.path.join(
+                    self.options['path_to_train_data'], self.files[scene_id]))
+                    scene_patch = self.random_crop(scene)
             except Exception as e:
-                print(f"Cropping in {self.files[scene_id]} failed.")
-                print(f"Scene size: {scene['SIC'].values.shape} for crop shape: \
-                    ({self.options['patch_size']}, {self.options['patch_size']})")
-                print('Skipping scene.')
-                continue
+                if self.downsample:
+                    print(f"Cropping in {self.files[scene_id]} failed.")
+                    print(f"Scene size: {self.scenes[scene_id][0].shape} for crop shape: \
+                        ({self.options['patch_size']}, {self.options['patch_size']})")
+                    print('Skipping scene.')
+                    continue
+                else:
+                    print(f"Cropping in {self.files[scene_id]} failed.")
+                    print(f"Scene size: {scene['SIC'].values.shape} for crop shape: \
+                        ({self.options['patch_size']}, {self.options['patch_size']})")
+                    print('Skipping scene.')
+                    continue
 
             if scene_patch is not None:
                 # -- Stack the scene patches in patches
@@ -254,7 +437,9 @@ class AI4ArcticChallengeDataset(Dataset):
                 sample_n += 1  # Update the index.
 
         # Prepare training arrays
+        
         x, y = self.prep_dataset(patches=patches)
+
 
         return x, y
 
