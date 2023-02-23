@@ -61,22 +61,24 @@ def test(test:bool,net: torch.nn.modules, checkpoint: str, device: str, cfg):
                                         for file in train_options['test_list']]
             # The test data is stored in a separate folder inside the training data.
             upload_package = xr.Dataset()  # To store model outputs.
-            dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options['test_list'], test=True)
+            dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options['test_list'], mode='test')
             asid_loader = torch.utils.data.DataLoader(
                 dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
             print('Setup ready')
         
     else:
-        with open(train_options['path_to_env'] + cfg['val_path']) as file:
+        with open(train_options['path_to_env'] + cfg.train_options['val_path']) as file:
             train_options['test_list'] = json.loads(file.read())
             train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc'
                                         for file in train_options['test_list']]
             # The test data is stored in a separate folder inside the training data.
             upload_package = xr.Dataset()  # To store model outputs.
-            dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options['test_list'], test=True)
+            dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options['test_list'], mode='test_val')
             asid_loader = torch.utils.data.DataLoader(
                 dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
             print('Setup ready')
+
+
 
 
     inference_name =  'inference_test' if test else 'inference_val'
@@ -132,11 +134,14 @@ def test(test:bool,net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
         plt.suptitle(f"Scene: {scene_name}", y=0.65)
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0.5, hspace=-0)
-        fig.savefig(f"{osp.join(cfg.work_dir,'inference',scene_name)}.png", format='png', dpi=128, bbox_inches="tight")
+        fig.savefig(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png", format='png', dpi=128, bbox_inches="tight")
         plt.close('all')
         table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png"))
 
-    artifact.add(table, experiment_name)
+    if test:
+        artifact.add(table, experiment_name+'_test')
+    else:
+        artifact.add(table, experiment_name+'_val')
     wandb.log_artifact(artifact)
 
     # TODO: DO not save the nc file for validation run

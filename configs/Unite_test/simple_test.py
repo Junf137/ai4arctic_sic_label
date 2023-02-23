@@ -35,6 +35,8 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 3,
                  'epoch_len': 3,
                  'val_path': 'datalists/test_val.json',
+                 'path_to_train_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train',
+                 'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/test',
                  'batch_size': 8,
                  'num_workers': 1,  # Number of parallel processes to fetch data.
                  'num_workers_val': 1,  # Number of parallel processes during validation.

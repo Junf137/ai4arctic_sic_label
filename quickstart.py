@@ -129,7 +129,7 @@ def create_dataloaders(train_options):
     # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
 
     dataset_val = AI4ArcticChallengeTestDataset(
-        options=train_options, files=train_options['validate_list'])
+        options=train_options, files=train_options['validate_list'],mode='train_val')
 
     dataloader_val = torch.utils.data.DataLoader(
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
@@ -206,7 +206,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for i, (inf_x, inf_y, masks, name) in enumerate(tqdm(iterable=dataloader_val,
+        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val,
                                               total=len(train_options['validate_list']), colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
