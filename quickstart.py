@@ -370,7 +370,8 @@ def main():
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
         print('Training Complete')
         print('Testing...')
-        test(net, checkpoint_path, device, cfg)
+        test(False,net, checkpoint_path, device, cfg)
+        test(True,net, checkpoint_path, device, cfg)
         print('Testing Complete')
 
 
