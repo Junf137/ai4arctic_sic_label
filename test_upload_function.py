@@ -26,7 +26,7 @@ from loaders import AI4ArcticChallengeTestDataset, get_variable_options
 import wandb
 
 
-def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
+def test(test:bool,net: torch.nn.modules, checkpoint: str, device: str, cfg):
     """_summary_
 
     Args:
@@ -52,6 +52,8 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
     table = wandb.Table(columns=['ID', 'Image'])
 
     # ### Prepare the scene list, dataset and dataloaders
+
+    # TODO: change the path that is using depending if test true or false
     with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
         train_options['test_list'] = json.loads(file.read())
         train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc'
@@ -63,6 +65,7 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
             dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
         print('Setup ready')
 
+    # TODO: Change the inference 
     os.makedirs(osp.join(cfg.work_dir, 'inference'), exist_ok=True)
     net.eval()
     for inf_x, _, masks, scene_name, original_size in tqdm(iterable=asid_loader,
