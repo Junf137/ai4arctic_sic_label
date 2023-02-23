@@ -36,7 +36,7 @@ class AI4ArcticChallengeDataset(Dataset):
         # Channel numbers in patches, includes reference channel.
         self.patch_c = len(
             self.options['train_variables']) + len(self.options['charts'])
-
+        
     def __len__(self):
         """
         Provide number of iterations per epoch. Function required by Pytorch
@@ -59,8 +59,11 @@ class AI4ArcticChallengeDataset(Dataset):
 
         Returns
         -------
-        patch :
-            Numpy array with shape (len(train_variables),
+        x_patch :
+            torch array with shape (len(train_variables),
+            patch_height, patch_width). None if empty patch.
+        y_patch :
+            torch array with shape (len(charts),
             patch_height, patch_width). None if empty patch.
         """
         patch = np.zeros((len(self.options['full_variables']) +
@@ -165,20 +168,43 @@ class AI4ArcticChallengeDataset(Dataset):
                 aux_np_array = np.stack(aux_feat_list,axis=0)
 
                 patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = aux_np_array
+
+            # Separate in to x (train variables) and y (targets) and downscale if needed
+
+            x = torch.from_numpy(
+                patch[ len(self.options['charts']):,:]).type(torch.float).unsqueeze(0)
+
+            if (self.options['down_sample_scale'] != 1):
+                x_patch = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_downsampling'])
+
+            
+            y = torch.from_numpy(patch[:len(self.options['charts']),:,:]).unsqueeze(0)
+
+          
+            if (self.options['down_sample_scale'] != 1):
+                y_patch = torch.nn.functional.interpolate(y, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
+
+
+
         # In case patch does not contain any valid pixels - return None.
         else:
-            patch = None
+            x_patch = None
+            y_patch = None
         
-        return patch
 
-    def prep_dataset(self, patches):
+
+        return x_patch,y_patch
+
+    def prep_dataset(self, x_patches,y_patches):
         """
         Convert patches from 4D numpy array to 4D torch tensor.
 
         Parameters
         ----------
-        patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W].
+        x_patches : ndarray
+            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the trainable variables.
+        y_patches : ndarray
+            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] contrainng only the targets.
 
         Returns
         -------
@@ -189,25 +215,15 @@ class AI4ArcticChallengeDataset(Dataset):
         """
 
 
-        # Convert training data to tensor.
-        x = torch.from_numpy(
-            patches[:, len(self.options['charts']):]).type(torch.float)
+        # Convert training data to tensor float.
+        x = x_patches.type(torch.float)
 
-
-        # Downscale if needed
-        if (self.options['down_sample_scale'] != 1):
-            x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
 
         # Store charts in y dictionary.
 
-        patches_y = torch.from_numpy(patches[:,:len(self.options['charts'])])
-
-        if (self.options['down_sample_scale'] != 1):
-            patches_y = torch.nn.functional.interpolate(patches_y, scale_factor = 1/self.options['down_sample_scale'], mode = 'nearest')
-
         y = {}
         for idx, chart in enumerate(self.options['charts']):
-            y[chart] = patches_y[:, idx].type(torch.long)
+            y[chart] = y_patches[:, idx].type(torch.long)
 
 
 
@@ -225,8 +241,12 @@ class AI4ArcticChallengeDataset(Dataset):
             Dictionary with 3D torch tensors for each chart; reference data for training data x.
         """
         # Placeholder to fill with data.
-        patches = np.zeros((self.options['batch_size'], self.patch_c,
-                            self.options['patch_size_before_down_sample'], self.options['patch_size_before_down_sample']))
+
+
+        x_patches = torch.zeros((self.options['batch_size'], len(self.options['train_variables']),
+                            self.options['patch_size'], self.options['patch_size']))
+        y_patches = torch.zeros((self.options['batch_size'], len(self.options['charts']),
+                            self.options['patch_size'], self.options['patch_size']))
         sample_n = 0
 
         # Continue until batch is full.
@@ -239,8 +259,9 @@ class AI4ArcticChallengeDataset(Dataset):
             scene = xr.open_dataset(os.path.join(
                 self.options['path_to_train_data'], self.files[scene_id]))
             # - Extract patches
+            # TODO: change to use x and y instead of patches
             try:
-                scene_patch = self.random_crop(scene)
+                x_patch, y_patch = self.random_crop(scene)
             except Exception as e:
                 print(f"Cropping in {self.files[scene_id]} failed.")
                 print(f"Scene size: {scene['SIC'].values.shape} for crop shape: \
@@ -248,13 +269,14 @@ class AI4ArcticChallengeDataset(Dataset):
                 print('Skipping scene.')
                 continue
 
-            if scene_patch is not None:
+            if x_patch is not None:
                 # -- Stack the scene patches in patches
-                patches[sample_n, :, :, :] = scene_patch
+                x_patches[sample_n, :, :, :] = x_patch
+                y_patches[sample_n, :, :, :] = y_patch
                 sample_n += 1  # Update the index.
 
         # Prepare training arrays
-        x, y = self.prep_dataset(patches=patches)
+        x, y = self.prep_dataset(x_patches,y_patches)
 
         return x, y
 
@@ -371,7 +393,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
         # Downscale if needed
         if (self.options['down_sample_scale'] != 1):
-            x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_upsampling'])
+            x = torch.nn.functional.interpolate(x, scale_factor = 1/self.options['down_sample_scale'], mode = self.options['loader_downsampling'])
 
         
 
