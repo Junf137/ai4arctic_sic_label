@@ -139,6 +139,8 @@ train_options = {
     'batch_size': 8,  # Number of patches for each batch.
     # How to upscale low resolution variables to high resolution.
     'loader_upsampling': 'nearest',
+    # How to down scale low resolution variables to low resolution.
+    'loader_downsampling': 'nearest',
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
 
