@@ -150,18 +150,21 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
     loss_functions = {chart: torch.nn.CrossEntropyLoss(ignore_index=train_options['class_fill_values'][chart])
                       for chart in train_options['charts']}
+
+
     print('Training...')
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(train_options['epochs'])):
         # gc.collect()  # Collect garbage to free memory.
-        loss_sum = torch.tensor([0.])  # To sum the batch losses during the epoch.
+        train_loss_sum = torch.tensor([0.])  # To sum the training batch losses during the epoch.
+        val_loss_sum = torch.tensor([0.])  # To sum the validation batch losses during the epoch.
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
-                                                    colour='red')):
+        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
-            loss_batch = 0  # Reset from previous batch.
+            train_loss_batch = 0  # Reset from previous batch.
+       
 
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
@@ -170,7 +173,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             with torch.cuda.amp.autocast():
                 # - Forward pass.
                 output = net(batch_x)
-
+                # breakpoint()
                 # - Calculate loss.
                 for chart in train_options['charts']:
                     train_loss_batch += loss_functions[chart](
@@ -205,15 +208,19 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for inf_x, inf_y, masks, name in tqdm(iterable=dataloader_val,
-                                              total=len(train_options['validate_list']), colour='green'):
+        for i, (inf_x, inf_y, masks, name) in enumerate(tqdm(iterable=dataloader_val,
+                                              total=len(train_options['validate_list']), colour='green')):
             torch.cuda.empty_cache()
-
+            # Reset from previous batch.
+            val_loss_batch = 0
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.cuda.amp.autocast():
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
-
+                for chart in train_options['charts']:
+                    val_loss_batch += loss_functions[chart](input=output[chart], target=inf_y[chart].unsqueeze(0).long().to(device))
+ 
+       
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
                 output[chart] = torch.argmax(
@@ -222,8 +229,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     outputs_flat[chart], output[chart][~masks[chart]])
                 inf_ys_flat[chart] = np.append(
                     inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
-                val_loss_batch += loss_functions[chart](
-                        input=output[chart], target=batch_y[chart].to(device))
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()

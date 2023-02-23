@@ -33,6 +33,7 @@ echo "starting training..."
 # config_basename=$(basename $config .py) 
 
 python quickstart.py $1 --wandb-project=$2
+python quickstart.py configs/down_scaling_variation/test_validation_loss.py --wandb-project=input_downsampling
 
 # # the above python script will generate a .env at the workdir/config-name/.env
 # env=./work_dir/$config_basename/.env
