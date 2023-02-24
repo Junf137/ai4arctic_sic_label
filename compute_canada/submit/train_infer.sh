@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --nodes 1
-#SBATCH --gpus-per-node=v100l:1 # request a GPU
+#SBATCH --gpus-per-node=a100:1 # request a GPU
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=128G
-#SBATCH --time=100:00:00
-#SBATCH --output=/home/xinweic/projects/def-dclausi/xinweic/ai4arctic_challenge/compute_canada/output/%j.out
+#SBATCH --time=70:00:00
+#SBATCH --output=/home/xinweic/projects/def-dclausi/AI4arctic/xinweic/ai4arctic_challenge/compute_canada/output/%j.out
 #SBATCH --account=def-ka3scott
 #SBATCH --mail-user=xinwei.chen@uwaterloo.ca
 #SBATCH --mail-type=BEGIN
@@ -25,13 +25,15 @@ source ~/ai4arctic/bin/activate
 echo "Activating virtual environment done"
 
 #cd /project/def-dclausi/share/whale/mmwhale/
-cd /home/xinweic/projects/def-dclausi/xinweic/ai4arctic_challenge/
+cd /home/xinweic/projects/def-dclausi/AI4arctic/xinweic/ai4arctic_challenge/
 
 
 echo "starting training..."
 # config=$1 
 # # get the basename for the config file, basename is an inbuilt shell command
 # config_basename=$(basename $config .py) 
+
+wandb offline
 
 python quickstart.py $1 --wandb-project=$2
 
