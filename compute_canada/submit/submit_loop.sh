@@ -2,8 +2,10 @@
 set -e
 array=(
 
-"configs/down_scaling_variation/setup_down_scale_by_5_time.py"
-"configs/down_scaling_variation/setup_down_scale_by_10.py"  
+# "configs/down_scaling_variation/setup_down_scale_by_18.py"
+# "configs/down_scaling_variation/setup_down_scale_by_18_time.py"
+"configs/down_scaling_variation/setup_down_scale_by_10_location.py"
+# "configs/down_scaling_variation/setup_down_scale_by_18_time_location.py"
 # "configs/patch_variation/768.py"
 # "configs/patch_variation/512.py"
 # "configs/patch_variation/256.py"
