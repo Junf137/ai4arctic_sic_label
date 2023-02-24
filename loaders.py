@@ -46,7 +46,7 @@ class AI4ArcticChallengeDataset(Dataset):
             self.aux_times = []
             self.aux_lats = []
             self.aux_longs = []
-            self.files = self.files[:30]
+            # self.files = self.files[:30]
             for file in tqdm(self.files):
                 scene = xr.open_dataset(os.path.join(
                     self.options['path_to_train_data'], file))
