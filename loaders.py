@@ -46,7 +46,7 @@ class AI4ArcticChallengeDataset(Dataset):
             self.aux_times = []
             self.aux_lats = []
             self.aux_longs = []
-            # self.files = self.files[:30]
+            self.files = self.files[:30]
             for file in tqdm(self.files):
                 scene = xr.open_dataset(os.path.join(
                     self.options['path_to_train_data'], file))
@@ -350,18 +350,22 @@ class AI4ArcticChallengeDataset(Dataset):
 
                 if height_pad > 0 or width_pad > 0:
                     amsrenv = torch.nn.functional.pad(amsrenv, (0, width_pad, 0, height_pad), mode='constant', value=0)
-
-                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :, :] = torch.nn.functional.interpolate(
+                amsrenv = torch.nn.functional.interpolate(
                     input=amsrenv,
                     size=self.options['amsrenv_upsample_shape'],
                     mode=self.options['loader_upsampling']).squeeze(0)[
                     :,
                     int(np.around(amsrenv_row_index_crop)): int(np.around
                                                                 (amsrenv_row_index_crop
-                                                                 + self.options['patch_size'])),
+                                                                 + self.options['patch_size_before_down_sample'])),
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
-                                                                 + self.options['patch_size']))].numpy()
+                                                                 + self.options['patch_size_before_down_sample']))]
+                amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0), 
+                                                          size=(self.options['patch_size'], self.options['patch_size']),
+                                                          mode=self.options['loader_downsampling'])
+                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
+                
             # Only add auxiliary_variables if they are called
             if len(self.options['auxiliary_variables']) > 0:
 
