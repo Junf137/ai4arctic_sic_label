@@ -60,15 +60,11 @@ from functions import compute_metrics, save_best_model
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
-from unet import UNet, UNet_sep_dec  # Convolutional Neural Network model
+from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
 
 from test_upload_function import test
-
-# TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
-# TODO: 2) Add wandb support with cfg file structure
-# TODO: 3) Do inference at the end of training and create a ready to upload package in the work_dirs
 
 
 def parse_args():
@@ -111,7 +107,7 @@ def create_train_and_validation_scene_list(train_options):
     # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
-                                if scene not in train_options['validate_list']]
+                                   if scene not in train_options['validate_list']]
     print('Options initialised')
 
 
@@ -129,14 +125,12 @@ def create_dataloaders(train_options):
     # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
 
     dataset_val = AI4ArcticChallengeTestDataset(
-        options=train_options, files=train_options['validate_list'],mode='train_val')
+        options=train_options, files=train_options['validate_list'], mode='train_val')
 
     dataloader_val = torch.utils.data.DataLoader(
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
 
     return dataloader_train, dataloader_val
-
-
 
 
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
@@ -149,7 +143,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     loss_functions = {chart: torch.nn.CrossEntropyLoss(ignore_index=train_options['class_fill_values'][chart])
                       for chart in train_options['charts']}
 
-
     print('Training...')
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(train_options['epochs'])):
@@ -159,10 +152,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],colour='red')):
+        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'], colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             train_loss_batch = 0  # Reset from previous batch.
-       
 
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
@@ -198,7 +190,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         # -- Validation Loop -- #
         # For printing after the validation loop.
 
-
         # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
         outputs_flat = {chart: np.array([]) for chart in train_options['charts']}
         inf_ys_flat = {chart: np.array([]) for chart in train_options['charts']}
@@ -206,8 +197,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val,
-                                              total=len(train_options['validate_list']), colour='green')):
+        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val, total=len(train_options['validate_list']), colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
             val_loss_batch = 0
@@ -216,9 +206,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
                 for chart in train_options['charts']:
-                    val_loss_batch += loss_functions[chart](input=output[chart], target=inf_y[chart].unsqueeze(0).long().to(device))
- 
-       
+                    val_loss_batch += loss_functions[chart](input=output[chart],
+                                                            target=inf_y[chart].unsqueeze(0).long().to(device))
+
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
                 output[chart] = torch.argmax(
@@ -233,7 +223,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Average loss for displaying
             val_loss_epoch = torch.true_divide(val_loss_sum, i + 1).detach().item()
-
 
         # - Compute the relevant scores.
         print('Computing Metrics on Val dataset')
@@ -333,7 +322,7 @@ def main():
 
     # optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
     optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
-    
+
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
@@ -370,10 +359,9 @@ def main():
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
         print('Training Complete')
         print('Testing...')
-        test(False,net, checkpoint_path, device, cfg)
-        test(True,net, checkpoint_path, device, cfg)
+        test(False, net, checkpoint_path, device, cfg)
+        test(True, net, checkpoint_path, device, cfg)
         print('Testing Complete')
-
 
 
 if __name__ == '__main__':
