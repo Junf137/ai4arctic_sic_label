@@ -125,8 +125,8 @@ train_options = {
     'seed': 390,
     # -- Training options -- #
     # Replace with data directory path.
-    'path_to_train_data': '../dataset/train',
-    'path_to_test_data': '../dataset/test',
+    'path_to_train_data': '../../dataset/train',
+    'path_to_test_data': '../../dataset/test',
     # Which validation set is going to be used
     'val_path': 'datalists/valset2.json',
 
