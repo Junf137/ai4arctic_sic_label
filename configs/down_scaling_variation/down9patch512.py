@@ -36,9 +36,9 @@ SCENE_VARIABLES = [
     # 'skt', 
     'tcwv', 'tclw',
     # -- Auxilary Variables -- #
-    'aux_time',
-    'aux_lat',
-    'aux_long',
+    # 'aux_time',
+    # 'aux_lat',
+    # 'aux_long',
 ]
 
 
