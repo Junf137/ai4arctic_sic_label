@@ -71,9 +71,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     temp_scene = torch.nn.functional.pad(
                         temp_scene, (0, width_pad, 0, height_pad), mode='constant', value=0)
 
-                temp_scene = torch.squeeze(temp_scene)
-
-                self.scenes.append(temp_scene)
+                
 
                 if len(self.options['amsrenv_variables']) > 0:
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
@@ -128,6 +126,10 @@ class AI4ArcticChallengeDataset(Dataset):
                                 inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
 
                         self.aux_longs.append(inter_long_array)
+
+                temp_scene = torch.squeeze(temp_scene)
+
+                self.scenes.append(temp_scene)
 
         # Channel numbers in patches, includes reference channel.
         self.patch_c = len(
