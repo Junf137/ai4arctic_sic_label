@@ -315,8 +315,8 @@ def main():
     net = UNet(options=train_options).to(device)
     # net = UNet_sep_dec(options=train_options).to(device)
 
-    # optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
-    optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
+    optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
+    # optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
     
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
