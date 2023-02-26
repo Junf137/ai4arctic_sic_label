@@ -319,11 +319,6 @@ def main():
     net = UNet(options=train_options).to(device)
     # net = UNet_sep_dec(options=train_options).to(device)
     
-
-    # TODO: add config file to select adam or AdamW
-    # TODO: add betas and weight_decay to config
-    # TODO: Add consine anneling learning rate
-
     if train_options['optimizer'] == 'Adam':
         train_options['b1']
         optimizer = torch.optim.Adam(list(net.parameters()), 
@@ -337,11 +332,17 @@ def main():
                     betas=(train_options['b1'], train_options['b2']),
                     weight_decay = train_options['weight_decay'])
     else:
-        pass
+        optimizer = torch.optim.SGD(list(net.parameters()), 
+                    lr=train_options['lr'], 
+                    momentum=train_options['momentum'], 
+                    dampening=train_options['dampening'], 
+                    weight_decay=train_options['weight_decay'], 
+                    nesterov=train_options['nesterov'])
 
-    t_max = 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=0)
-    
+    if train_options['scheduler'] == 'CosineAnnealingLR':
+        T_max = train_options['epochs']*train_options['epoch_len']*train_options['batch_size']
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=train_options['lr_min'])
+        
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
@@ -380,7 +381,6 @@ def main():
         print('Testing...')
         test(net, checkpoint_path, device, cfg)
         print('Testing Complete')
-
 
 
 if __name__ == '__main__':
