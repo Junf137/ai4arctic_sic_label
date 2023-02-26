@@ -130,12 +130,12 @@ class AI4ArcticChallengeDataset(Dataset):
                             inter_long_array = torch.nn.functional.pad(
                                 inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
                         temp_aux.append(inter_long_array)
-                      
+                    self.aux.append(np.concatenate(temp_aux, 1))  
 
                 temp_scene = torch.squeeze(temp_scene)
 
                 self.scenes.append(temp_scene)
-                self.aux.append(np.concatenate(temp_aux, 1))
+                
 
 
         # Channel numbers in patches, includes reference channel.
