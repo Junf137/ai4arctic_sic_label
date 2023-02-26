@@ -36,6 +36,7 @@ echo "starting training..."
 
 
 python quickstart.py $1 --wandb-project=$2
+python quickstart.py configs/Unite_test/simple_test.py --wandb-project=testing
 
 
 # # the above python script will generate a .env at the workdir/config-name/.env

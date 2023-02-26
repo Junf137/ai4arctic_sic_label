@@ -37,6 +37,15 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'val_path': 'datalists/test_val.json',
                  'path_to_train_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train',
                  'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/test',
+                 'optimizer': {
+                    'type': 'Adam',
+                    'lr': 0.0001,  # Optimizer learning rate.
+                    'lr_min': 0.0,  # Optimizer learning rate.
+                    'b1': 0.9, 
+                    'b2': 0.999,
+                    'weight_decay': 0.0
+                },
+                 'scheduler': None,
                  'batch_size': 8,
                  'num_workers': 1,  # Number of parallel processes to fetch data.
                  'num_workers_val': 1,  # Number of parallel processes during validation.
