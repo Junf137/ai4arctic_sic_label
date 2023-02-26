@@ -43,9 +43,7 @@ class AI4ArcticChallengeDataset(Dataset):
         if self.downsample:
             self.scenes = []
             self.amsrs = []
-            self.aux_times = []
-            self.aux_lats = []
-            self.aux_longs = []
+            self.aux = []
             # self.files = self.files[:30]
             for file in tqdm(self.files):
                 scene = xr.open_dataset(os.path.join(
@@ -57,6 +55,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                                              size=(temp_scene.size(2)//self.options['down_sample_scale'],
                                                                    temp_scene.size(3)//self.options['down_sample_scale']),
                                                              mode=self.options['loader_upsampling'])
+
                 if temp_scene.size(2) < self.options['patch_size']:
                     height_pad = self.options['patch_size'] - temp_scene.size(2) + 1
                 else:
@@ -71,15 +70,14 @@ class AI4ArcticChallengeDataset(Dataset):
                     temp_scene = torch.nn.functional.pad(
                         temp_scene, (0, width_pad, 0, height_pad), mode='constant', value=0)
 
-                temp_scene = torch.squeeze(temp_scene)
-
-                self.scenes.append(temp_scene)
+                
 
                 if len(self.options['amsrenv_variables']) > 0:
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
                     self.amsrs.append(temp_amsr)
 
                 if len(self.options['auxiliary_variables']) > 0:
+                    temp_aux = []
                     if 'aux_time' in self.options['auxiliary_variables']:
                         # Get Scene time
                         scene_id = scene.attrs['scene_id']
@@ -87,14 +85,17 @@ class AI4ArcticChallengeDataset(Dataset):
                         norm_time = get_norm_month(scene_id)
                         time_array = torch.from_numpy(
                             np.full((self.options['patch_size_before_down_sample'], self.options['patch_size_before_down_sample']), norm_time))
-                        time_array = torch.nn.functional.interpolate(time_array,
-                                                                     size=(temp_scene.size(2)//self.options['down_sample_scale'],
-                                                                           temp_scene.size(3)//self.options['down_sample_scale']),
+
+                        time_array = torch.nn.functional.interpolate(time_array.unsqueeze(0).unsqueeze(0),
+                                                                     size=(temp_scene.size(2),
+                                                                           temp_scene.size(3)),
                                                                      mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             time_array = torch.nn.functional.pad(
                                 time_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
-                        self.aux_times.append(time_array)
+                            
+                        temp_aux.append(time_array)
+                     
 
                     if 'aux_lat' in self.options['auxiliary_variables']:
                         # Get Latitude
@@ -104,13 +105,15 @@ class AI4ArcticChallengeDataset(Dataset):
 
                         # Interpolate to size of original scene
                         inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                                                                          size=(temp_scene.size(2)//self.options['down_sample_scale'],
-                                                                                temp_scene.size(3)//self.options['down_sample_scale']),
+                                                                          size=(temp_scene.size(2),
+                                                                                temp_scene.size(3)),
                                                                           mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             inter_lat_array = torch.nn.functional.pad(
                                 inter_lat_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
-                        self.aux_lats.append(inter_lat_array)
+
+                        temp_aux.append(inter_lat_array)
+                    
 
                     if 'aux_long' in self.options['auxiliary_variables']:
                         # Get Longuitude
@@ -120,14 +123,20 @@ class AI4ArcticChallengeDataset(Dataset):
 
                         # Interpolate to size of original scene
                         inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                                                                           size=(temp_scene.size(2)//self.options['down_sample_scale'],
-                                                                                 temp_scene.size(3)//self.options['down_sample_scale']),
+                                                                           size=(temp_scene.size(2),
+                                                                                 temp_scene.size(3)),
                                                                            mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             inter_long_array = torch.nn.functional.pad(
                                 inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
+                        temp_aux.append(inter_long_array)
+                      
 
-                        self.aux_longs.append(inter_long_array)
+                temp_scene = torch.squeeze(temp_scene)
+
+                self.scenes.append(temp_scene)
+                self.aux.append(np.concatenate(temp_aux, 1))
+
 
         # Channel numbers in patches, includes reference channel.
         self.patch_c = len(
@@ -368,32 +377,8 @@ class AI4ArcticChallengeDataset(Dataset):
                 
             # Only add auxiliary_variables if they are called
             if len(self.options['auxiliary_variables']) > 0:
-
-                aux_feat_list = []
-
-                if 'aux_time' in self.options['auxiliary_variables']:
-                    aux_feat_list.append(self.aux_times[idx])
-
-                if 'aux_lat' in self.options['auxiliary_variables']:
-                    # Interpolate to size of original scene
-                    inter_lat_array = self.aux_lats[idx]
-                    crop_inter_lat_array = inter_lat_array[0, 0, row_rand: row_rand +
-                                                           self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
-                    # Append to array
-                    aux_feat_list.append(crop_inter_lat_array)
-
-                if 'aux_long' in self.options['auxiliary_variables']:
-                    # Interpolate to size of original scene
-                    inter_long_array = self.aux_longs[idx]
-                    # Crop to correct patch size
-                    crop_inter_long_array = inter_long_array[0, 0, row_rand: row_rand +
+                patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = self.aux[idx][0, :, row_rand: row_rand +
                                                              self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
-                    # Append to array
-                    aux_feat_list.append(crop_inter_long_array)
-
-                aux_np_array = np.stack(aux_feat_list, axis=0)
-
-                patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = aux_np_array
 
             x_patch = torch.from_numpy(
                 patch[len(self.options['charts']):, :]).type(torch.float).unsqueeze(0)
@@ -460,7 +445,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # - Open memory location of scene. Uses 'Lazy Loading'.
             scene_id = np.random.randint(
                 low=0, high=len(self.files), size=1).item()
-
+            
             # - Extract patches
             # TODO: change to use x and y instead of patches
             try:

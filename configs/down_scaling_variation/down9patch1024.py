@@ -34,17 +34,21 @@ SCENE_VARIABLES = [
     'u10m_rotated', 'v10m_rotated',
     't2m',
     # 'skt', 
-    'tcwv', 'tclw'
-
+    'tcwv', 'tclw',
+    # -- Auxilary Variables -- #
+    # 'aux_time',
+    # 'aux_lat',
+    # 'aux_long',
 ]
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 100,
                  'num_val_scenes': 10,
-                 'batch_size': 32,
+                 'batch_size': 8,
                  'num_workers': 12,  # Number of parallel processes to fetch data.
                  'num_workers_val': 12,  # Number of parallel processes during validation.
-                 'down_sample_scale': 10,
+                 'down_sample_scale': 4,
+                 'patch_size': 1024,
                   'unet_conv_filters': [32, 32, 64, 64],  # Number of filters in the U-Net.
                  }
