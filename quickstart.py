@@ -326,25 +326,25 @@ def main():
     net = UNet(options=train_options).to(device)
     # net = UNet_sep_dec(options=train_options).to(device)
     
-    if train_options['optimizer'] == 'Adam':
+    if train_options['optimizer']['type'] == 'Adam':
         train_options['b1']
         optimizer = torch.optim.Adam(list(net.parameters()), 
-                    lr=train_options['lr'],
-                    betas=(train_options['b1'], train_options['b2']),
-                    weight_decay = train_options['weight_decay'])
+                    lr=train_options['optimizer']['lr'],
+                    betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                    weight_decay = train_options['optimizer']['weight_decay'])
 
-    elif train_options['optimizer'] == 'AdamW':
+    elif train_options['optimizer']['type']  == 'AdamW':
         optimizer = torch.optim.AdamW(list(net.parameters()), 
-                    lr=train_options['lr'],
-                    betas=(train_options['b1'], train_options['b2']),
-                    weight_decay = train_options['weight_decay'])
+                    lr=train_options['optimizer']['lr'],
+                    betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                    weight_decay = train_options['optimizer']['weight_decay'])
     else:
         optimizer = torch.optim.SGD(list(net.parameters()), 
-                    lr=train_options['lr'], 
-                    momentum=train_options['momentum'], 
-                    dampening=train_options['dampening'], 
-                    weight_decay=train_options['weight_decay'], 
-                    nesterov=train_options['nesterov'])
+                    lr=train_options['optimizer']['lr'], 
+                    momentum=train_options['optimizer']['momentum'], 
+                    dampening=train_options['optimizer']['dampening'], 
+                    weight_decay=train_options['optimizer']['weight_decay'], 
+                    nesterov=train_options['optimizer']['nesterov'])
 
     if train_options['scheduler'] == 'CosineAnnealingLR':
         T_max = train_options['epochs']*train_options['epoch_len']*train_options['batch_size']
