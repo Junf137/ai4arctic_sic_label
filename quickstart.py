@@ -346,8 +346,8 @@ def main():
                     nesterov=train_options['optimizer']['nesterov'])
 
     if train_options['scheduler'] == 'CosineAnnealingLR':
-        T_max = train_options['epochs']*train_options['epoch_len']*train_options['batch_size']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=train_options['lr_min'])
+        T_max = train_options['epochs']*train_options['epoch_len']
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=train_options['optimizer']['lr_min'])
     else:
         scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, verbose=False)
         
