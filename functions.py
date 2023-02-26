@@ -185,7 +185,7 @@ def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
     torch.save(obj={'model_state_dict': net.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'epoch': epoch,
-                    'train_options': train_options  # TODO replace with config file later
+                    'train_options': train_options
                     },
                f=os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth'))
     print(f"model saved successfully at {os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')}")

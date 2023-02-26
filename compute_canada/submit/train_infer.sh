@@ -4,7 +4,7 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=128G
-#SBATCH --time=70:00:00
+#SBATCH --time=30:00:00
 #SBATCH --output=/home/xinweic/projects/def-dclausi/AI4arctic/xinweic/ai4arctic_challenge/compute_canada/output/%j.out
 #SBATCH --account=def-ka3scott
 #SBATCH --mail-user=xinwei.chen@uwaterloo.ca
@@ -33,9 +33,10 @@ echo "starting training..."
 # # get the basename for the config file, basename is an inbuilt shell command
 # config_basename=$(basename $config .py) 
 
-wandb offline
+
 
 python quickstart.py $1 --wandb-project=$2
+
 
 # # the above python script will generate a .env at the workdir/config-name/.env
 # env=./work_dir/$config_basename/.env

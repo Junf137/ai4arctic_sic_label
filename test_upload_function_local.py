@@ -26,7 +26,7 @@ from loaders import AI4ArcticChallengeTestDataset, get_variable_options
 import wandb
 
 
-def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
+def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
     """_summary_
 
     Args:
@@ -52,39 +52,21 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
     table = wandb.Table(columns=['ID', 'Image'])
 
     # ### Prepare the scene list, dataset and dataloaders
+    with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
+        train_options['test_list'] = json.loads(file.read())
+        train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc'
+                                      for file in train_options['test_list']]
+        # The test data is stored in a separate folder inside the training data.
+        upload_package = xr.Dataset()  # To store model outputs.
+        dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options['test_list'], test=True)
+        asid_loader = torch.utils.data.DataLoader(
+            dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
+        print('Setup ready')
 
-    if test:
-        with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
-            train_options['test_list'] = json.loads(file.read())
-            train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc'
-                                          for file in train_options['test_list']]
-            # The test data is stored in a separate folder inside the training data.
-            upload_package = xr.Dataset()  # To store model outputs.
-            dataset = AI4ArcticChallengeTestDataset(
-                options=train_options, files=train_options['test_list'], mode='test')
-            asid_loader = torch.utils.data.DataLoader(
-                dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
-            print('Setup ready')
-
-    else:
-        with open(train_options['path_to_env'] + cfg.train_options['val_path']) as file:
-            train_options['test_list'] = json.loads(file.read())
-            train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc'
-                                          for file in train_options['test_list']]
-            # The test data is stored in a separate folder inside the training data.
-            upload_package = xr.Dataset()  # To store model outputs.
-            dataset = AI4ArcticChallengeTestDataset(
-                options=train_options, files=train_options['test_list'], mode='test_val')
-            asid_loader = torch.utils.data.DataLoader(
-                dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
-            print('Setup ready')
-
-    inference_name = 'inference_test' if test else 'inference_val'
-
-    os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
+    os.makedirs(osp.join(cfg.work_dir, 'inference'), exist_ok=True)
     net.eval()
     for inf_x, _, masks, scene_name, original_size in tqdm(iterable=asid_loader,
-                                                           total=len(train_options['test_list']), colour='green', position=0):
+                                            total=len(train_options['test_list']), colour='green', position=0):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
         torch.cuda.empty_cache()
         inf_x = inf_x.to(device, non_blocking=True)
@@ -93,15 +75,16 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
             output = net(inf_x)
 
             masks_int = masks.to(torch.uint8)
-            masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(
-                0).unsqueeze(0), size=original_size, mode='nearest').squeeze().squeeze()
+            masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
             masks = torch.gt(masks_int, 0)
-
+            
             # masks = torch.nn.functional.interpolate(masks.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
             # Upsample to match the correct size
             if train_options['down_sample_scale'] != 1:
                 for chart in train_options['charts']:
-                    output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode='nearest')
+                    output[chart] = torch.nn.functional.interpolate(output[chart], size = original_size, mode = 'nearest')
+
+
 
         for chart in train_options['charts']:
             output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
@@ -130,25 +113,20 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
         plt.suptitle(f"Scene: {scene_name}", y=0.65)
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0.5, hspace=-0)
-        fig.savefig(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png",
-                    format='png', dpi=128, bbox_inches="tight")
+        fig.savefig(f"{osp.join(cfg.work_dir,'inference',scene_name)}.png", format='png', dpi=128, bbox_inches="tight")
         plt.close('all')
-        table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png"))
+        table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir,'inference',scene_name)}.png"))
 
-    if test:
-        artifact.add(table, experiment_name+'_test')
-    else:
-        artifact.add(table, experiment_name+'_val')
-    wandb.log_artifact(artifact)
-
+    artifact.add(table, experiment_name)
+    # wandb.log_artifact(artifact)
     # - Save upload_package with zlib compression.
-    if test:
-        print('Saving upload_package. Compressing data with zlib.')
-        compression = dict(zlib=True, complevel=1)
-        encoding = {var: compression for var in upload_package.data_vars}
-        upload_package.to_netcdf(osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'),
-                                 # f'{osp.splitext(osp.basename(cfg))[0]}
-                                 mode='w', format='netcdf4', engine='h5netcdf', encoding=encoding)
-        print('Testing completed.')
-        print("File saved succesfully at", osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'))
-        wandb.save(osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'))
+    print('Saving upload_package. Compressing data with zlib.')
+    compression = dict(zlib=True, complevel=1)
+    encoding = {var: compression for var in upload_package.data_vars}
+    upload_package.to_netcdf(osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'),
+                             # f'{osp.splitext(osp.basename(cfg))[0]}
+                             mode='w', format='netcdf4', engine='h5netcdf', encoding=encoding)
+    print('Testing completed.')
+    print("File saved succesfully at", osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'))
+    wandb.init()
+    wandb.save(osp.join(cfg.work_dir, f'{experiment_name}_upload_package.nc'))
