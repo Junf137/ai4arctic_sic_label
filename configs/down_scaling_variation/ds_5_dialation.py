@@ -36,19 +36,20 @@ SCENE_VARIABLES = [
     # 'skt', 
     'tcwv', 'tclw',
     # -- Auxilary Variables -- #
-    # 'aux_time',
-    # 'aux_lat',
-    # 'aux_long',
+    'aux_time',
+    'aux_lat',
+    'aux_long',
 ]
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 100,
                  'num_val_scenes': 10,
-                 'batch_size': 16,
+                 'batch_size': 32,
                  'num_workers': 12,  # Number of parallel processes to fetch data.
                  'num_workers_val': 12,  # Number of parallel processes during validation.
-                 'down_sample_scale': 9,
-                 'patch_size': 512,
-                  'unet_conv_filters': [32, 32, 64, 64],  # Number of filters in the U-Net.
+                 'down_sample_scale': 5,                 
+                  # -- U-Net Options -- #
+                'unet_conv_filters': [32, 32, 64, 64],  # Number of filters in the U-Net.
+                'conv_dilation_rate': (2, 2),  # Dilation rate of convolutional kernels.
                  }

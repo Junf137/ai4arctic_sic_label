@@ -4,7 +4,7 @@ array=(
 
 # "configs/down_scaling_variation/setup_down_scale_by_18.py"
 # "configs/down_scaling_variation/setup_down_scale_by_18_time.py"
-"configs/down_scaling_variation/setup_down_scale_by_8.py"
+"configs/down_scaling_variation/ds_18_dialation.py"
 # "configs/down_scaling_variation/setup_down_scale_by_18_time_location.py"
 # "configs/patch_variation/768.py"
 # "configs/patch_variation/512.py"
