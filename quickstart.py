@@ -327,7 +327,6 @@ def main():
     # net = UNet_sep_dec(options=train_options).to(device)
     
     if train_options['optimizer']['type'] == 'Adam':
-        train_options['b1']
         optimizer = torch.optim.Adam(list(net.parameters()), 
                     lr=train_options['optimizer']['lr'],
                     betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
@@ -349,6 +348,8 @@ def main():
     if train_options['scheduler'] == 'CosineAnnealingLR':
         T_max = train_options['epochs']*train_options['epoch_len']*train_options['batch_size']
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=train_options['lr_min'])
+    else:
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, verbose=False)
         
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
