@@ -139,7 +139,7 @@ def create_dataloaders(train_options):
 
 
 
-def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
+def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,scheduler):
     '''
     Trains the model.
 
@@ -182,6 +182,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Optimizer step
             optimizer.step()
+
+            # - Scheduler step
+            scheduler.step()
 
             # - Add batch loss.
             loss_sum += loss_batch.detach().item()
@@ -240,7 +243,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         # Log combine score and epoch loss to wandb
         wandb.log({"Combined score": combined_score,
-                   "Epoch Loss": loss_epoch}, step=epoch)
+                   "Epoch Loss": loss_epoch,
+                   "Learning Rate": optimizer.param_groups[0]["lr"]}, step=epoch)
 
         # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
 
@@ -314,9 +318,29 @@ def main():
 
     net = UNet(options=train_options).to(device)
     # net = UNet_sep_dec(options=train_options).to(device)
+    
 
-    # optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
-    optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
+    # TODO: add config file to select adam or AdamW
+    # TODO: add betas and weight_decay to config
+    # TODO: Add consine anneling learning rate
+
+    if train_options['optimizer'] == 'Adam':
+        train_options['b1']
+        optimizer = torch.optim.Adam(list(net.parameters()), 
+                    lr=train_options['lr'],
+                    betas=(train_options['b1'], train_options['b2']),
+                    weight_decay = train_options['weight_decay'])
+
+    elif train_options['optimizer'] == 'AdamW':
+        optimizer = torch.optim.AdamW(list(net.parameters()), 
+                    lr=train_options['lr'],
+                    betas=(train_options['b1'], train_options['b2']),
+                    weight_decay = train_options['weight_decay'])
+    else:
+        pass
+
+    t_max = 
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=0)
     
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
@@ -338,6 +362,7 @@ def main():
         wandb.define_metric("SIC r2_metric", summary="none")
         wandb.define_metric("SOD f1_metric", summary="none")
         wandb.define_metric("FLOE f1_metric", summary="none")
+        wandb.define_metric("Learning Rate", summary="none")
 
         create_train_and_validation_scene_list(train_options)
 
@@ -350,7 +375,7 @@ def main():
         #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
         #  This can be done by using 'net = net.cpu()'.
 
-        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,scheduler)
         print('Training Complete')
         print('Testing...')
         test(net, checkpoint_path, device, cfg)
