@@ -195,12 +195,12 @@ train_options = {
 
 
     # -- Latitude and Longitude Information for Normalization -- #
-    'latitude':{
+    'latitude': {
         'mean': 69.12526250065734, 
         'std': 7.03179625261593
         },
 
-    'longitude':{
+    'longitude': {
         'mean': -56.38966259295485, 
         'std': 31.32935694114249
         }
