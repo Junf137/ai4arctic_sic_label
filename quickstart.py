@@ -60,15 +60,11 @@ from functions import compute_metrics, save_best_model
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
-from unet import UNet, UNet_sep_dec  # Convolutional Neural Network model
+from unet import UNet  # Convolutional Neural Network model
 # -- Built-in modules -- #
 from utils import colour_str
 
 from test_upload_function import test
-
-# TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
-# TODO: 2) Add wandb support with cfg file structure
-# TODO: 3) Do inference at the end of training and create a ready to upload package in the work_dirs
 
 
 def parse_args():
@@ -111,7 +107,7 @@ def create_train_and_validation_scene_list(train_options):
     # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
-                                if scene not in train_options['validate_list']]
+                                   if scene not in train_options['validate_list']]
     print('Options initialised')
 
 
@@ -129,14 +125,12 @@ def create_dataloaders(train_options):
     # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
 
     dataset_val = AI4ArcticChallengeTestDataset(
-        options=train_options, files=train_options['validate_list'])
+        options=train_options, files=train_options['validate_list'], mode='train_val')
 
     dataloader_val = torch.utils.data.DataLoader(
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
 
     return dataloader_train, dataloader_val
-
-
 
 
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
@@ -148,18 +142,19 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
     loss_functions = {chart: torch.nn.CrossEntropyLoss(ignore_index=train_options['class_fill_values'][chart])
                       for chart in train_options['charts']}
+
     print('Training...')
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(train_options['epochs'])):
         # gc.collect()  # Collect garbage to free memory.
-        loss_sum = torch.tensor([0.])  # To sum the batch losses during the epoch.
+        train_loss_sum = torch.tensor([0.])  # To sum the training batch losses during the epoch.
+        val_loss_sum = torch.tensor([0.])  # To sum the validation batch losses during the epoch.
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
-                                                    colour='red')):
+        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'], colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
-            loss_batch = 0  # Reset from previous batch.
+            train_loss_batch = 0  # Reset from previous batch.
 
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
@@ -168,33 +163,32 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             with torch.cuda.amp.autocast():
                 # - Forward pass.
                 output = net(batch_x)
-
+                # breakpoint()
                 # - Calculate loss.
                 for chart in train_options['charts']:
-                    loss_batch += loss_functions[chart](
+                    train_loss_batch += loss_functions[chart](
                         input=output[chart], target=batch_y[chart].to(device))
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
 
             # - Backward pass.
-            loss_batch.backward()
+            train_loss_batch.backward()
 
             # - Optimizer step
             optimizer.step()
 
             # - Add batch loss.
-            loss_sum += loss_batch.detach().item()
+            train_loss_sum += train_loss_batch.detach().item()
 
             # - Average loss for displaying
-            loss_epoch = torch.true_divide(loss_sum, i + 1).detach().item()
-            print('\rMean training loss: ' + f'{loss_epoch:.3f}', end='\r')
+            train_loss_epoch = torch.true_divide(train_loss_sum, i + 1).detach().item()
+            print('\rMean training loss: ' + f'{train_loss_epoch:.3f}', end='\r')
             # del output, batch_x, batch_y # Free memory.
         # del loss_sum
 
         # -- Validation Loop -- #
         # For printing after the validation loop.
-        loss_batch = loss_batch.detach().item()
 
         # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
         outputs_flat = {chart: np.array([]) for chart in train_options['charts']}
@@ -203,14 +197,17 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for inf_x, inf_y, masks, name, original_size in tqdm(iterable=dataloader_val,
-                                              total=len(train_options['validate_list']), colour='green'):
+        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val, total=len(train_options['validate_list']), colour='green')):
             torch.cuda.empty_cache()
-
+            # Reset from previous batch.
+            val_loss_batch = 0
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.cuda.amp.autocast():
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
+                for chart in train_options['charts']:
+                    val_loss_batch += loss_functions[chart](input=output[chart],
+                                                            target=inf_y[chart].unsqueeze(0).long().to(device))
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
@@ -220,6 +217,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     outputs_flat[chart], output[chart][~masks[chart]])
                 inf_ys_flat[chart] = np.append(
                     inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
+
+            # - Add batch loss.
+            val_loss_sum += val_loss_batch.detach().item()
+
+            # - Average loss for displaying
+            val_loss_epoch = torch.true_divide(val_loss_sum, i + 1).detach().item()
 
         # - Compute the relevant scores.
         print('Computing Metrics on Val dataset')
@@ -236,11 +239,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
 
         print(f"Combined score: {combined_score}%")
-        print(f"Epoch Loss: {loss_epoch:.3f}")
+        print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
+        print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
 
         # Log combine score and epoch loss to wandb
         wandb.log({"Combined score": combined_score,
-                   "Epoch Loss": loss_epoch}, step=epoch)
+                   "Train Epoch Loss": train_loss_epoch,
+                   "Validation Epoch Loss": val_loss_epoch}, step=epoch)
 
         # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
 
@@ -251,7 +256,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             wandb.run.summary["Best Combined Score"] = best_combined_score
             for chart in train_options['charts']:
                 wandb.run.summary[f"{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
-            wandb.run.summary["Epoch Loss"] = loss_epoch
+            wandb.run.summary["Train Epoch Loss"] = train_loss_epoch
 
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
@@ -333,7 +338,8 @@ def main():
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
         # Define the metrics and make them such that they are not added to the summary
-        wandb.define_metric("Epoch Loss", summary="none")
+        wandb.define_metric("Train Epoch Loss", summary="none")
+        wandb.define_metric("Validation Epoch Loss", summary="none")
         wandb.define_metric("Combined score", summary="none")
         wandb.define_metric("SIC r2_metric", summary="none")
         wandb.define_metric("SOD f1_metric", summary="none")
@@ -353,9 +359,9 @@ def main():
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer)
         print('Training Complete')
         print('Testing...')
-        test(net, checkpoint_path, device, cfg)
+        test(False, net, checkpoint_path, device, cfg)
+        test(True, net, checkpoint_path, device, cfg)
         print('Testing Complete')
-
 
 
 if __name__ == '__main__':

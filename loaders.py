@@ -486,10 +486,13 @@ class AI4ArcticChallengeDataset(Dataset):
 class AI4ArcticChallengeTestDataset(Dataset):
     """Pytorch dataset for loading full scenes from the ASID ready-to-train challenge dataset for inference."""
 
-    def __init__(self, options, files, test=False):
+    def __init__(self, options, files, mode='test'):
         self.options = options
         self.files = files
-        self.test = test
+
+        if mode not in ["train_val", "test_val", "test"]:
+            raise ValueError("String variable must be one of 'train_val', 'test_val', or 'train'")
+        self.mode = mode
 
     def __len__(self):
         """
@@ -592,7 +595,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
             x = torch.nn.functional.interpolate(
                 x, scale_factor=1/self.options['down_sample_scale'], mode=self.options['loader_downsampling'])
 
-        if not self.test:
+        if self.mode != 'test':
             y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
             y_charts = torch.nn.functional.interpolate(
                 y_charts, scale_factor=1/self.options['down_sample_scale'], mode='nearest')
@@ -626,7 +629,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Name of scene.
 
         """
-        if self.test is True:
+        if self.mode == 'test':
             scene = xr.open_dataset(os.path.join(
                 self.options['path_to_test_data'], self.files[idx]))
         else:
@@ -636,7 +639,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         x, y = self.prep_scene(scene)
         name = self.files[idx]
 
-        if not self.test:
+        if self.mode == 'train_val':
             masks = {}
             for chart in self.options['charts']:
                 masks[chart] = (

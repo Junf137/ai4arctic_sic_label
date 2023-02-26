@@ -33,9 +33,10 @@ echo "starting training..."
 # # get the basename for the config file, basename is an inbuilt shell command
 # config_basename=$(basename $config .py) 
 
-wandb offline
+
 
 python quickstart.py $1 --wandb-project=$2
+
 
 # # the above python script will generate a .env at the workdir/config-name/.env
 # env=./work_dir/$config_basename/.env
