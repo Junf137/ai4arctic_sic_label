@@ -131,7 +131,7 @@ train_options = {
     'val_path': 'datalists/valset2.json',
 
     'path_to_env': './',
-    'lr': 0.0001,  # Optimizer learning rate.
+
     'epochs': 100,  # Number of epochs before training stop.
     'epoch_len': 500,  # Number of batches for each epoch.
     # Size of patches sampled. Used for both Width and Height.
@@ -143,6 +143,37 @@ train_options = {
     'loader_downsampling': 'nearest',
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
+
+    'optimizer': {
+        'type': 'Adam',
+        'lr': 0.0001,  # Optimizer learning rate.
+        'lr_min': 0.0,  # Optimizer learning rate.
+        'b1': 0.9, 
+        'b2': 0.999,
+        'weight_decay': 0.0
+    },
+
+    # 'optimizer': {
+    #     'type': 'AdamW',
+    #     'lr': 0.0001,  # Optimizer learning rate.
+    #     'lr_min': 0.0,  # Optimizer learning rate.
+    #     'b1': 0.9, 
+    #     'b2': 0.999,
+    #     'weight_decay': 0.01
+    # },
+
+    # 'optimizer': {
+    #     'type': 'SGD',
+    #     'lr': 0.0001,  # Optimizer learning rate.
+    #     'lr_min': 0.0,  # Optimizer learning rate.
+    #     'momentum': 0, 
+    #     'dampening': 0, 
+    #     'nesterov': False,
+    #     'weight_decay': 0.01
+    # },
+
+    'scheduler': None,
+    # 'scheduler': 'CosineAnnealingLR',
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
