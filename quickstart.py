@@ -326,29 +326,9 @@ def main():
 
     net = UNet(options=train_options).to(device)
     # net = UNet_sep_dec(options=train_options).to(device)
-    if train_options['optimizer']['type'] == 'Adam':
-        optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['optimizer']['lr'],
-                                     betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
-                                     weight_decay=train_options['optimizer']['weight_decay'])
+    optimizer = get_optimizer(train_options, net)
 
-    elif train_options['optimizer']['type'] == 'AdamW':
-        optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['optimizer']['lr'],
-                                      betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
-                                      weight_decay=train_options['optimizer']['weight_decay'])
-    else:
-        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'], 
-                                    momentum=train_options['optimizer']['momentum'], 
-                                    dampening=train_options['optimizer']['dampening'], 
-                                    weight_decay=train_options['optimizer']['weight_decay'], 
-                                    nesterov=train_options['optimizer']['nesterov'])
-
-    if train_options['scheduler'] == 'CosineAnnealingLR':
-        T_max = train_options['epochs']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
-                                                               eta_min=train_options['optimizer']['lr_min'])
-    else:
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, 
-                                                        verbose=False)
+    scheduler = get_scheduler(train_options, optimizer)
         
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
@@ -390,6 +370,36 @@ def main():
         test(False, net, checkpoint_path, device, cfg)
         test(True, net, checkpoint_path, device, cfg)
         print('Testing Complete')
+
+
+def get_scheduler(train_options, optimizer):
+    if train_options['scheduler'] == 'CosineAnnealingLR':
+        T_max = train_options['epochs']*train_options['epoch_len']
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
+                                                               eta_min=train_options['optimizer']['lr_min'])
+    else:
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, 
+                                                        verbose=False)                                                      
+    return scheduler
+
+
+def get_optimizer(train_options, net):
+    if train_options['optimizer']['type'] == 'Adam':
+        optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                     betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                                     weight_decay=train_options['optimizer']['weight_decay'])
+
+    elif train_options['optimizer']['type'] == 'AdamW':
+        optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                      betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                                      weight_decay=train_options['optimizer']['weight_decay'])
+    else:
+        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'], 
+                                    momentum=train_options['optimizer']['momentum'], 
+                                    dampening=train_options['optimizer']['dampening'], 
+                                    weight_decay=train_options['optimizer']['weight_decay'], 
+                                    nesterov=train_options['optimizer']['nesterov'])                           
+    return optimizer
 
 
 if __name__ == '__main__':
