@@ -111,7 +111,7 @@ def create_train_and_validation_scene_list(train_options):
     # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
-                                if scene not in train_options['validate_list']]
+                                   if scene not in train_options['validate_list']]
     print('Options initialised')
 
 
@@ -135,8 +135,6 @@ def create_dataloaders(train_options):
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
 
     return dataloader_train, dataloader_val
-
-
 
 
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer):
@@ -204,7 +202,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         print('Validating...')
         # - Loops though scenes in queue.
         for inf_x, inf_y, masks, name, original_size in tqdm(iterable=dataloader_val,
-                                              total=len(train_options['validate_list']), colour='green'):
+                                                             total=len(train_options['validate_list']), colour='green'):
             torch.cuda.empty_cache()
 
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
@@ -212,25 +210,24 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
 
-            # - Final output layer, and storing of non masked pixels.
-            for chart in train_options['charts']:
-                output[chart] = torch.argmax(
-                    output[chart], dim=1).squeeze().cpu().numpy()
-                outputs_flat[chart] = np.append(
-                    outputs_flat[chart], output[chart][~masks[chart]])
-                inf_ys_flat[chart] = np.append(
-                    inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
+                # - Final output layer, and storing of non masked pixels.
+                for chart in train_options['charts']:
+                    output[chart] = torch.argmax(
+                        output[chart], dim=1).squeeze()
+                    outputs_flat[chart] = np.append(
+                        outputs_flat[chart], output[chart][~masks[chart]])
+                    inf_ys_flat[chart] = np.append(
+                        inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
 
-        # - Compute the relevant scores.
-        print('Computing Metrics on Val dataset')
-        combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
-                                                 metrics=train_options['chart_metric'])
+                    # - Compute the relevant scores.
+                    print('Computing Metrics on Val dataset')
+                    combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
+                                                             metrics=train_options['chart_metric'])
+                    print("")
+                    print(f"Epoch {epoch} score:")
 
-        print("")
-        print(f"Epoch {epoch} score:")
-
-        for chart in train_options['charts']:
-            print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
+                for chart in train_options['charts']:
+                    print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
@@ -317,7 +314,7 @@ def main():
 
     # optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['lr'])
     optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['lr'])
-    
+
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
@@ -355,7 +352,6 @@ def main():
         print('Testing...')
         test(net, checkpoint_path, device, cfg)
         print('Testing Complete')
-
 
 
 if __name__ == '__main__':

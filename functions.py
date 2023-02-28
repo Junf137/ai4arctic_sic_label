@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from sklearn.metrics import r2_score, f1_score
-
+from torchmetrics.functional import r2_score, f1_score
 # -- Proprietary modules -- #
 from utils import ICE_STRINGS, GROUP_NAMES
 
