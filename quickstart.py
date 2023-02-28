@@ -133,8 +133,6 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-
-
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler):
     '''
     Trains the model.
@@ -154,7 +152,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'], colour='red')):
+        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'], 
+                                                    colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             train_loss_batch = 0  # Reset from previous batch.
 
@@ -202,7 +201,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val, total=len(train_options['validate_list']), colour='green')):
+        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val, 
+                                                                            total=len(train_options['validate_list']), 
+                                                                            colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
             val_loss_batch = 0
@@ -325,31 +326,29 @@ def main():
 
     net = UNet(options=train_options).to(device)
     # net = UNet_sep_dec(options=train_options).to(device)
-    
     if train_options['optimizer']['type'] == 'Adam':
-        optimizer = torch.optim.Adam(list(net.parameters()), 
-                    lr=train_options['optimizer']['lr'],
-                    betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
-                    weight_decay = train_options['optimizer']['weight_decay'])
+        optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                     betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                                     weight_decay=train_options['optimizer']['weight_decay'])
 
-    elif train_options['optimizer']['type']  == 'AdamW':
-        optimizer = torch.optim.AdamW(list(net.parameters()), 
-                    lr=train_options['optimizer']['lr'],
-                    betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
-                    weight_decay = train_options['optimizer']['weight_decay'])
+    elif train_options['optimizer']['type'] == 'AdamW':
+        optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                      betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                                      weight_decay=train_options['optimizer']['weight_decay'])
     else:
-        optimizer = torch.optim.SGD(list(net.parameters()), 
-                    lr=train_options['optimizer']['lr'], 
-                    momentum=train_options['optimizer']['momentum'], 
-                    dampening=train_options['optimizer']['dampening'], 
-                    weight_decay=train_options['optimizer']['weight_decay'], 
-                    nesterov=train_options['optimizer']['nesterov'])
+        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'], 
+                                    momentum=train_options['optimizer']['momentum'], 
+                                    dampening=train_options['optimizer']['dampening'], 
+                                    weight_decay=train_options['optimizer']['weight_decay'], 
+                                    nesterov=train_options['optimizer']['nesterov'])
 
     if train_options['scheduler'] == 'CosineAnnealingLR':
         T_max = train_options['epochs']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=train_options['optimizer']['lr_min'])
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
+                                                               eta_min=train_options['optimizer']['lr_min'])
     else:
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, verbose=False)
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, 
+                                                        verbose=False)
         
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
@@ -385,7 +384,7 @@ def main():
         #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
         #  This can be done by using 'net = net.cpu()'.
 
-        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,scheduler)
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler)
         print('Training Complete')
         print('Testing...')
         test(False, net, checkpoint_path, device, cfg)
