@@ -27,9 +27,9 @@ from test_upload_function_local import test
 
 
 
-cfg = Config.fromfile("work_dir/setup_down_scale_by_18_time_location/setup_down_scale_by_18_time_location.py")
-checkpoint_path = "work_dir/setup_down_scale_by_18_time_location/best_model_setup_down_scale_by_18_time_location.pth"
-cfg.work_dir = "work_dir/setup_down_scale_by_18_time_location"
+cfg = Config.fromfile("work_dir/down_scale_by_5_location/down_scale_by_5_location.py")
+checkpoint_path = "work_dir/down_scale_by_5_location/best_model_down_scale_by_5_location.pth"
+cfg.work_dir = "work_dir/down_scale_by_5_location"
 
 train_options = cfg.train_options
 train_options = get_variable_options(train_options)
