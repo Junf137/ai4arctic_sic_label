@@ -127,6 +127,8 @@ train_options = {
     # Replace with data directory path.
     'path_to_train_data': '../../dataset/train',
     'path_to_test_data': '../../dataset/test',
+    # Which train set is going to be used
+    'train_list_path': 'datalists/dataset.json',
     # Which validation set is going to be used
     'val_path': 'datalists/valset2.json',
 

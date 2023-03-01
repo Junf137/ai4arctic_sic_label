@@ -47,7 +47,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # self.files = self.files[:30]
             for file in tqdm(self.files):
                 scene = xr.open_dataset(os.path.join(
-                    self.options['path_to_train_data'], file))
+                    self.options['path_to_train_data'], file), engine='h5netcdf')
 
                 temp_scene = scene[self.options['full_variables']].to_array()
                 temp_scene = torch.from_numpy(np.expand_dims(temp_scene, 0))
@@ -69,8 +69,6 @@ class AI4ArcticChallengeDataset(Dataset):
                 if height_pad > 0 or width_pad > 0:
                     temp_scene = torch.nn.functional.pad(
                         temp_scene, (0, width_pad, 0, height_pad), mode='constant', value=0)
-
-                
 
                 if len(self.options['amsrenv_variables']) > 0:
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
@@ -94,11 +92,8 @@ class AI4ArcticChallengeDataset(Dataset):
                         if height_pad > 0 or width_pad > 0:
                             time_array = torch.nn.functional.pad(
                                 time_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
-                            
-                        temp_aux.append(time_array)
 
-                        
-                     
+                        temp_aux.append(time_array)
 
                     if 'aux_lat' in self.options['auxiliary_variables']:
                         # Get Latitude
@@ -117,8 +112,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
                         temp_aux.append(inter_lat_array)
 
-                    
-
                     if 'aux_long' in self.options['auxiliary_variables']:
                         # Get Longuitude
                         long_array = scene['sar_grid2d_longitude'].values
@@ -135,14 +128,11 @@ class AI4ArcticChallengeDataset(Dataset):
                                 inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
                         temp_aux.append(inter_long_array)
 
-
-                    self.aux.append(np.concatenate(temp_aux, 1))  
+                    self.aux.append(np.concatenate(temp_aux, 1))
 
                 temp_scene = torch.squeeze(temp_scene)
 
                 self.scenes.append(temp_scene)
-                
-
 
         # Channel numbers in patches, includes reference channel.
         self.patch_c = len(
@@ -376,15 +366,16 @@ class AI4ArcticChallengeDataset(Dataset):
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
                                                                  + self.options['patch_size_before_down_sample']))]
-                amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0), 
+                amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0),
                                                           size=(self.options['patch_size'], self.options['patch_size']),
                                                           mode=self.options['loader_downsampling'])
-                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
-                
+                patch[len(self.options['full_variables']):len(self.options['full_variables']) +
+                      len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
+
             # Only add auxiliary_variables if they are called
             if len(self.options['auxiliary_variables']) > 0:
                 patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = self.aux[idx][0, :, row_rand: row_rand +
-                                                             self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
+                                                                                                                           self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
 
             x_patch = torch.from_numpy(
                 patch[len(self.options['charts']):, :]).type(torch.float).unsqueeze(0)
@@ -451,7 +442,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # - Open memory location of scene. Uses 'Lazy Loading'.
             scene_id = np.random.randint(
                 low=0, high=len(self.files), size=1).item()
-            
+
             # - Extract patches
             # TODO: change to use x and y instead of patches
             try:
@@ -459,7 +450,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     x_patch, y_patch = self.random_crop_downsample(scene_id)
                 else:
                     scene = xr.open_dataset(os.path.join(
-                        self.options['path_to_train_data'], self.files[scene_id]))
+                        self.options['path_to_train_data'], self.files[scene_id]), engine='h5netcdf')
                     x_patch, y_patch = self.random_crop(scene)
 
             except Exception as e:
@@ -637,10 +628,10 @@ class AI4ArcticChallengeTestDataset(Dataset):
         """
         if self.mode == 'test':
             scene = xr.open_dataset(os.path.join(
-                self.options['path_to_test_data'], self.files[idx]))
+                self.options['path_to_test_data'], self.files[idx]), engine='h5netcdf')
         else:
             scene = xr.open_dataset(os.path.join(
-                self.options['path_to_train_data'], self.files[idx]))
+                self.options['path_to_train_data'], self.files[idx]), engine='h5netcdf')
 
         x, y = self.prep_scene(scene)
         name = self.files[idx]

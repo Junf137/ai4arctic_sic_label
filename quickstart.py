@@ -84,7 +84,7 @@ def create_train_and_validation_scene_list(train_options):
     Creates the a train and validation scene list. Adds these two list to the config file train_options
 
     '''
-    with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
+    with open(train_options['path_to_env'] + train_options['train_list_path']) as file:
         train_options['train_list'] = json.loads(file.read())
 
     # Convert the original scene names to the preprocessed names.
@@ -152,7 +152,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'], 
+        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
                                                     colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             train_loss_batch = 0  # Reset from previous batch.
@@ -201,8 +201,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val, 
-                                                                            total=len(train_options['validate_list']), 
+        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val,
+                                                                            total=len(train_options['validate_list']),
                                                                             colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
@@ -218,11 +218,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
                 output[chart] = torch.argmax(
-                    output[chart], dim=1).squeeze().cpu().numpy()
-                outputs_flat[chart] = np.append(
-                    outputs_flat[chart], output[chart][~masks[chart]])
-                inf_ys_flat[chart] = np.append(
-                    inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
+                    output[chart], dim=1).squeeze()
+                outputs_flat[chart] = output[chart][~masks[chart]]
+                inf_ys_flat[chart] = inf_y[chart][~masks[chart]].to(device, non_blocking=True)
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
@@ -233,7 +231,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         # - Compute the relevant scores.
         print('Computing Metrics on Val dataset')
         combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
-                                                 metrics=train_options['chart_metric'])
+                                                 metrics=train_options['chart_metric'], num_classes=train_options['n_classes'])
 
         print("")
         print(f"Epoch {epoch} score:")
@@ -268,8 +266,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
             wandb.save(model_path)
+    del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
-    # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 def main():
@@ -329,7 +327,7 @@ def main():
     optimizer = get_optimizer(train_options, net)
 
     scheduler = get_scheduler(train_options, optimizer)
-        
+
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
     # subprocess.run(['export'])
@@ -375,11 +373,11 @@ def main():
 def get_scheduler(train_options, optimizer):
     if train_options['scheduler'] == 'CosineAnnealingLR':
         T_max = train_options['epochs']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max,
                                                                eta_min=train_options['optimizer']['lr_min'])
     else:
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, 
-                                                        verbose=False)                                                      
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1,
+                                                        verbose=False)
     return scheduler
 
 
@@ -394,11 +392,11 @@ def get_optimizer(train_options, net):
                                       betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
                                       weight_decay=train_options['optimizer']['weight_decay'])
     else:
-        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'], 
-                                    momentum=train_options['optimizer']['momentum'], 
-                                    dampening=train_options['optimizer']['dampening'], 
-                                    weight_decay=train_options['optimizer']['weight_decay'], 
-                                    nesterov=train_options['optimizer']['nesterov'])                           
+        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                    momentum=train_options['optimizer']['momentum'],
+                                    dampening=train_options['optimizer']['dampening'],
+                                    weight_decay=train_options['optimizer']['weight_decay'],
+                                    nesterov=train_options['optimizer']['nesterov'])
     return optimizer
 
 
