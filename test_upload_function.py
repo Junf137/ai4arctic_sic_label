@@ -66,7 +66,7 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
     os.makedirs(osp.join(cfg.work_dir, 'inference'), exist_ok=True)
     net.eval()
     for inf_x, _, masks, scene_name, original_size in tqdm(iterable=asid_loader,
-                                            total=len(train_options['test_list']), colour='green', position=0):
+                                                           total=len(train_options['test_list']), colour='green', position=0):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
         torch.cuda.empty_cache()
         inf_x = inf_x.to(device, non_blocking=True)
@@ -75,16 +75,15 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
             output = net(inf_x)
 
             masks_int = masks.to(torch.uint8)
-            masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
+            masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(
+                0).unsqueeze(0), size=original_size, mode='nearest').squeeze().squeeze()
             masks = torch.gt(masks_int, 0)
-            
+
             # masks = torch.nn.functional.interpolate(masks.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
             # Upsample to match the correct size
             if train_options['down_sample_scale'] != 1:
                 for chart in train_options['charts']:
-                    output[chart] = torch.nn.functional.interpolate(output[chart], size = original_size, mode = 'nearest')
-
-
+                    output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode='nearest')
 
         for chart in train_options['charts']:
             output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
