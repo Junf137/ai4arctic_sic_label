@@ -84,7 +84,7 @@ def create_train_and_validation_scene_list(train_options):
     Creates the a train and validation scene list. Adds these two list to the config file train_options
 
     '''
-    with open(train_options['path_to_env'] + train_options['train_list_path']) as file:
+    with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
         train_options['train_list'] = json.loads(file.read())
 
     # Convert the original scene names to the preprocessed names.
@@ -107,7 +107,6 @@ def create_train_and_validation_scene_list(train_options):
     # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
-                                   if scene not in train_options['validate_list']]
                                    if scene not in train_options['validate_list']]
     print('Options initialised')
 
@@ -216,12 +215,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     val_loss_batch += loss_functions[chart](input=output[chart],
                                                             target=inf_y[chart].unsqueeze(0).long().to(device))
 
-                # - Final output layer, and storing of non masked pixels.
-                for chart in train_options['charts']:
-                    output[chart] = torch.argmax(
-                        output[chart], dim=1).squeeze()
-                    outputs_flat[chart] = output[chart][~masks[chart]]
-                    inf_ys_flat[chart] = inf_y[chart][~masks[chart]].to(device, non_blocking=True)
+            # - Final output layer, and storing of non masked pixels.
+            for chart in train_options['charts']:
+                output[chart] = torch.argmax(
+                    output[chart], dim=1).squeeze().cpu().numpy()
+                outputs_flat[chart] = np.append(
+                    outputs_flat[chart], output[chart][~masks[chart]])
+                inf_ys_flat[chart] = np.append(
+                    inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
@@ -237,8 +238,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         print("")
         print(f"Epoch {epoch} score:")
 
-            for chart in train_options['charts']:
-                print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
+        for chart in train_options['charts']:
+            print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
@@ -267,8 +268,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
             wandb.save(model_path)
-    del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
+    # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 def main():

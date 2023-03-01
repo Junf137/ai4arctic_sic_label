@@ -19,8 +19,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-# from sklearn.metrics import r2_score, f1_score
-from torchmetrics.functional import r2_score, f1_score
+from sklearn.metrics import r2_score, f1_score
+
 # -- Proprietary modules -- #
 from utils import ICE_STRINGS, GROUP_NAMES
 
@@ -46,7 +46,7 @@ def chart_cbar(ax, n_classes, chart, cmap='vridis'):
     cbar.set_ticklabels(list(GROUP_NAMES[chart].values()))
 
 
-def compute_metrics(true, pred, charts, metrics, num_classes):
+def compute_metrics(true, pred, charts, metrics):
     """
     Calculates metrics for each chart and the combined score. true and pred must be 1d arrays of equal length.
 
@@ -60,9 +60,6 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
         List of charts.
     metrics : Dict
         Stores metric calculation function and weight for each chart.
-    num_classes : Dict
-        Stores num of classes for each chart.
-
 
     Returns
     -------
@@ -74,8 +71,7 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
     scores = {}
     for chart in charts:
         if true[chart].ndim == 1 and pred[chart].ndim == 1:
-            scores[chart] = torch.round(metrics[chart]['func'](
-                true=true[chart], pred=pred[chart], num_classes=num_classes[chart]) * 100, decimals=3)
+            scores[chart] = np.round(metrics[chart]['func'](true=true[chart], pred=pred[chart]) * 100, 3)
         else:
             print(f"true and pred must be 1D numpy array, got {true['SIC'].ndim} \
                 and {pred['SIC'].ndim} dimensions with shape {true['SIC'].shape} and {pred.shape}, respectively")
@@ -85,7 +81,7 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
     return combined_score, scores
 
 
-def r2_metric(true, pred, num_classes=None):
+def r2_metric(true, pred):
     """
     Calculate the r2 metric.
 
@@ -95,9 +91,6 @@ def r2_metric(true, pred, num_classes=None):
         ndarray, 1d contains all true pixels. Must by numpy array.
     pred :
         ndarray, 1d contains all predicted pixels. Must by numpy array.
-    num_classes :
-        Num of classes in the dataset, this value is not used in this function but used in f1_metric function
-        which requires num_classes argument. The reason it was included here was to keep the same structure.    
 
     Returns
     -------
@@ -105,12 +98,12 @@ def r2_metric(true, pred, num_classes=None):
         The calculated r2 score.
 
     """
-    r2 = r2_score(preds=pred, target=true)
+    r2 = r2_score(y_true=true, y_pred=pred)
 
     return r2
 
 
-def f1_metric(true, pred, num_classes=None):
+def f1_metric(true, pred):
     """
     Calculate the weighted f1 metric.
 
@@ -127,7 +120,7 @@ def f1_metric(true, pred, num_classes=None):
         The calculated f1 score.
 
     """
-    f1 = f1_score(target=true, preds=pred, average='weighted', task='multiclass', num_classes=num_classes)
+    f1 = f1_score(y_true=true, y_pred=pred, average='weighted')
 
     return f1
 
@@ -157,7 +150,7 @@ def compute_combined_score(scores, charts, metrics):
         combined_metric += scores[chart] * metrics[chart]['weight']
         sum_weight += metrics[chart]['weight']
 
-    return torch.round(combined_metric / sum_weight, decimals=3)
+    return np.round(combined_metric / sum_weight, 3)
 
 
 # -- functions to save models -- #

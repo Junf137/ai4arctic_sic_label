@@ -129,7 +129,7 @@ train_options = {
     'path_to_test_data': '../../dataset/test',
     # Which validation set is going to be used
     'val_path': 'datalists/valset2.json',
-    'train_list_path': 'datalists/dataset.json',
+
     'path_to_env': './',
 
     'epochs': 100,  # Number of epochs before training stop.
@@ -229,10 +229,10 @@ train_options = {
     'latitude': {
         'mean': 69.12526250065734, 
         'std': 7.03179625261593
-    },
+        },
 
     'longitude': {
         'mean': -56.38966259295485, 
         'std': 31.32935694114249
-    }
+        }
 }
