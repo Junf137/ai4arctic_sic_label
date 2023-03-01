@@ -66,10 +66,6 @@ from utils import colour_str
 
 from test_upload_function import test
 
-# TODO: 1) Integrate Fernandos work_dirs with cfg file structure Done
-# TODO: 2) Add wandb support with cfg file structure
-# TODO: 3) Do inference at the end of training and create a ready to upload package in the work_dirs
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
@@ -88,7 +84,7 @@ def create_train_and_validation_scene_list(train_options):
     Creates the a train and validation scene list. Adds these two list to the config file train_options
 
     '''
-    with open(train_options['path_to_env'] + 'datalists/dataset.json') as file:
+    with open(train_options['path_to_env'] + train_options['train_list_path']) as file:
         train_options['train_list'] = json.loads(file.read())
 
     # Convert the original scene names to the preprocessed names.
@@ -214,20 +210,18 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart in train_options['charts']:
                     output[chart] = torch.argmax(
                         output[chart], dim=1).squeeze()
-                    outputs_flat[chart] = np.append(
-                        outputs_flat[chart], output[chart][~masks[chart]])
-                    inf_ys_flat[chart] = np.append(
-                        inf_ys_flat[chart], inf_y[chart][~masks[chart]].numpy())
+                    outputs_flat[chart] = output[chart][~masks[chart]]
+                    inf_ys_flat[chart] = inf_y[chart][~masks[chart]].to(device, non_blocking=True)
 
-                    # - Compute the relevant scores.
-                    print('Computing Metrics on Val dataset')
-                    combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
-                                                             metrics=train_options['chart_metric'])
-                    print("")
-                    print(f"Epoch {epoch} score:")
+                # - Compute the relevant scores.
+                print('Computing Metrics on Val dataset')
+                combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
+                                                         metrics=train_options['chart_metric'], num_classes=train_options['n_classes'])
+                print("")
+                print(f"Epoch {epoch} score:")
 
-                for chart in train_options['charts']:
-                    print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
+            for chart in train_options['charts']:
+                print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
@@ -253,8 +247,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
             wandb.save(model_path)
+    del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
-    # del inf_ys_flat, outputs_flat  # Free memory.
 
 
 def main():

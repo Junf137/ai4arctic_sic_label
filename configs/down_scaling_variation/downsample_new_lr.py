@@ -45,8 +45,8 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'batch_size': 32,
                  'num_workers': 12,  # Number of parallel processes to fetch data.
                  'num_workers_val': 12,  # Number of parallel processes during validation.
-                 'path_to_train_data': '/home/xinweic/projects/def-dclausi/share/ai4arctic/dataset/train',
-                 'path_to_test_data': '/home/xinweic/projects/def-dclausi/share/ai4arctic/dataset/test',
+                 'path_to_train_data': '../../dataset/train',
+                 'path_to_test_data': '../../dataset/test',
                  'down_sample_scale': 5,
                   'unet_conv_filters': [32, 32, 64, 64],  # Number of filters in the U-Net.
                  }
