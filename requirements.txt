@@ -12,3 +12,4 @@ icecream
 opencv-python-headless
 mmcv==1.7.1
 wandb
+torchmetrics
