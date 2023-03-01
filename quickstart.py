@@ -373,17 +373,17 @@ def main():
 
 
 def get_scheduler(train_options, optimizer):
-    if train_options['scheduler'][type] == 'CosineAnnealingLR':
+    if train_options['scheduler']['type'] == 'CosineAnnealingLR':
         T_max = train_options['epochs']*train_options['epoch_len']
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
                                                                eta_min=train_options['scheduler']['lr_min'])
     if train_options['scheduler']['type'] == 'CosineAnnealingWarmRestartsLR':
-        T_max = train_options['epochs']*train_options['epoch_len']
+        # T_max = train_options['epochs']*train_options['epoch_len']
         T_0 = train_options['scheduler']['EpochsPerRestart']*train_options['epoch_len']
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0, 
                                                                          T_mult=train_options['scheduler']['RestartMult'], 
                                                                          eta_min=train_options['scheduler']['lr_min'], 
-                                                                         last_epoch=T_max, 
+                                                                         last_epoch=-1, 
                                                                          verbose=False)
     else:
         scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1, 

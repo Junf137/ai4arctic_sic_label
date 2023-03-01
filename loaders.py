@@ -47,7 +47,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # self.files = self.files[:30]
             for file in tqdm(self.files):
                 scene = xr.open_dataset(os.path.join(
-                    self.options['path_to_train_data'], file))
+                    self.options['path_to_train_data'], file), engine='h5netcdf')
 
                 temp_scene = scene[self.options['full_variables']].to_array()
                 temp_scene = torch.from_numpy(np.expand_dims(temp_scene, 0))
@@ -459,7 +459,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     x_patch, y_patch = self.random_crop_downsample(scene_id)
                 else:
                     scene = xr.open_dataset(os.path.join(
-                        self.options['path_to_train_data'], self.files[scene_id]))
+                        self.options['path_to_train_data'], self.files[scene_id]), engine='h5netcdf')
                     x_patch, y_patch = self.random_crop(scene)
 
             except Exception as e:
@@ -637,10 +637,10 @@ class AI4ArcticChallengeTestDataset(Dataset):
         """
         if self.mode == 'test':
             scene = xr.open_dataset(os.path.join(
-                self.options['path_to_test_data'], self.files[idx]))
+                self.options['path_to_test_data'], self.files[idx]), engine='h5netcdf')
         else:
             scene = xr.open_dataset(os.path.join(
-                self.options['path_to_train_data'], self.files[idx]))
+                self.options['path_to_train_data'], self.files[idx]), engine='h5netcdf')
 
         x, y = self.prep_scene(scene)
         name = self.files[idx]

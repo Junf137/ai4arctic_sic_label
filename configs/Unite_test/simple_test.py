@@ -28,7 +28,7 @@ SCENE_VARIABLES = [
     'u10m_rotated', 'v10m_rotated',
     't2m', 'skt', 'tcwv', 'tclw',
 
-       # -- Auxilary Variables -- #
+    # -- Auxilary Variables -- #
     'aux_time',
     'aux_lat',
     'aux_long'
@@ -36,11 +36,11 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 3,
-                 'epoch_len': 3,
+                 'epochs': 20,
+                 'epoch_len': 1,
                  'val_path': 'datalists/test_val.json',
-                 'path_to_train_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/train',
-                 'path_to_test_data': '/home/fer96/projects/def-dclausi/share/ai4arctic/dataset/test',
+                 'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
+                 'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',
 
                  'optimizer': {
                     'type': 'Adam',
@@ -50,10 +50,18 @@ train_options = {'train_variables': SCENE_VARIABLES,
                     'b2': 0.999,
                     'weight_decay': 0.0
                 },
-                 'scheduler': 'CosineAnnealingLR',
-                 'batch_size': 8,
-                 'num_workers': 1,  # Number of parallel processes to fetch data.
-                 'num_workers_val': 1,  # Number of parallel processes during validation.
+                 
+                'scheduler': {
+                    'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
+                    'EpochsPerRestart': 5,  # Number of epochs for the first restart
+                    'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
+                    'lr_min': 0,  # Minimun learning rate
+                },
+
+                 'batch_size': 4,
+                 'num_workers': 4,  # Number of parallel processes to fetch data.
+                 'num_workers_val': 4,  # Number of parallel processes during validation.
                  'patch_size': 256,
-                 'down_sample_scale': 5,
+                 'down_sample_scale': 10,
+                 
 }
