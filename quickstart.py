@@ -118,7 +118,7 @@ def create_dataloaders(train_options):
     '''
     # Custom dataset and dataloader.
     dataset = AI4ArcticChallengeDataset(
-        files=train_options['train_list'], options=train_options)
+        files=train_options['train_list'], options=train_options, do_transform=True)
 
     dataloader_train = torch.utils.data.DataLoader(
         dataset, batch_size=None, shuffle=True, num_workers=train_options['num_workers'], pin_memory=True)
