@@ -78,6 +78,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
                 if len(self.options['auxiliary_variables']) > 0:
                     temp_aux = []
+
                     if 'aux_time' in self.options['auxiliary_variables']:
                         # Get Scene time
                         scene_id = scene.attrs['scene_id']
@@ -95,6 +96,8 @@ class AI4ArcticChallengeDataset(Dataset):
                                 time_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
                             
                         temp_aux.append(time_array)
+
+                        
                      
 
                     if 'aux_lat' in self.options['auxiliary_variables']:
@@ -113,6 +116,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                 inter_lat_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
 
                         temp_aux.append(inter_lat_array)
+
                     
 
                     if 'aux_long' in self.options['auxiliary_variables']:
@@ -130,6 +134,8 @@ class AI4ArcticChallengeDataset(Dataset):
                             inter_long_array = torch.nn.functional.pad(
                                 inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
                         temp_aux.append(inter_long_array)
+
+
                     self.aux.append(np.concatenate(temp_aux, 1))  
 
                 temp_scene = torch.squeeze(temp_scene)
