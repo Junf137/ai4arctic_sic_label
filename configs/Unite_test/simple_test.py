@@ -2,8 +2,6 @@
 # -*-coding:utf-8 -*-
 
 
-
-
 _base_ = ['../_base_/base.py']
 
 SCENE_VARIABLES = [
@@ -43,25 +41,34 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',
 
                  'optimizer': {
-                    'type': 'Adam',
-                    'lr': 0.0001,  # Optimizer learning rate.
-                    'lr_min': 0.0,  # Optimizer learning rate.
-                    'b1': 0.9, 
-                    'b2': 0.999,
-                    'weight_decay': 0.0
-                },
-                 
-                'scheduler': {
-                    'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
-                    'EpochsPerRestart': 5,  # Number of epochs for the first restart
-                    'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
-                    'lr_min': 0,  # Minimun learning rate
-                },
+                     'type': 'SGD',
+                     'lr': 0.001,  # Optimizer learning rate.
+                     'momentum': 0.9,
+                     'dampening': 0,
+                     'nesterov': False,
+                     'weight_decay': 0.01
+                 },
 
-                 'batch_size': 4,
+                 'scheduler': {
+                    '_delete_': True,
+                     'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
+                     'EpochsPerRestart': 5,  # Number of epochs for the first restart
+                     # This number will be used to increase or descrase the number of epochs to restart after each restart.
+                     'RestartMult': 1,
+                     'lr_min': 0,  # Minimun learning rate
+                 },
+
+                 'batch_size': 16,
                  'num_workers': 4,  # Number of parallel processes to fetch data.
                  'num_workers_val': 4,  # Number of parallel processes during validation.
                  'patch_size': 256,
                  'down_sample_scale': 10,
-                 
-}
+                 'unet_conv_filters': [32, 32, 64, 64],
+
+                 'data_augmentations': {
+                     'Random_h_flip': 0.5,
+                     'Random_v_flip': 0.5,
+                     'Random_rotation': 90,
+                     'Random_scale': (0.8, 1.2)
+                 },
+                 }

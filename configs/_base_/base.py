@@ -174,11 +174,13 @@ train_options = {
     'scheduler': None,
 
     # 'scheduler': {
+    # '_delete_': True,
     #     'type': 'CosineAnnealingLR',  # Name of the schedulers
     #     'lr_min': 0,  # Minimun learning rate
     # },
 
     # 'scheduler': {
+    # '_delete_': True,
     #     'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
     #     'EpochsPerRestart': 20,  # Number of epochs for the first restart
     #     'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
