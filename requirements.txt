@@ -3,6 +3,7 @@ h5netcdf
 numpy
 matplotlib
 torch==1.12.0
+torchvision==0.13.0
 tqdm==4.64.1
 sklearn
 # ipywidgets==8.0.2
@@ -12,3 +13,4 @@ icecream
 opencv-python-headless
 mmcv==1.7.1
 wandb
+torchmetrics

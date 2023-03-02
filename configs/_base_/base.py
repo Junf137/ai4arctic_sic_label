@@ -127,6 +127,8 @@ train_options = {
     # Replace with data directory path.
     'path_to_train_data': '../../dataset/train',
     'path_to_test_data': '../../dataset/test',
+    # Which train set is going to be used
+    'train_list_path': 'datalists/dataset.json',
     # Which validation set is going to be used
     'val_path': 'datalists/valset2.json',
 
@@ -242,5 +244,18 @@ train_options = {
     'longitude': {
         'mean': -56.38966259295485, 
         'std': 31.32935694114249
+        },
+
+
+    # -- Data Augmentation Options -- #
+    # Random_h_flip (float, [0, 1]) - Chance of doing random horizontal flip
+    # Random_v_flip (float, [0, 1]) - Chance of doing random vertical flip
+    # Random_rotation (int, [0, 180]) - Maximum random degree rotation between 0 and Random_rotation
+    # Random_scale (float_tuple(a, b)) - Scales image randomly to a scale between a and b. b > a. 
+    'data_augmentations': {
+        'Random_h_flip': 0,
+        'Random_v_flip': 0,
+        'Random_rotation': 0,
+        'Random_scale': (1, 1)
         }
 }

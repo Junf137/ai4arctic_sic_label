@@ -23,6 +23,8 @@ import numpy as np
 import torch
 import xarray as xr
 from torch.utils.data import Dataset
+import torchvision.transforms.functional as TF
+
 # -- Proprietary modules -- #
 
 
@@ -30,9 +32,10 @@ class AI4ArcticChallengeDataset(Dataset):
     """Pytorch dataset for loading batches of patches of scenes from the ASID
     V2 data set."""
 
-    def __init__(self, options, files):
+    def __init__(self, options, files, do_transform=False):
         self.options = options
         self.files = files
+        self.do_transform = do_transform
 
         # If Downscaling, down sample data and put in on memory
         if (self.options['down_sample_scale'] == 1):
@@ -67,10 +70,11 @@ class AI4ArcticChallengeDataset(Dataset):
                     width_pad = 0
 
                 if height_pad > 0 or width_pad > 0:
-                    temp_scene = torch.nn.functional.pad(
-                        temp_scene, (0, width_pad, 0, height_pad), mode='constant', value=0)
-
-                
+                    temp_scene_y = torch.nn.functional.pad(
+                        temp_scene[:, :len(self.options['charts'])], (0, width_pad, 0, height_pad), mode='constant', value=255)
+                    temp_scene_x = torch.nn.functional.pad(
+                        temp_scene[:, len(self.options['charts']):], (0, width_pad, 0, height_pad), mode='constant', value=0)
+                    temp_scene = torch.cat((temp_scene_y, temp_scene_x), dim=1)
 
                 if len(self.options['amsrenv_variables']) > 0:
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
@@ -94,11 +98,8 @@ class AI4ArcticChallengeDataset(Dataset):
                         if height_pad > 0 or width_pad > 0:
                             time_array = torch.nn.functional.pad(
                                 time_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
-                            
-                        temp_aux.append(time_array)
 
-                        
-                     
+                        temp_aux.append(time_array)
 
                     if 'aux_lat' in self.options['auxiliary_variables']:
                         # Get Latitude
@@ -117,8 +118,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
                         temp_aux.append(inter_lat_array)
 
-                    
-
                     if 'aux_long' in self.options['auxiliary_variables']:
                         # Get Longuitude
                         long_array = scene['sar_grid2d_longitude'].values
@@ -135,14 +134,11 @@ class AI4ArcticChallengeDataset(Dataset):
                                 inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
                         temp_aux.append(inter_long_array)
 
-
-                    self.aux.append(np.concatenate(temp_aux, 1))  
+                    self.aux.append(np.concatenate(temp_aux, 1))
 
                 temp_scene = torch.squeeze(temp_scene)
 
                 self.scenes.append(temp_scene)
-                
-
 
         # Channel numbers in patches, includes reference channel.
         self.patch_c = len(
@@ -376,15 +372,16 @@ class AI4ArcticChallengeDataset(Dataset):
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
                                                                  + self.options['patch_size_before_down_sample']))]
-                amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0), 
+                amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0),
                                                           size=(self.options['patch_size'], self.options['patch_size']),
                                                           mode=self.options['loader_downsampling'])
-                patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
-                
+                patch[len(self.options['full_variables']):len(self.options['full_variables']) +
+                      len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
+
             # Only add auxiliary_variables if they are called
             if len(self.options['auxiliary_variables']) > 0:
                 patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = self.aux[idx][0, :, row_rand: row_rand +
-                                                             self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
+                                                                                                                           self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
 
             x_patch = torch.from_numpy(
                 patch[len(self.options['charts']):, :]).type(torch.float).unsqueeze(0)
@@ -451,7 +448,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # - Open memory location of scene. Uses 'Lazy Loading'.
             scene_id = np.random.randint(
                 low=0, high=len(self.files), size=1).item()
-            
+
             # - Extract patches
             # TODO: change to use x and y instead of patches
             try:
@@ -477,6 +474,38 @@ class AI4ArcticChallengeDataset(Dataset):
                     continue
 
             if x_patch is not None:
+                if self.do_transform:
+                    if torch.rand(1) < self.options['data_augmentations']['Random_h_flip']:
+                        x_patch = TF.hflip(x_patch)
+                        y_patch = TF.hflip(y_patch)
+
+                    if torch.rand(1) < self.options['data_augmentations']['Random_v_flip']:
+                        x_patch = TF.vflip(x_patch)
+                        y_patch = TF.vflip(y_patch)
+
+                    assert (self.options['data_augmentations']['Random_rotation'] <= 180)
+                    if self.options['data_augmentations']['Random_rotation'] != 0:
+                        random_degree = np.random.randint(-self.options['data_augmentations']['Random_rotation'],
+                                                          self.options['data_augmentations']['Random_rotation']
+                                                          )
+                    else:
+                        random_degree = 0
+
+                    scale_diff = self.options['data_augmentations']['Random_scale'][1] - \
+                        self.options['data_augmentations']['Random_scale'][0]
+                    assert (scale_diff >= 0)
+                    if scale_diff != 0:
+                        random_scale = np.random.rand()*(self.options['data_augmentations']['Random_scale'][1] -
+                                                         self.options['data_augmentations']['Random_scale'][0]) +\
+                            self.options['data_augmentations']['Random_scale'][0]
+                    else:
+                        random_scale = self.options['data_augmentations']['Random_scale'][1]
+
+                    x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0),
+                                        shear=0, scale=random_scale, fill=0)
+                    y_patch = TF.affine(y_patch, angle=random_degree, translate=(0, 0),
+                                        shear=0, scale=random_scale, fill=255)
+
                 # -- Stack the scene patches in patches
                 x_patches[sample_n, :, :, :] = x_patch
                 y_patches[sample_n, :, :, :] = y_patch
