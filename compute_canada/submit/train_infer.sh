@@ -4,10 +4,10 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=128G
-#SBATCH --time=30:00:00
-#SBATCH --output=/home/xinweic/projects/def-dclausi/AI4arctic/xinweic/ai4arctic_challenge/compute_canada/output/%j.out
+#SBATCH --time=5:00:00
+#SBATCH --output=/home/fer96/projects/def-dclausi/AI4arctic/fer96/ai4arctic_challenge/compute_canada_output/%j.out
 #SBATCH --account=def-ka3scott
-#SBATCH --mail-user=xinwei.chen@uwaterloo.ca
+#SBATCH --mail-user=FernandoComputeCanada@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
@@ -18,14 +18,14 @@ module load python/3.9.6
 
 echo "Loading module done"
 
-source ~/ai4arctic/bin/activate
+source ~/AI4Artic/bin/activate
 
 
 
 echo "Activating virtual environment done"
 
-#cd /project/def-dclausi/share/whale/mmwhale/
-cd /home/xinweic/projects/def-dclausi/AI4arctic/xinweic/ai4arctic_challenge/
+
+cd /home/fer96/projects/def-dclausi/AI4arctic/fer96/ai4arctic_challenge
 
 
 echo "starting training..."
@@ -34,9 +34,9 @@ echo "starting training..."
 # config_basename=$(basename $config .py) 
 
 
-
+export WANDB_MODE=offline
 python quickstart.py $1 --wandb-project=$2
-python quickstart.py configs/Unite_test/simple_test.py --wandb-project=testing
+
 
 
 # # the above python script will generate a .env at the workdir/config-name/.env

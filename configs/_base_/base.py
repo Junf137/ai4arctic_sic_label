@@ -149,7 +149,6 @@ train_options = {
     'optimizer': {
         'type': 'Adam',
         'lr': 0.0001,  # Optimizer learning rate.
-        'lr_min': 0.0,  # Optimizer learning rate.
         'b1': 0.9, 
         'b2': 0.999,
         'weight_decay': 0.0
@@ -158,7 +157,6 @@ train_options = {
     # 'optimizer': {
     #     'type': 'AdamW',
     #     'lr': 0.0001,  # Optimizer learning rate.
-    #     'lr_min': 0.0,  # Optimizer learning rate.
     #     'b1': 0.9, 
     #     'b2': 0.999,
     #     'weight_decay': 0.01
@@ -167,7 +165,6 @@ train_options = {
     # 'optimizer': {
     #     'type': 'SGD',
     #     'lr': 0.0001,  # Optimizer learning rate.
-    #     'lr_min': 0.0,  # Optimizer learning rate.
     #     'momentum': 0, 
     #     'dampening': 0, 
     #     'nesterov': False,
@@ -175,7 +172,18 @@ train_options = {
     # },
 
     'scheduler': None,
-    # 'scheduler': 'CosineAnnealingLR',
+
+    # 'scheduler': {
+    #     'type': 'CosineAnnealingLR',  # Name of the schedulers
+    #     'lr_min': 0,  # Minimun learning rate
+    # },
+
+    # 'scheduler': {
+    #     'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
+    #     'EpochsPerRestart': 20,  # Number of epochs for the first restart
+    #     'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
+    #     'lr_min': 0,  # Minimun learning rate
+    # },
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
