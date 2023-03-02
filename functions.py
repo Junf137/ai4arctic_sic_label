@@ -110,7 +110,7 @@ def r2_metric(true, pred, num_classes=None):
     return r2
 
 
-def f1_metric(true, pred):
+def f1_metric(true, pred, num_classes):
     """
     Calculate the weighted f1 metric.
 
