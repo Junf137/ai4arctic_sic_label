@@ -171,19 +171,19 @@ train_options = {
     #     'weight_decay': 0.01
     # },
 
-    # 'scheduler': None,
+    'scheduler': None,
 
     # 'scheduler': {
     #     'type': 'CosineAnnealingLR',  # Name of the schedulers
     #     'lr_min': 0,  # Minimun learning rate
     # },
 
-    'scheduler': {
-        'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
-        'EpochsPerRestart': 20,  # Number of epochs for the first restart
-        'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
-        'lr_min': 0,  # Minimun learning rate
-    },
+    # 'scheduler': {
+    #     'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
+    #     'EpochsPerRestart': 20,  # Number of epochs for the first restart
+    #     'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
+    #     'lr_min': 0,  # Minimun learning rate
+    # },
 
     # -- Data prepraration lookups and metrics.
     # Contains the relevant variables in the scenes.
