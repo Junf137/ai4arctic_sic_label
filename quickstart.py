@@ -152,7 +152,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
     print('Training...')
     # -- Training Loop -- #
-    for epoch in tqdm(iterable=range(train_options['epochs'])):
+    for epoch in tqdm(iterable=range(start_epoch, train_options['epochs'])):
         # gc.collect()  # Collect garbage to free memory.
         train_loss_sum = torch.tensor([0.])  # To sum the training batch losses during the epoch.
         val_loss_sum = torch.tensor([0.])  # To sum the validation batch losses during the epoch.
@@ -338,7 +338,7 @@ def main():
     scheduler = get_scheduler(train_options, optimizer)
 
     if args.resume_from is not None:
-        net, optimizer, scheduler, epoch = load_model(net, optimizer, scheduler, args.resume_from)
+        net, optimizer, scheduler, epoch_start = load_model(net, optimizer, scheduler, args.resume_from)
 
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
@@ -373,8 +373,8 @@ def main():
         # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
         #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
         #  This can be done by using 'net = net.cpu()'.
-
-        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler)
+        if args.resume_from is not None:
+            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler)
         print('Training Complete')
         print('Testing...')
         test(False, net, checkpoint_path, device, cfg)
