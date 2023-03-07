@@ -127,7 +127,7 @@ def f1_metric(true, pred, num_classes):
         The calculated f1 score.
 
     """
-    f1 = f1_score(target=true, preds=pred, average='weighted', task='multiclass', num_classes=num_classes)
+    f1 = f1_score(target=true, preds=pred, average='weighted', task='multiclass', num_classes=num_classes -1)
 
     return f1
 
