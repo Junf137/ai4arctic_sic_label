@@ -37,6 +37,7 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 20,
                  'epoch_len': 1,
                  'val_path': 'datalists/test_val.json',
+                 'train_list_path': 'datalists/small_dataset.json',
                  'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
                  'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',
 
@@ -51,11 +52,8 @@ train_options = {'train_variables': SCENE_VARIABLES,
 
                  'scheduler': {
                     '_delete_': True,
-                     'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
-                     'EpochsPerRestart': 5,  # Number of epochs for the first restart
-                     # This number will be used to increase or descrase the number of epochs to restart after each restart.
-                     'RestartMult': 1,
-                     'lr_min': 0,  # Minimun learning rate
+                    'type': 'CosineAnnealingLR',  # Name of the schedulers
+                    'lr_min': 0,  # Minimun learning rate
                  },
 
                  'batch_size': 16,

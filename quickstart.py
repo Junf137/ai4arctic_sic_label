@@ -55,7 +55,7 @@ from tqdm import tqdm  # Progress bar
 
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
-from functions import compute_metrics, save_best_model
+from functions import compute_metrics, save_best_model, load_model
 # Custom dataloaders for regular training and validation.
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
@@ -69,9 +69,16 @@ from test_upload_function import test
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
+
+    # Mandatory arguments
     parser.add_argument('config', help='train config file path')
     parser.add_argument('--wandb-project', help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
+
+    # TODO: add argument for resume from
+    # Optional arguments
+    parser.add_argument("--resume-from", help="Resume Training from checkpoint", type=str, default=None)
+
     args = parser.parse_args()
 
     return args
@@ -264,7 +271,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             wandb.run.summary["Train Epoch Loss"] = train_loss_epoch
 
             # Save the best model in work_dirs
-            model_path = save_best_model(cfg, train_options, net, optimizer, epoch)
+            model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
+            
             wandb.save(model_path)
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
@@ -323,10 +331,14 @@ def main():
     print('GPU setup completed!')
 
     net = UNet(options=train_options).to(device)
+
     # net = UNet_sep_dec(options=train_options).to(device)
     optimizer = get_optimizer(train_options, net)
 
     scheduler = get_scheduler(train_options, optimizer)
+
+    if args.resume_from is not None:
+        net, optimizer, scheduler, epoch = load_model(net, optimizer, scheduler, args.resume_from)
 
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
@@ -375,7 +387,7 @@ def get_scheduler(train_options, optimizer):
         T_max = train_options['epochs']*train_options['epoch_len']
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
                                                                eta_min=train_options['scheduler']['lr_min'])
-    if train_options['scheduler']['type'] == 'CosineAnnealingWarmRestartsLR':
+    elif train_options['scheduler']['type'] == 'CosineAnnealingWarmRestartsLR':
         # T_max = train_options['epochs']*train_options['epoch_len']
         T_0 = train_options['scheduler']['EpochsPerRestart']*train_options['epoch_len']
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0, 
