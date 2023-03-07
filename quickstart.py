@@ -140,7 +140,7 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler):
+def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0):
     '''
     Trains the model.
 
@@ -338,6 +338,7 @@ def main():
     scheduler = get_scheduler(train_options, optimizer)
 
     if args.resume_from is not None:
+        print(f"\033[91m Resuming work from {args.resume_from}\033[0m")
         net, optimizer, scheduler, epoch_start = load_model(net, optimizer, scheduler, args.resume_from)
 
     # generate wandb run id, to be used to link the run with test_upload
@@ -374,7 +375,11 @@ def main():
         #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
         #  This can be done by using 'net = net.cpu()'.
         if args.resume_from is not None:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler)
+            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, 
+                                    scheduler, epoch_start)
+        else:
+            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, 
+                                    scheduler)
         print('Training Complete')
         print('Testing...')
         test(False, net, checkpoint_path, device, cfg)
