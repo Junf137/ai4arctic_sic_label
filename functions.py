@@ -161,7 +161,7 @@ def compute_combined_score(scores, charts, metrics):
 
 
 # -- functions to save models -- #
-def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
+def save_best_model(cfg, train_options: dict, net, optimizer, scheduler, epoch: int):
     '''
     Saves the input model in the inside the directory "/work_dirs/"experiment_name"/
     The models with be save as best_model.pth.
@@ -191,6 +191,7 @@ def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
     # print(config_file_name)
     torch.save(obj={'model_state_dict': net.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
                     'epoch': epoch,
                     'train_options': train_options
                     },
@@ -198,3 +199,14 @@ def save_best_model(cfg, train_options: dict, net, optimizer, epoch: int):
     print(f"model saved successfully at {os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')}")
 
     return os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')
+
+
+def load_model(net, optimizer, scheduler, checkpoint_path):
+
+    checkpoint = torch.load(checkpoint_path)   
+    net.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    epoch = checkpoint['epoch']
+
+    return net, optimizer, scheduler, epoch
