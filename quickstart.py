@@ -212,8 +212,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         # For printing after the validation loop.
 
         # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
-        outputs_flat = {chart: np.array([]) for chart in train_options['charts']}
-        inf_ys_flat = {chart: np.array([]) for chart in train_options['charts']}
+        outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options['charts']}
+        inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options['charts']}
 
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
@@ -236,8 +236,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             for chart in train_options['charts']:
                 output[chart] = torch.argmax(
                     output[chart], dim=1).squeeze()
-                outputs_flat[chart] = output[chart][~masks[chart]]
-                inf_ys_flat[chart] = inf_y[chart][~masks[chart]].to(device, non_blocking=True)
+                outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))
+                inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]
+                                               [~masks[chart]].to(device, non_blocking=True)))
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
@@ -343,6 +344,7 @@ def main():
     net = UNet(options=train_options).to(device)
 
     # net = UNet_sep_dec(options=train_options).to(device)
+
     optimizer = get_optimizer(train_options, net)
 
     scheduler = get_scheduler(train_options, optimizer)
@@ -403,15 +405,15 @@ def main():
 def get_scheduler(train_options, optimizer):
     if train_options['scheduler']['type'] == 'CosineAnnealingLR':
         T_max = train_options['epochs']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, 
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max,
                                                                eta_min=train_options['scheduler']['lr_min'])
     elif train_options['scheduler']['type'] == 'CosineAnnealingWarmRestartsLR':
         # T_max = train_options['epochs']*train_options['epoch_len']
         T_0 = train_options['scheduler']['EpochsPerRestart']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0, 
-                                                                         T_mult=train_options['scheduler']['RestartMult'], 
-                                                                         eta_min=train_options['scheduler']['lr_min'], 
-                                                                         last_epoch=-1, 
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0,
+                                                                         T_mult=train_options['scheduler']['RestartMult'],
+                                                                         eta_min=train_options['scheduler']['lr_min'],
+                                                                         last_epoch=-1,
                                                                          verbose=False)
     else:
         scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1,
