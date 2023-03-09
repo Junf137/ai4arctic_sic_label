@@ -47,6 +47,7 @@ import os
 import os.path as osp
 import shutil
 from icecream import ic
+import pathlib
 
 import numpy as np
 import torch
@@ -71,13 +72,22 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train Default U-NET segmentor')
 
     # Mandatory arguments
-    parser.add_argument('config', help='train config file path')
-    parser.add_argument('--wandb-project', help='Name of wandb project')
+    parser.add_argument('config', type=pathlib.Path, help='train config file path',)
+    parser.add_argument('--wandb-project', required=True, help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
 
-    # TODO: add argument for resume from
+    # TODO: add argument for finetune-from
+    # TODO: Make mutually exclusive between --resume from and fine_tuning
     # Optional arguments
-    parser.add_argument("--resume-from", help="Resume Training from checkpoint", type=str, default=None)
+    # parser.add_argument("--resume-from", help="Resume Training from checkpoint", type=str, default=None)
+    # parser.add_argument("--resume-from", help="Resume Training from checkpoint", type=str, default=None)
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--resume-from', type=pathlib.Path, default=None,
+                       help='Resume Training from checkpoint, it will use the \
+                        optimizer and schduler defined on checkpoint')
+    group.add_argument('--finetune-from', type=pathlib.Path, default=None,
+                       help='Start new tranining using the weights from checkpoitn')
 
     args = parser.parse_args()
 
@@ -339,7 +349,10 @@ def main():
 
     if args.resume_from is not None:
         print(f"\033[91m Resuming work from {args.resume_from}\033[0m")
-        net, optimizer, scheduler, epoch_start = load_model(net, optimizer, scheduler, args.resume_from)
+        epoch_start = load_model(net, args.resume_from, optimizer, scheduler)
+    elif args.finetune_from is not None:
+        print(f"\033[91m Finetune model from {args.finetune_from}\033[0m")
+        _ = load_model(net, args.finetune_from)
 
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
