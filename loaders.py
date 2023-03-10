@@ -26,7 +26,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
-
+from functions import rand_bbox
 
 class AI4ArcticChallengeDataset(Dataset):
     """Pytorch dataset for loading batches of patches of scenes from the ASID
@@ -423,6 +423,42 @@ class AI4ArcticChallengeDataset(Dataset):
             y[chart] = y_patches[:, idx].type(torch.long)
 
         return x, y
+    
+    def transform(self, x_patch, y_patch):
+        data_aug_options = self.options['data_augmentations']
+        if torch.rand(1) < data_aug_options['Random_h_flip']:
+            x_patch = TF.hflip(x_patch)
+            y_patch = TF.hflip(y_patch)
+
+        if torch.rand(1) < data_aug_options['Random_v_flip']:
+            x_patch = TF.vflip(x_patch)
+            y_patch = TF.vflip(y_patch)
+
+        assert (data_aug_options['Random_rotation'] <= 180)
+        if data_aug_options['Random_rotation'] != 0 and \
+                torch.rand(1) < data_aug_options['Random_rotation_prob']:
+            random_degree = np.random.randint(-data_aug_options['Random_rotation'],
+                                                data_aug_options['Random_rotation']
+                                                )
+        else:
+            random_degree = 0
+
+        scale_diff = data_aug_options['Random_scale'][1] - \
+            data_aug_options['Random_scale'][0]
+        assert (scale_diff >= 0)
+        if scale_diff != 0 and torch.rand(1) < data_aug_options['Random_scale_prob']:
+            random_scale = np.random.rand()*(data_aug_options['Random_scale'][1] -
+                                                data_aug_options['Random_scale'][0]) +\
+                data_aug_options['Random_scale'][0]
+        else:
+            random_scale = data_aug_options['Random_scale'][1]
+
+        x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0),
+                            shear=0, scale=random_scale, fill=0)
+        y_patch = TF.affine(y_patch, angle=random_degree, translate=(0, 0),
+                            shear=0, scale=random_scale, fill=255)
+        
+        return x_patch, y_patch
 
     def __getitem__(self, idx):
         """
@@ -475,41 +511,21 @@ class AI4ArcticChallengeDataset(Dataset):
 
             if x_patch is not None:
                 if self.do_transform:
-                    if torch.rand(1) < self.options['data_augmentations']['Random_h_flip']:
-                        x_patch = TF.hflip(x_patch)
-                        y_patch = TF.hflip(y_patch)
-
-                    if torch.rand(1) < self.options['data_augmentations']['Random_v_flip']:
-                        x_patch = TF.vflip(x_patch)
-                        y_patch = TF.vflip(y_patch)
-
-                    assert (self.options['data_augmentations']['Random_rotation'] <= 180)
-                    if self.options['data_augmentations']['Random_rotation'] != 0:
-                        random_degree = np.random.randint(-self.options['data_augmentations']['Random_rotation'],
-                                                          self.options['data_augmentations']['Random_rotation']
-                                                          )
-                    else:
-                        random_degree = 0
-
-                    scale_diff = self.options['data_augmentations']['Random_scale'][1] - \
-                        self.options['data_augmentations']['Random_scale'][0]
-                    assert (scale_diff >= 0)
-                    if scale_diff != 0:
-                        random_scale = np.random.rand()*(self.options['data_augmentations']['Random_scale'][1] -
-                                                         self.options['data_augmentations']['Random_scale'][0]) +\
-                            self.options['data_augmentations']['Random_scale'][0]
-                    else:
-                        random_scale = self.options['data_augmentations']['Random_scale'][1]
-
-                    x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0),
-                                        shear=0, scale=random_scale, fill=0)
-                    y_patch = TF.affine(y_patch, angle=random_degree, translate=(0, 0),
-                                        shear=0, scale=random_scale, fill=255)
+                    x_patch, y_patch = self.transform(x_patch, y_patch)
+                    
 
                 # -- Stack the scene patches in patches
                 x_patches[sample_n, :, :, :] = x_patch
                 y_patches[sample_n, :, :, :] = y_patch
                 sample_n += 1  # Update the index.
+
+        if self.do_transform and torch.rand(1) < self.options['data_augmentations']['Cutmix_prob']:
+            lam = np.random.beta(self.options['data_augmentations']['Cutmix_beta'],
+                                  self.options['data_augmentations']['Cutmix_beta'])
+            rand_index = torch.randperm(x_patches.size(0))
+            bbx1, bby1, bbx2, bby2 = rand_bbox(x_patches.size(), lam)
+            x_patches[:, :, bbx1:bbx2, bby1:bby2] = x_patches[rand_index, :, bbx1:bbx2, bby1:bby2]
+            y_patches[:, :, bbx1:bbx2, bby1:bby2] = y_patches[rand_index, :, bbx1:bbx2, bby1:bby2]
 
         # Prepare training arrays
 
