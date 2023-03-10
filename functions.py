@@ -222,3 +222,37 @@ def load_model(net, checkpoint_path, optimizer=None, scheduler=None):
 
     return epoch
 
+
+def rand_bbox(size, lam):
+    '''
+    Given the 4D dimensions of a batch (size), and the ratio 
+    of the spatial dimension (lam) to be cut, returns a bounding box coordinates
+    used for cutmix
+
+    Parameters
+    ----------
+    size : 4D shape of the batch (N, C, H, W)
+    lam : Ratio (portion) of the input to be cutmix'd
+    
+    Returns 
+    ----------
+    Bounding box (x1, y1, x2, y2)
+    '''
+    H = size[2]
+    W = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_h = int(H * cut_rat)
+    cut_w = int(W * cut_rat)
+
+    # uniform
+    cx = np.random.randint(H)
+    cy = np.random.randint(W)
+
+    bbx1 = np.clip(cx - cut_h // 2, 0, H)
+    bby1 = np.clip(cy - cut_w // 2, 0, W)
+    bbx2 = np.clip(cx + cut_h // 2, 0, H)
+    bby2 = np.clip(cy + cut_w // 2, 0, W)
+
+    return bbx1, bby1, bbx2, bby2
+    
+

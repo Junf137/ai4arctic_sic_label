@@ -252,12 +252,20 @@ train_options = {
     # -- Data Augmentation Options -- #
     # Random_h_flip (float, [0, 1]) - Chance of doing random horizontal flip
     # Random_v_flip (float, [0, 1]) - Chance of doing random vertical flip
+    # Random_rotation_prob (float, [0, 1]) - Chance of doing random rotation
     # Random_rotation (int, [0, 180]) - Maximum random degree rotation between 0 and Random_rotation
+    # Random_scale_prob (float, [0, 1]) - Chance of doing random scaling
     # Random_scale (float_tuple(a, b)) - Scales image randomly to a scale between a and b. b > a. 
+    # Cutmix_beta (float, (0, inf)) - Parameter for random beta distribution
+    # Cutmix_prob (float, [0, 1]) - Chance of doing random cutmix
     'data_augmentations': {
         'Random_h_flip': 0,
         'Random_v_flip': 0,
+        'Random_rotation_prob': 0,
         'Random_rotation': 0,
-        'Random_scale': (1, 1)
+        'Random_scale_prob': 0,
+        'Random_scale': (1, 1),
+        'Cutmix_beta': 1.0,
+        'Cutmix_prob': 0,
         }
 }
