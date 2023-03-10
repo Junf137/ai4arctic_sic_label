@@ -201,12 +201,24 @@ def save_best_model(cfg, train_options: dict, net, optimizer, scheduler, epoch: 
     return os.path.join(cfg.work_dir, f'best_model_{config_file_name}.pth')
 
 
-def load_model(net, optimizer, scheduler, checkpoint_path):
+def load_model(net, checkpoint_path, optimizer=None, scheduler=None):
+    """
+    Loads a PyTorch model from a checkpoint file and returns the model, optimizer, and scheduler.
+    :param model: PyTorch model to load
+    :param checkpoint_path: Path to the checkpoint file
+    :param optimizer: PyTorch optimizer to load (optional)
+    :param scheduler: PyTorch scheduler to load (optional)
+    :return: If optimizer and scheduler are provided, return the model, optimizer, and scheduler.
+    """
 
     checkpoint = torch.load(checkpoint_path)   
     net.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    if scheduler is not None:
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+
     epoch = checkpoint['epoch']
 
-    return net, optimizer, scheduler, epoch
+    return epoch
+
