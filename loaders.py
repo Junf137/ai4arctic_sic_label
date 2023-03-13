@@ -361,6 +361,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
                 if height_pad > 0 or width_pad > 0:
                     amsrenv = torch.nn.functional.pad(amsrenv, (0, width_pad, 0, height_pad), mode='constant', value=0)
+                # TODO The square bracket part is redundant []. for Example if size=2560 then doing [0:2560] after interpolate is redundant
                 amsrenv = torch.nn.functional.interpolate(
                     input=amsrenv,
                     size=self.options['amsrenv_upsample_shape'],
@@ -724,6 +725,7 @@ def get_variable_options(train_options: dict):
     # Patch size before down sample
     train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size']
 
+    # TODO: Replace by the train_options['amsrenv_pixel_spacing'] / (train_options[pixel_spacing]*train_options['down_sample_scale'])
     train_options['amsrenv_delta'] = 50 / \
         (train_options['pixel_spacing'] // 40)
     train_options['amsrenv_patch'] = train_options['patch_size_before_down_sample'] / \
