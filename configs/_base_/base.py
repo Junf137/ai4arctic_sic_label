@@ -248,6 +248,8 @@ train_options = {
         'std': 31.32935694114249
         },
 
+    'amsrenv_pixel_spacing': 2000,  # amsrenv pixel spacing is 2 km 
+
 
     # -- Data Augmentation Options -- #
     # Random_h_flip (float, [0, 1]) - Chance of doing random horizontal flip

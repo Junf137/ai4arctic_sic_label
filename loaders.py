@@ -58,6 +58,8 @@ class AI4ArcticChallengeDataset(Dataset):
                                                              size=(temp_scene.size(2)//self.options['down_sample_scale'],
                                                                    temp_scene.size(3)//self.options['down_sample_scale']),
                                                              mode=self.options['loader_upsampling'])
+                
+                scene_size_before_padding = temp_scene.shape
 
                 if temp_scene.size(2) < self.options['patch_size']:
                     height_pad = self.options['patch_size'] - temp_scene.size(2) + 1
@@ -80,6 +82,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
                     self.amsrs.append(temp_amsr)
 
+                # TODO: Replace the before down sample with just patch
                 if len(self.options['auxiliary_variables']) > 0:
                     temp_aux = []
 
@@ -89,12 +92,12 @@ class AI4ArcticChallengeDataset(Dataset):
                         # Convert Scene time to number data
                         norm_time = get_norm_month(scene_id)
                         time_array = torch.from_numpy(
-                            np.full((self.options['patch_size_before_down_sample'], self.options['patch_size_before_down_sample']), norm_time))
+                            np.full((scene_size_before_padding[2], scene_size_before_padding[3]), norm_time))
 
-                        time_array = torch.nn.functional.interpolate(time_array.unsqueeze(0).unsqueeze(0),
-                                                                     size=(temp_scene.size(2),
-                                                                           temp_scene.size(3)),
-                                                                     mode=self.options['loader_upsampling'])
+                        # time_array = torch.nn.functional.interpolate(time_array.unsqueeze(0).unsqueeze(0),
+                        #                                              size=(scene_size_before_padding.size(2),
+                        #                                                    scene_size_before_padding.size(3)),
+                        #                                              mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             time_array = torch.nn.functional.pad(
                                 time_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
@@ -109,8 +112,8 @@ class AI4ArcticChallengeDataset(Dataset):
 
                         # Interpolate to size of original scene
                         inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                                                                          size=(temp_scene.size(2),
-                                                                                temp_scene.size(3)),
+                                                                          size=(scene_size_before_padding[2],
+                                                                                scene_size_before_padding[3]),
                                                                           mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             inter_lat_array = torch.nn.functional.pad(
@@ -126,8 +129,8 @@ class AI4ArcticChallengeDataset(Dataset):
 
                         # Interpolate to size of original scene
                         inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                                                                           size=(temp_scene.size(2),
-                                                                                 temp_scene.size(3)),
+                                                                           size=(scene_size_before_padding[2],
+                                                                                 scene_size_before_padding[3]),
                                                                            mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             inter_long_array = torch.nn.functional.pad(
@@ -373,13 +376,16 @@ class AI4ArcticChallengeDataset(Dataset):
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
                                                                  + self.options['patch_size_before_down_sample']))]
+                #TODO: remove this downsample now we up-sample directly to the correct scene
                 amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0),
                                                           size=(self.options['patch_size'], self.options['patch_size']),
                                                           mode=self.options['loader_downsampling'])
+                
                 patch[len(self.options['full_variables']):len(self.options['full_variables']) +
                       len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
 
             # Only add auxiliary_variables if they are called
+            # No need to do the patch
             if len(self.options['auxiliary_variables']) > 0:
                 patch[len(self.options['full_variables']) + len(self.options['amsrenv_variables']):, :, :] = self.aux[idx][0, :, row_rand: row_rand +
                                                                                                                            self.options['patch_size'], col_rand: col_rand + self.options['patch_size']]
@@ -726,16 +732,18 @@ def get_variable_options(train_options: dict):
     train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size']
 
     # TODO: Replace by the train_options['amsrenv_pixel_spacing'] / (train_options[pixel_spacing]*train_options['down_sample_scale'])
+    # train_options['amsrenv_delta'] = train_options['amsrenv_pixel_spacing'] / \
+    #     (train_options['pixel_spacing']*train_options['down_sample_scale'])
     train_options['amsrenv_delta'] = 50 / \
         (train_options['pixel_spacing'] // 40)
-    train_options['amsrenv_patch'] = train_options['patch_size_before_down_sample'] / \
+    train_options['amsrenv_patch'] = train_options['patch_size'] / \
         train_options['amsrenv_delta']
     train_options['amsrenv_patch_dec'] = int(
         train_options['amsrenv_patch'] - int(train_options['amsrenv_patch']))
-    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size_before_down_sample'] +
+    train_options['amsrenv_upsample_shape'] = (int(train_options['patch_size'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']),
-                                               int(train_options['patch_size_before_down_sample'] +
+                                               int(train_options['patch_size'] +
                                                    train_options['amsrenv_patch_dec'] *
                                                    train_options['amsrenv_delta']))
     train_options['sar_variables'] = [variable for variable in train_options['train_variables']
