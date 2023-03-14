@@ -92,7 +92,7 @@ class AI4ArcticChallengeDataset(Dataset):
                         # Convert Scene time to number data
                         norm_time = get_norm_month(scene_id)
                         time_array = torch.from_numpy(
-                            np.full((scene_size_before_padding[2], scene_size_before_padding[3]), norm_time))
+                            np.full((scene_size_before_padding[2], scene_size_before_padding[3]), norm_time)).unsqueeze(0).unsqueeze(0)
 
                         # time_array = torch.nn.functional.interpolate(time_array.unsqueeze(0).unsqueeze(0),
                         #                                              size=(scene_size_before_padding.size(2),
@@ -100,7 +100,7 @@ class AI4ArcticChallengeDataset(Dataset):
                         #                                              mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             time_array = torch.nn.functional.pad(
-                                time_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
+                                time_array, (0, width_pad, 0, height_pad), mode='constant', value=0)
 
                         temp_aux.append(time_array)
 
@@ -117,7 +117,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                                                           mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             inter_lat_array = torch.nn.functional.pad(
-                                inter_lat_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
+                                inter_lat_array, (0, width_pad, 0, height_pad), mode='constant', value=0)
 
                         temp_aux.append(inter_lat_array)
 
@@ -134,10 +134,10 @@ class AI4ArcticChallengeDataset(Dataset):
                                                                            mode=self.options['loader_upsampling'])
                         if height_pad > 0 or width_pad > 0:
                             inter_long_array = torch.nn.functional.pad(
-                                inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0).numpy()
+                                inter_long_array, (0, width_pad, 0, height_pad), mode='constant', value=0)
                         temp_aux.append(inter_long_array)
 
-                    self.aux.append(np.concatenate(temp_aux, 1))
+                    self.aux.append(torch.cat(temp_aux, 1))
 
                 temp_scene = torch.squeeze(temp_scene)
 
@@ -315,6 +315,7 @@ class AI4ArcticChallengeDataset(Dataset):
             Numpy array with shape (len(train_variables),
             patch_height, patch_width). None if empty patch.
         """
+
         patch = np.zeros((len(self.options['full_variables']) +
                           len(self.options['amsrenv_variables']) +
                           len(self.options['auxiliary_variables']),
@@ -352,6 +353,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                                            int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
                                                            int(amsrenv_col): int(amsrenv_col + np.ceil(self.options['amsrenv_patch']))]
                                            ).unsqueeze(0)
+                # TODO: bug the following if statement will never be run because amsrenr is defined to be smaller amsrenv_patch
                 if amsrenv.size(2) < self.options['amsrenv_patch']:
                     height_pad = int(np.ceil(self.options['amsrenv_patch'])) - amsrenv.size(2)
                 else:
@@ -372,14 +374,14 @@ class AI4ArcticChallengeDataset(Dataset):
                     :,
                     int(np.around(amsrenv_row_index_crop)): int(np.around
                                                                 (amsrenv_row_index_crop
-                                                                 + self.options['patch_size_before_down_sample'])),
+                                                                 + self.options['patch_size'])),
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
-                                                                 + self.options['patch_size_before_down_sample']))]
+                                                                 + self.options['patch_size']))]
                 #TODO: remove this downsample now we up-sample directly to the correct scene
-                amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0),
-                                                          size=(self.options['patch_size'], self.options['patch_size']),
-                                                          mode=self.options['loader_downsampling'])
+                # amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0),
+                #                                           size=(self.options['patch_size'], self.options['patch_size']),
+                #                                           mode=self.options['loader_downsampling'])
                 
                 patch[len(self.options['full_variables']):len(self.options['full_variables']) +
                       len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
@@ -729,13 +731,13 @@ def get_variable_options(train_options: dict):
     """
 
     # Patch size before down sample
-    train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size']
+    # train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size']
 
     # TODO: Replace by the train_options['amsrenv_pixel_spacing'] / (train_options[pixel_spacing]*train_options['down_sample_scale'])
-    # train_options['amsrenv_delta'] = train_options['amsrenv_pixel_spacing'] / \
-    #     (train_options['pixel_spacing']*train_options['down_sample_scale'])
-    train_options['amsrenv_delta'] = 50 / \
-        (train_options['pixel_spacing'] // 40)
+    train_options['amsrenv_delta'] = train_options['amsrenv_pixel_spacing'] / \
+        (train_options['pixel_spacing']*train_options['down_sample_scale'])
+    # train_options['amsrenv_delta'] = 50 / \
+    #     (train_options['pixel_spacing'] // 40)
     train_options['amsrenv_patch'] = train_options['patch_size'] / \
         train_options['amsrenv_delta']
     train_options['amsrenv_patch_dec'] = int(
