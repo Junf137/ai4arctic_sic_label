@@ -280,7 +280,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
             # Separate in to x (train variables) and y (targets) and downscale if needed
 
-            x = torch.from_numpy(
+            x_patch = torch.from_numpy(
                 patch[len(self.options['charts']):, :]).type(torch.float).unsqueeze(0)
 
             # The following code was commented because down_scale no longer happens here
@@ -288,7 +288,7 @@ class AI4ArcticChallengeDataset(Dataset):
             #     x_patch = torch.nn.functional.interpolate(
             #         x, scale_factor=1/self.options['down_sample_scale'], mode=self.options['loader_downsampling'])
 
-            y = torch.from_numpy(patch[:len(self.options['charts']), :, :]).unsqueeze(0)
+            y_patch = torch.from_numpy(patch[:len(self.options['charts']), :, :]).unsqueeze(0)
 
             # The following code was commented because down_scale no longer happens here
             # if (self.options['down_sample_scale'] != 1):
