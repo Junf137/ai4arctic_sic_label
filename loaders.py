@@ -57,7 +57,7 @@ class AI4ArcticChallengeDataset(Dataset):
                 temp_scene = torch.nn.functional.interpolate(temp_scene,
                                                              size=(temp_scene.size(2)//self.options['down_sample_scale'],
                                                                    temp_scene.size(3)//self.options['down_sample_scale']),
-                                                             mode=self.options['loader_upsampling'])
+                                                             mode=self.options['loader_downsampling'])
                 
                 scene_size_before_padding = temp_scene.shape
 
