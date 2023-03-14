@@ -60,7 +60,7 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'num_workers': 4,  # Number of parallel processes to fetch data.
                  'num_workers_val': 4,  # Number of parallel processes during validation.
                  'patch_size': 256,
-                 'down_sample_scale': 1,
+                 'down_sample_scale': 10,
                  'unet_conv_filters': [32, 32, 64, 64],
 
                  'data_augmentations': {
