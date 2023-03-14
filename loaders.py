@@ -353,7 +353,7 @@ class AI4ArcticChallengeDataset(Dataset):
                                                            int(amsrenv_row): int(amsrenv_row + np.ceil(self.options['amsrenv_patch'])),
                                                            int(amsrenv_col): int(amsrenv_col + np.ceil(self.options['amsrenv_patch']))]
                                            ).unsqueeze(0)
-                # TODO: bug the following if statement will never be run because amsrenr is defined to be smaller amsrenv_patch
+                # Add padding in case the patch size return is smaller than the expected one. 
                 if amsrenv.size(2) < self.options['amsrenv_patch']:
                     height_pad = int(np.ceil(self.options['amsrenv_patch'])) - amsrenv.size(2)
                 else:
