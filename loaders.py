@@ -179,16 +179,16 @@ class AI4ArcticChallengeDataset(Dataset):
         patch = np.zeros((len(self.options['full_variables']) +
                           len(self.options['amsrenv_variables']) +
                           len(self.options['auxiliary_variables']),
-                          self.options['patch_size_before_down_sample'],
-                          self.options['patch_size_before_down_sample']))
+                          self.options['patch_size'],
+                          self.options['patch_size']))
 
         # Get random index to crop from.
         row_rand = np.random.randint(
             low=0, high=scene['SIC'].values.shape[0]
-            - self.options['patch_size_before_down_sample'])
+            - self.options['patch_size'])
         col_rand = np.random.randint(
             low=0, high=scene['SIC'].values.shape[1]
-            - self.options['patch_size_before_down_sample'])
+            - self.options['patch_size'])
         # Equivalent in amsr and env variable grid.
         amsrenv_row = row_rand / self.options['amsrenv_delta']
         # Used in determining the location of the crop in between pixels.
@@ -199,17 +199,17 @@ class AI4ArcticChallengeDataset(Dataset):
         amsrenv_col_index_crop = amsrenv_col_dec * self.options['amsrenv_delta'] * amsrenv_col_dec
 
         # - Discard patches with too many meaningless pixels (optional).
-        if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size_before_down_sample'],
-                                      col_rand: col_rand + self.options['patch_size_before_down_sample']]
+        if np.sum(scene['SIC'].values[row_rand: row_rand + self.options['patch_size'],
+                                      col_rand: col_rand + self.options['patch_size']]
                   != self.options['class_fill_values']['SIC']) > 1:
 
             # Crop full resolution variables.
             patch[0:len(self.options['full_variables']), :, :] = \
                 scene[self.options['full_variables']].isel(
                 sar_lines=range(row_rand, row_rand +
-                                self.options['patch_size_before_down_sample']),
+                                self.options['patch_size']),
                 sar_samples=range(col_rand, col_rand
-                                  + self.options['patch_size_before_down_sample'])).to_array().values
+                                  + self.options['patch_size'])).to_array().values
             if len(self.options['amsrenv_variables']) > 0:
                 # Crop and upsample low resolution variables.
                 patch[len(self.options['full_variables']):len(self.options['full_variables'])+len(self.options['amsrenv_variables']):, :, :] = torch.nn.functional.interpolate(
@@ -223,10 +223,10 @@ class AI4ArcticChallengeDataset(Dataset):
                     :,
                     int(np.around(amsrenv_row_index_crop)): int(np.around
                                                                 (amsrenv_row_index_crop
-                                                                 + self.options['patch_size_before_down_sample'])),
+                                                                 + self.options['patch_size'])),
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
-                                                                 + self.options['patch_size_before_down_sample']))].numpy()
+                                                                 + self.options['patch_size']))].numpy()
             # Only add auxiliary_variables if they are called
             if len(self.options['auxiliary_variables']) > 0:
 
@@ -239,8 +239,8 @@ class AI4ArcticChallengeDataset(Dataset):
                     norm_time = get_norm_month(scene_id)
 
                     #
-                    time_array = np.full((self.options['patch_size_before_down_sample'],
-                                         self.options['patch_size_before_down_sample']), norm_time)
+                    time_array = np.full((self.options['patch_size'],
+                                         self.options['patch_size']), norm_time)
 
                     aux_feat_list.append(time_array)
 
@@ -254,8 +254,8 @@ class AI4ArcticChallengeDataset(Dataset):
                     inter_lat_array = torch.nn.functional.interpolate(input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])), size=scene['nersc_sar_primary'].values.shape,
                                                                       mode=self.options['loader_upsampling']).numpy()
                     # Crop to correct patch size
-                    crop_inter_lat_array = inter_lat_array[0, 0, row_rand: row_rand + self.options['patch_size_before_down_sample'],
-                                                           col_rand: col_rand + self.options['patch_size_before_down_sample']]
+                    crop_inter_lat_array = inter_lat_array[0, 0, row_rand: row_rand + self.options['patch_size'],
+                                                           col_rand: col_rand + self.options['patch_size']]
                     # Append to array
                     aux_feat_list.append(crop_inter_lat_array)
 
@@ -269,8 +269,8 @@ class AI4ArcticChallengeDataset(Dataset):
                     inter_long_array = torch.nn.functional.interpolate(input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])), size=scene['nersc_sar_primary'].values.shape,
                                                                        mode=self.options['loader_upsampling']).numpy()
                     # Crop to correct patch size
-                    crop_inter_long_array = inter_long_array[0, 0, row_rand: row_rand + self.options['patch_size_before_down_sample'],
-                                                             col_rand: col_rand + self.options['patch_size_before_down_sample']]
+                    crop_inter_long_array = inter_long_array[0, 0, row_rand: row_rand + self.options['patch_size'],
+                                                             col_rand: col_rand + self.options['patch_size']]
                     # Append to array
                     aux_feat_list.append(crop_inter_long_array)
 
@@ -283,15 +283,17 @@ class AI4ArcticChallengeDataset(Dataset):
             x = torch.from_numpy(
                 patch[len(self.options['charts']):, :]).type(torch.float).unsqueeze(0)
 
-            if (self.options['down_sample_scale'] != 1):
-                x_patch = torch.nn.functional.interpolate(
-                    x, scale_factor=1/self.options['down_sample_scale'], mode=self.options['loader_downsampling'])
+            # The following code was commented because down_scale no longer happens here
+            # if (self.options['down_sample_scale'] != 1):
+            #     x_patch = torch.nn.functional.interpolate(
+            #         x, scale_factor=1/self.options['down_sample_scale'], mode=self.options['loader_downsampling'])
 
             y = torch.from_numpy(patch[:len(self.options['charts']), :, :]).unsqueeze(0)
 
-            if (self.options['down_sample_scale'] != 1):
-                y_patch = torch.nn.functional.interpolate(
-                    y, scale_factor=1/self.options['down_sample_scale'], mode='nearest')
+            # The following code was commented because down_scale no longer happens here
+            # if (self.options['down_sample_scale'] != 1):
+            #     y_patch = torch.nn.functional.interpolate(
+            #         y, scale_factor=1/self.options['down_sample_scale'], mode='nearest')
 
         # In case patch does not contain any valid pixels - return None.
         else:
@@ -522,7 +524,6 @@ class AI4ArcticChallengeDataset(Dataset):
                 if self.do_transform:
                     x_patch, y_patch = self.transform(x_patch, y_patch)
                     
-
                 # -- Stack the scene patches in patches
                 x_patches[sample_n, :, :, :] = x_patch
                 y_patches[sample_n, :, :, :] = y_patch
