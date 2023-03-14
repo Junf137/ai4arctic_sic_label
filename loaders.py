@@ -82,7 +82,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
                     self.amsrs.append(temp_amsr)
 
-                # TODO: Replace the before down sample with just patch
+                
                 if len(self.options['auxiliary_variables']) > 0:
                     temp_aux = []
 
@@ -380,10 +380,6 @@ class AI4ArcticChallengeDataset(Dataset):
                     int(np.around(amsrenv_col_index_crop)): int(np.around
                                                                 (amsrenv_col_index_crop
                                                                  + self.options['patch_size']))]
-                #TODO: remove this downsample now we up-sample directly to the correct scene
-                # amsrenv = torch.nn.functional.interpolate(amsrenv.unsqueeze(0),
-                #                                           size=(self.options['patch_size'], self.options['patch_size']),
-                #                                           mode=self.options['loader_downsampling'])
                 
                 patch[len(self.options['full_variables']):len(self.options['full_variables']) +
                       len(self.options['amsrenv_variables']):, :, :] = amsrenv.numpy()
@@ -497,7 +493,6 @@ class AI4ArcticChallengeDataset(Dataset):
                 low=0, high=len(self.files), size=1).item()
 
             # - Extract patches
-            # TODO: change to use x and y instead of patches
             try:
                 if self.downsample:
                     x_patch, y_patch = self.random_crop_downsample(scene_id)
@@ -730,15 +725,10 @@ def get_variable_options(train_options: dict):
         Updated with amsrenv options.
         Updated with correct true patch size
     """
-
-    # Patch size before down sample
-    # train_options['patch_size_before_down_sample'] = train_options['down_sample_scale'] * train_options['patch_size']
-
-    # TODO: Replace by the train_options['amsrenv_pixel_spacing'] / (train_options[pixel_spacing]*train_options['down_sample_scale'])
+    
     train_options['amsrenv_delta'] = train_options['amsrenv_pixel_spacing'] / \
         (train_options['pixel_spacing']*train_options['down_sample_scale'])
-    # train_options['amsrenv_delta'] = 50 / \
-    #     (train_options['pixel_spacing'] // 40)
+
     train_options['amsrenv_patch'] = train_options['patch_size'] / \
         train_options['amsrenv_delta']
     train_options['amsrenv_patch_dec'] = int(

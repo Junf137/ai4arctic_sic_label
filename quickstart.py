@@ -76,12 +76,6 @@ def parse_args():
     parser.add_argument('--wandb-project', required=True, help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
 
-    # TODO: add argument for finetune-from
-    # TODO: Make mutually exclusive between --resume from and fine_tuning
-    # Optional arguments
-    # parser.add_argument("--resume-from", help="Resume Training from checkpoint", type=str, default=None)
-    # parser.add_argument("--resume-from", help="Resume Training from checkpoint", type=str, default=None)
-
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--resume-from', type=pathlib.Path, default=None,
                        help='Resume Training from checkpoint, it will use the \
