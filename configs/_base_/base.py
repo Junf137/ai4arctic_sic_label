@@ -10,6 +10,7 @@
 @Desc    :   None
 '''
 from functions import f1_metric, r2_metric
+import torch.nn as nn
 # Charts in the dataset
 CHARTS = ['SIC', 'SOD', 'FLOE']
 
@@ -171,7 +172,7 @@ train_options = {
     #     'weight_decay': 0.01
     # },
 
-    'scheduler': None,
+    'scheduler': {'type': None},
 
     # 'scheduler': {
     # '_delete_': True,
@@ -236,6 +237,26 @@ train_options = {
     'conv_padding': (1, 1),  # Number of padded pixels in convolutional layers.
     'conv_padding_style': 'zeros',  # Style of padding.
 
+    # -- Swin Transformer Options -- #
+    'swin_hp': {'patch_size': 4,  # (int | tuple(int)): Patch size. Default: 4
+        'embed_dim': 96, #(int): Patch embedding dimension. Default: 96
+        'depths': [2, 2, 6, 2], #(tuple(int)): Depth of each Swin Transformer layer.
+        'num_heads': [3, 6, 12, 24], #(tuple(int)): Number of attention heads in different layers.
+        'window_size': 8, #(int): Window size. Default: 8
+        'mlp_ratio': 4.,#(float): Ratio of mlp hidden dim to embedding dim. Default: 4
+        'qkv_bias': True,#(bool): If True, add a learnable bias to query, key, value. Default: True
+        'qk_scale': None,#(float): Override default qk scale of head_dim ** -0.5 if set. Default: None
+        'drop_rate': 0.,#(float): Dropout rate. Default: 0
+        'attn_drop_rate': 0.,#(float): Attention dropout rate. Default: 0
+        'drop_path_rate': 0.1,#(float): Stochastic depth rate. Default: 0.1
+        'norm_layer': nn.LayerNorm,#(nn.Module): Normalization layer. Default: nn.LayerNorm.
+        'ape': False,#(bool): If True, add absolute position embedding to the patch embedding. Default: False
+        'patch_norm': True,#(bool): If True, add normalization after patch embedding. Default: True
+        'use_checkpoint': False,#(bool): Whether to use checkpointing to save memory. Default: False
+        },
+
+    # -- Model selection -- #
+    'model_selection': 'unet', #Either 'swin' or 'unet
 
     # -- Latitude and Longitude Information for Normalization -- #
     'latitude': {
