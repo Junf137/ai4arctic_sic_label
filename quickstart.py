@@ -62,6 +62,7 @@ from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
 from unet import UNet  # Convolutional Neural Network model
+from swin_transformer import SwinTransformer # Swin Transformer
 # -- Built-in modules -- #
 from utils import colour_str
 
@@ -335,7 +336,12 @@ def main():
         device = torch.device('cpu')
     print('GPU setup completed!')
 
-    net = UNet(options=train_options).to(device)
+    if train_options['model_selection'] == 'unet':
+        net = UNet(options=train_options).to(device)
+    elif train_options['model_selection'] == 'swin':
+        net = SwinTransformer(options=train_options).to(device)
+    else:
+        raise 'Unknown model selected'
 
     # net = UNet_sep_dec(options=train_options).to(device)
 
