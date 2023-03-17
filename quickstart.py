@@ -66,6 +66,7 @@ from unet import UNet  # Convolutional Neural Network model
 from utils import colour_str
 
 from test_upload_function import test
+import segmentation_models_pytorch as smp
 
 
 def parse_args():
@@ -151,7 +152,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     '''
     best_combined_score = -np.Inf  # Best weighted model score.
 
-    loss_functions = {chart: torch.nn.CrossEntropyLoss(ignore_index=train_options['class_fill_values'][chart])
+    loss_functions = {chart: get_loss(train_options, **train_options['loss'])
                       for chart in train_options['charts']}
 
     print('Training...')
@@ -179,7 +180,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 # - Calculate loss.
                 for chart in train_options['charts']:
                     train_loss_batch += loss_functions[chart](
-                        input=output[chart], target=batch_y[chart].to(device))
+                        output[chart], batch_y[chart].to(device))
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -223,8 +224,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
                 for chart in train_options['charts']:
-                    val_loss_batch += loss_functions[chart](input=output[chart],
-                                                            target=inf_y[chart].unsqueeze(0).long().to(device))
+                    val_loss_batch += loss_functions[chart](output[chart],
+                                                            inf_y[chart].unsqueeze(0).long().to(device))
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
@@ -277,7 +278,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
-            
+
             wandb.save(model_path)
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
@@ -384,10 +385,10 @@ def main():
         #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
         #  This can be done by using 'net = net.cpu()'.
         if args.resume_from is not None:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, 
+            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
                                     scheduler, epoch_start)
         else:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, 
+            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
                                     scheduler)
         print('Training Complete')
         print('Testing...')
@@ -432,6 +433,50 @@ def get_optimizer(train_options, net):
                                     weight_decay=train_options['optimizer']['weight_decay'],
                                     nesterov=train_options['optimizer']['nesterov'])
     return optimizer
+
+
+def get_loss(train_options, **kwargs):
+    # TODO Fix Dice loss, Jacard loss,  MCC loss, SoftBCEWithLogitsLoss,
+
+    if train_options['loss']['type'] == 'DiceLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.DiceLoss(**kwargs)
+    elif train_options['loss']['type'] == 'FocalLoss':
+        kwargs.pop('type')
+        loss = smp.losses.FocalLoss(**kwargs)
+    elif train_options['loss']['type'] == 'JaccardLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.JaccardLoss(**kwargs)
+    elif train_options['loss']['type'] == 'LovaszLoss':
+        kwargs.pop('type')
+        loss = smp.losses.LovaszLoss(**kwargs)
+    elif train_options['loss']['type'] == 'MCCLoss':
+        kwargs.pop('type')
+        loss = smp.losses.MCCLoss(**kwargs)
+    elif train_options['loss']['type'] == 'SoftBCEWithLogitsLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.SoftBCEWithLogitsLoss(**kwargs)
+    elif train_options['loss']['type'] == 'SoftCrossEntropyLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.SoftCrossEntropyLoss(**kwargs)
+    elif train_options['loss']['type'] == 'TverskyLoss':
+        kwargs.pop('type')
+        loss = smp.losses.TverskyLoss(**kwargs)
+    elif train_options['loss']['type'] == 'CrossEntropyLoss':
+        kwargs.pop('type')
+        loss = torch.nn.CrossEntropyLoss(**kwargs)
+    elif train_options['loss']['type'] == '':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = torch.nn.BCELoss(**kwargs)
+    else:
+        raise ValueError(f'The given loss \'{train_options["loss"]["type"]}\' is unrecognized or Not implemented')
+
+    return loss
 
 
 if __name__ == '__main__':
