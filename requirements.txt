@@ -14,3 +14,4 @@ opencv-python-headless
 mmcv==1.7.1
 wandb
 torchmetrics
+segmentation-models-pytorch

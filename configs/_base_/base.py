@@ -147,10 +147,88 @@ train_options = {
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
 
+    # refer this link for more parameters related to loss :
+    # https://github.com/qubvel/segmentation_models.pytorch/tree/master/segmentation_models_pytorch/losses
+
+    # # Binary cross entropy loss
+    # 'loss': {
+    #     'type': 'BinaryCrossEntropyLoss',
+    # },
+
+    # # Focal Loss
+    # 'loss': {
+    #     'type': 'FocalLoss',
+    #     'mode': 'multiclass',
+    #     'gamma': 0.7,
+    #     'ignore_index': 255
+    # },
+
+    # # Dice Loss
+    # 'loss': {
+    #     'type': 'DiceLoss', --> Not working
+    #     'mode': 'multiclass',
+    #     'ignore_index': 255
+    # },
+
+    # # Jaccard Loss --> Not working
+    # 'loss': {
+    #     'type': 'JaccardLoss',
+    #     'mode': 'multiclass',
+    # },
+
+    # # LovaszLoss Loss
+    # 'loss': {
+    #     'type': 'LovaszLoss',
+    #     'mode': 'multiclass',
+    #     'ignore_index': 255
+    # },
+
+    # # SoftBCEWithLogitsLoss Loss
+    # 'loss': {
+    #     'type': 'SoftBCEWithLogitsLoss',
+    #     'ignore_index': 255,
+    #     'smooth_factor': 0,
+    # },
+
+    # # SoftCrossEntropyLoss --> NOT WORKING
+    # 'loss': {
+    #     'type': 'SoftCrossEntropyLoss',
+    #     'ignore_index': 255,
+    #     'smooth_factor': 0.1,
+    # },
+
+    # # TverskyLoss
+    # 'loss': {
+    #     'type': 'TverskyLoss',
+    #     'ignore_index': 255,
+    #     'mode': 'multiclass',
+    #     'smooth': 0,
+    # },
+
+    # # MCC Loss --> NOT WORKING
+    # 'loss': {
+    #     'type': 'MCCLoss',
+    #     'eps': 1e-5
+    # },
+
+    # CrossEntropyLoss from Pytorch
+    'loss': {
+        'type': 'CrossEntropyLoss',
+        'ignore_index': 255,
+    },
+
+    # # BinaryCrossEntropyLoss from Pytorch --> Not working
+    # 'loss': {
+    #     '_delete_': True,
+    #     'type': 'BCELoss',
+    #     'ignore_index': 255,
+    #     #  'smooth_factor': 0.1,
+    # },
+
     'optimizer': {
         'type': 'Adam',
         'lr': 0.0001,  # Optimizer learning rate.
-        'b1': 0.9, 
+        'b1': 0.9,
         'b2': 0.999,
         'weight_decay': 0.0
     },
@@ -158,7 +236,7 @@ train_options = {
     # 'optimizer': {
     #     'type': 'AdamW',
     #     'lr': 0.0001,  # Optimizer learning rate.
-    #     'b1': 0.9, 
+    #     'b1': 0.9,
     #     'b2': 0.999,
     #     'weight_decay': 0.01
     # },
@@ -166,8 +244,8 @@ train_options = {
     # 'optimizer': {
     #     'type': 'SGD',
     #     'lr': 0.0001,  # Optimizer learning rate.
-    #     'momentum': 0, 
-    #     'dampening': 0, 
+    #     'momentum': 0,
+    #     'dampening': 0,
     #     'nesterov': False,
     #     'weight_decay': 0.01
     # },
@@ -260,14 +338,14 @@ train_options = {
 
     # -- Latitude and Longitude Information for Normalization -- #
     'latitude': {
-        'mean': 69.12526250065734, 
+        'mean': 69.12526250065734,
         'std': 7.03179625261593
-        },
+    },
 
     'longitude': {
-        'mean': -56.38966259295485, 
+        'mean': -56.38966259295485,
         'std': 31.32935694114249
-        },
+    },
 
     'amsrenv_pixel_spacing': 2000,  # amsrenv pixel spacing is 2 km 
 
@@ -278,7 +356,7 @@ train_options = {
     # Random_rotation_prob (float, [0, 1]) - Chance of doing random rotation
     # Random_rotation (int, [0, 180]) - Maximum random degree rotation between 0 and Random_rotation
     # Random_scale_prob (float, [0, 1]) - Chance of doing random scaling
-    # Random_scale (float_tuple(a, b)) - Scales image randomly to a scale between a and b. b > a. 
+    # Random_scale (float_tuple(a, b)) - Scales image randomly to a scale between a and b. b > a.
     # Cutmix_beta (float, (0, inf)) - Parameter for random beta distribution
     # Cutmix_prob (float, [0, 1]) - Chance of doing random cutmix
     'data_augmentations': {
@@ -290,5 +368,5 @@ train_options = {
         'Random_scale': (1, 1),
         'Cutmix_beta': 1.0,
         'Cutmix_prob': 0,
-        }
+    }
 }
