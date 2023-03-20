@@ -225,8 +225,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
-                    val_loss_batch += loss_functions[chart](output[chart],
-                                                            inf_y[chart].unsqueeze(0).long().to(device))
+                    val_loss_batch += weight * loss_functions[chart](output[chart],
+                                                                     inf_y[chart].unsqueeze(0).long().to(device))
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
