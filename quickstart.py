@@ -62,7 +62,7 @@ from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
 from unet import UNet  # Convolutional Neural Network model
-from swin_transformer import SwinTransformer # Swin Transformer
+from swin_transformer import SwinTransformer  # Swin Transformer
 # -- Built-in modules -- #
 from utils import colour_str
 
@@ -179,8 +179,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 output = net(batch_x)
                 # breakpoint()
                 # - Calculate loss.
-                for chart in train_options['charts']:
-                    train_loss_batch += loss_functions[chart](
+                for chart, weight in zip(train_options['charts'], train_options['task_weights']):
+                    train_loss_batch += weight * loss_functions[chart](
                         output[chart], batch_y[chart].to(device))
 
             # - Reset gradients from previous pass.
@@ -224,7 +224,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             with torch.no_grad(), torch.cuda.amp.autocast():
                 inf_x = inf_x.to(device, non_blocking=True)
                 output = net(inf_x)
-                for chart in train_options['charts']:
+                for chart, weight in zip(train_options['charts'], train_options['task_weights']):
                     val_loss_batch += loss_functions[chart](output[chart],
                                                             inf_y[chart].unsqueeze(0).long().to(device))
 

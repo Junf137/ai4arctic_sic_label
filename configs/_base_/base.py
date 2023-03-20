@@ -146,6 +146,7 @@ train_options = {
     'loader_downsampling': 'nearest',
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
+    'task_weights' : [1,1,1], 
 
     # refer this link for more parameters related to loss :
     # https://github.com/qubvel/segmentation_models.pytorch/tree/master/segmentation_models_pytorch/losses
