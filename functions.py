@@ -19,9 +19,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.utils.data as data
 # from sklearn.metrics import r2_score, f1_score
 from torchmetrics.functional import r2_score, f1_score
-
+from tqdm import tqdm  # Progress bar
 # -- Proprietary modules -- #
 from utils import ICE_STRINGS, GROUP_NAMES
 
@@ -255,4 +256,225 @@ def rand_bbox(size, lam):
 
     return bbx1, bby1, bbx2, bby2
     
+def slide_inference(img, net, options, mode):
+    """
+    Inference by sliding-window with overlap.
 
+
+    Parameters
+    ----------
+    img : 4D shape of the batch (N, C', H, W)
+    net : PyTorch model of nn.Module 
+    options: configuration dictionary
+    mode: either 'val' or 'test'
+    
+    Returns 
+    ----------
+    pred: Dictionary with SIC, SOD, and FLOE predictions of the batch  (N, C", H, W)
+    """
+    if mode == 'val':
+        h_stride, w_stride = options['swin_hp']['val_stride']
+    elif mode == 'test':
+        h_stride, w_stride = options['swin_hp']['test_stride']
+    else:
+        raise 'Unrecognized mode'
+    
+    h_crop = options['patch_size']
+    w_crop = options['patch_size']
+
+    batch_size, _, h_img, w_img = img.size()
+    SIC_channels = options['n_classes']['SIC']
+    SOD_channels = options['n_classes']['SOD']
+    FLOE_channels = options['n_classes']['FLOE']
+    h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
+    w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
+    preds_SIC = img.new_zeros((batch_size, SIC_channels, h_img, w_img))
+    preds_SOD = img.new_zeros((batch_size, SOD_channels, h_img, w_img))
+    preds_FLOE = img.new_zeros((batch_size, FLOE_channels, h_img, w_img))
+    count_mat = img.new_zeros((batch_size, 1, h_img, w_img))
+    for h_idx in range(h_grids):
+        for w_idx in range(w_grids):
+            y1 = h_idx * h_stride
+            x1 = w_idx * w_stride
+            y2 = min(y1 + h_crop, h_img)
+            x2 = min(x1 + w_crop, w_img)
+            y1 = max(y2 - h_crop, 0)
+            x1 = max(x2 - w_crop, 0)
+            crop_img = img[:, :, y1:y2, x1:x2]
+            crop_img_size = crop_img.size()
+            if crop_img_size[2] < options['patch_size']:
+                crop_height_pad = options['patch_size'] - crop_img_size[2]
+            else:
+                crop_height_pad = 0
+
+            if crop_img_size[3] < options['patch_size']:
+                crop_width_pad = options['patch_size'] - crop_img_size[3]
+            else:
+                crop_width_pad = 0
+
+            if crop_height_pad > 0 or crop_width_pad > 0:
+                crop_img = torch.nn.functional.pad(
+                    crop_img, (0, crop_width_pad, 0, crop_height_pad), mode='constant', value=0)
+
+            crop_seg_logit = net(crop_img)
+
+            if crop_height_pad > 0:
+                crop_seg_logit['SIC'] = crop_seg_logit['SIC'][:, :, :-crop_height_pad, :]
+                crop_seg_logit['SOD'] = crop_seg_logit['SOD'][:, :, :-crop_height_pad, :]
+                crop_seg_logit['FLOE'] = crop_seg_logit['FLOE'][:, :, :-crop_height_pad, :]
+            if crop_width_pad > 0:
+                crop_seg_logit['SIC'] = crop_seg_logit['SIC'][:, :, :, :-crop_width_pad]
+                crop_seg_logit['SOD'] = crop_seg_logit['SOD'][:, :, :, :-crop_width_pad]
+                crop_seg_logit['FLOE'] = crop_seg_logit['FLOE'][:, :, :, :-crop_width_pad]
+
+            preds_SIC += torch.nn.functional.pad(crop_seg_logit['SIC'],
+                            (int(x1), int(preds_SIC.shape[3] - x2), int(y1),
+                            int(preds_SIC.shape[2] - y2)))
+            preds_SOD += torch.nn.functional.pad(crop_seg_logit['SOD'],
+                            (int(x1), int(preds_SOD.shape[3] - x2), int(y1),
+                            int(preds_SOD.shape[2] - y2)))
+            preds_FLOE += torch.nn.functional.pad(crop_seg_logit['FLOE'],
+                            (int(x1), int(preds_FLOE.shape[3] - x2), int(y1),
+                            int(preds_FLOE.shape[2] - y2)))
+
+            count_mat[:, :, y1:y2, x1:x2] += 1
+    assert (count_mat == 0).sum() == 0
+
+    preds_SIC = preds_SIC / count_mat
+    preds_SOD = preds_SOD / count_mat
+    preds_FLOE = preds_FLOE / count_mat
+
+
+    return {'SIC': preds_SIC,
+            'SOD': preds_SOD,
+            'FLOE': preds_FLOE}
+
+
+class Slide_patches_index(data.Dataset):
+    def __init__(self, h_img, w_img, h_crop, w_crop, h_stride, w_stride):
+        super(Slide_patches_index, self).__init__()
+
+        h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
+        w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
+
+        self.patches_list = []
+        
+        for h_idx in range(h_grids):
+            for w_idx in range(w_grids):
+                y1 = h_idx * h_stride
+                x1 = w_idx * w_stride
+                y2 = min(y1 + h_crop, h_img)
+                x2 = min(x1 + w_crop, w_img)
+                y1 = max(y2 - h_crop, 0)
+                x1 = max(x2 - w_crop, 0)
+
+                self.patches_list.append((y1, y2, x1, x2))
+
+    def __getitem__(self, index):
+        return self.patches_list[index]
+    
+    def __len__(self):
+        return len(self.patches_list)
+
+class Take_crops(data.Dataset):
+    def __init__(self, img, patches):
+        super(Take_crops, self).__init__()
+        
+        self.img = img
+        self.patches = patches
+        
+    def __getitem__(self, index):
+        y1, y2, x1, x2 = self.patches[index]
+
+        return self.img[:, y1:y2, x1:x2]
+    
+    def __len__(self):
+        return len(self.patches)
+
+def batched_slide_inference(img, net, options, mode):
+    """
+    Inference by sliding-window with overlap.
+
+    Parameters
+    ----------
+    img : 4D shape of the batch (N, C', H, W)
+    net : PyTorch model of nn.Module 
+    y_type: str, One of 'SIC', 'SOD', or 'FLOE'
+    options: configuration dictionary
+    
+    Returns 
+    ----------
+    pred: Dictionary with SIC, SOD, and FLOE predictions of the batch  (N, C", H, W)
+    """
+    if mode == 'val':
+        h_stride, w_stride = options['swin_hp']['val_stride']
+    elif mode == 'test':
+        h_stride, w_stride = options['swin_hp']['test_stride']
+    else:
+        raise 'Unrecognized mode'
+    
+    h_crop = options['patch_size']
+    w_crop = options['patch_size']
+
+    # ------------ Add Padding to the image to match with the patch size / stride
+    _, _, h_img, w_img = img.size()
+    height_pad = h_crop - h_img if h_img - h_crop < 0 else \
+                (h_stride - (h_img - h_crop) % h_stride) % h_stride
+    width_pad  = w_crop - w_img if w_img - w_crop < 0 else \
+                (w_stride - (w_img - w_crop) % w_stride) % w_stride
+    if height_pad > 0 or width_pad > 0:
+        img = torch.nn.functional.pad(
+            img, (0, width_pad, 0, height_pad), mode='constant', value=0)        
+    
+    # ------------ create dataloader and index track
+    _, _, h_img, w_img = img.size()
+    indexes = Slide_patches_index(h_img, w_img, h_crop, w_crop, h_stride, w_stride)
+    samples = Take_crops(img.detach().cpu().numpy()[0], indexes.patches_list)
+    samples_dataloader = data.DataLoader(dataset=samples, batch_size=options['batch_size']*4, 
+                                         shuffle=False, num_workers=options['num_workers_val'])
+
+    n_batches = len(samples_dataloader)
+    data_iterator = iter(samples_dataloader)
+    idx_iterator = iter(indexes)
+
+    SIC_channels = options['n_classes']['SIC']
+    SOD_channels = options['n_classes']['SOD']
+    FLOE_channels = options['n_classes']['FLOE']
+    preds_SIC  = img.new_zeros((SIC_channels, h_img, w_img))
+    preds_SOD  = img.new_zeros((SOD_channels, h_img, w_img))
+    preds_FLOE = img.new_zeros((FLOE_channels, h_img, w_img))
+    count_mat  = img.new_zeros((h_img, w_img))
+
+    for i in range(n_batches):
+
+        # ------------ Take data
+        crop_imgs = next(data_iterator)
+        crop_imgs = crop_imgs.to(img.device)
+
+        # ------------ Forward
+        crop_seg_logit = net(crop_imgs)
+
+        # ------------ LOCATE PREDICTED LOGITS ON THE WHOLE SCENE
+        for j in range(crop_imgs.shape[0]):
+            y1, y2, x1, x2 = next(idx_iterator)
+
+            preds_SIC [:, y1:y2, x1:x2]  += crop_seg_logit['SIC'] [j, :, 0:(y2-y1), 0:(x2-x1)]
+            preds_SOD [:, y1:y2, x1:x2]  += crop_seg_logit['SOD'] [j, :, 0:(y2-y1), 0:(x2-x1)]
+            preds_FLOE[:, y1:y2, x1:x2]  += crop_seg_logit['FLOE'][j, :, 0:(y2-y1), 0:(x2-x1)]
+
+            count_mat[y1:y2, x1:x2] += 1
+    
+    assert (count_mat == 0).sum() == 0
+
+    preds_SIC  = preds_SIC  / count_mat
+    preds_SOD  = preds_SOD  / count_mat
+    preds_FLOE = preds_FLOE / count_mat
+
+    # ------------ Remove pad
+    preds_SIC  = preds_SIC [:, :-height_pad, :-width_pad].unsqueeze(0)
+    preds_SOD  = preds_SOD [:, :-height_pad, :-width_pad].unsqueeze(0)
+    preds_FLOE = preds_FLOE[:, :-height_pad, :-width_pad].unsqueeze(0)
+
+    return {'SIC': preds_SIC,
+            'SOD': preds_SOD,
+            'FLOE': preds_FLOE}

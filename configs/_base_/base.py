@@ -332,6 +332,8 @@ train_options = {
         'ape': False,#(bool): If True, add absolute position embedding to the patch embedding. Default: False
         'patch_norm': True,#(bool): If True, add normalization after patch embedding. Default: True
         'use_checkpoint': False,#(bool): Whether to use checkpointing to save memory. Default: False
+        'val_stride': [56, 56], #(tuple(int)): Stride for the sliding inference method during validation. Default 56
+        'test_stride': [4, 4], #(tuple(int)): Stride for the sliding inference method during testing. Default 4
         },
 
     # -- Model selection -- #

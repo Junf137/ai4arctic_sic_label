@@ -2,9 +2,7 @@
 set -e
 array=(
 
-# "configs/consine_restarts/dw_10_fl_32_sgd_lr_1.py"
-# "configs/consine_restarts/dw_10_fl_32_sgd_lr_01.py"
-"configs/consine_restarts/dw_10_fl_32_sgd_lr_001_weights_1_1_2.py"
+configs/down_scaling_variation/down_scale_by_10_time_location.py
 
 )
 

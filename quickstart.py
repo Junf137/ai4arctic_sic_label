@@ -56,7 +56,7 @@ from tqdm import tqdm  # Progress bar
 
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
-from functions import compute_metrics, save_best_model, load_model
+from functions import compute_metrics, save_best_model, load_model, slide_inference, batched_slide_inference
 # Custom dataloaders for regular training and validation.
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
@@ -223,7 +223,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.cuda.amp.autocast():
                 inf_x = inf_x.to(device, non_blocking=True)
-                output = net(inf_x)
+                if train_options['model_selection'] == 'swin':
+                    output = slide_inference(inf_x, net, train_options, 'val')
+                    # output = batched_slide_inference(inf_x, net, train_options, 'val')
+                else:
+                    output = net(inf_x)
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
                     val_loss_batch += weight * loss_functions[chart](output[chart],
                                                                      inf_y[chart].unsqueeze(0).long().to(device))

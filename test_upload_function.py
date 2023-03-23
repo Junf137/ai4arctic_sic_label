@@ -22,7 +22,7 @@ from tqdm import tqdm
 # --Proprietary modules -- #
 from functions import chart_cbar
 from loaders import AI4ArcticChallengeTestDataset, get_variable_options
-
+from functions import slide_inference, batched_slide_inference
 import wandb
 
 
@@ -90,7 +90,11 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
         inf_x = inf_x.to(device, non_blocking=True)
 
         with torch.no_grad(), torch.cuda.amp.autocast():
-            output = net(inf_x)
+            if train_options['model_selection'] == 'swin':
+                output = slide_inference(inf_x, net, train_options, 'test')
+                # output = batched_slide_inference(inf_x, net, train_options, 'test')
+            else:
+                output = net(inf_x)
 
             masks_int = masks.to(torch.uint8)
             masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(
