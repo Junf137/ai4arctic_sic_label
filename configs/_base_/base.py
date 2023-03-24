@@ -146,85 +146,78 @@ train_options = {
     'loader_downsampling': 'nearest',
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
-    'task_weights' : [1,1,1], 
+    'task_weights': [1, 1, 1],
+
+
+    # -- loss options -- #
+    'chart_loss': {  # Loss for the task
+        'SIC': {
+            'type': 'CrossEntropyLoss',
+        },
+        'SOD': {
+            'type': 'CrossEntropyLoss',
+        },
+        'FLOE': {
+            'type': 'CrossEntropyLoss',
+
+        },
+    },
 
     # refer this link for more parameters related to loss :
     # https://github.com/qubvel/segmentation_models.pytorch/tree/master/segmentation_models_pytorch/losses
 
     # # Binary cross entropy loss
-    # 'loss': {
     #     'type': 'BinaryCrossEntropyLoss',
-    # },
 
     # # Focal Loss
-    # 'loss': {
     #     'type': 'FocalLoss',
     #     'mode': 'multiclass',
     #     'gamma': 0.7,
     #     'ignore_index': 255
-    # },
 
     # # Dice Loss
-    # 'loss': {
     #     'type': 'DiceLoss', --> Not working
     #     'mode': 'multiclass',
     #     'ignore_index': 255
-    # },
 
     # # Jaccard Loss --> Not working
-    # 'loss': {
     #     'type': 'JaccardLoss',
     #     'mode': 'multiclass',
-    # },
 
     # # LovaszLoss Loss
-    # 'loss': {
     #     'type': 'LovaszLoss',
     #     'mode': 'multiclass',
     #     'ignore_index': 255
-    # },
 
     # # SoftBCEWithLogitsLoss Loss
-    # 'loss': {
     #     'type': 'SoftBCEWithLogitsLoss',
     #     'ignore_index': 255,
     #     'smooth_factor': 0,
-    # },
 
     # # SoftCrossEntropyLoss --> NOT WORKING
-    # 'loss': {
     #     'type': 'SoftCrossEntropyLoss',
     #     'ignore_index': 255,
     #     'smooth_factor': 0.1,
-    # },
 
     # # TverskyLoss
-    # 'loss': {
     #     'type': 'TverskyLoss',
     #     'ignore_index': 255,
     #     'mode': 'multiclass',
     #     'smooth': 0,
-    # },
 
     # # MCC Loss --> NOT WORKING
-    # 'loss': {
     #     'type': 'MCCLoss',
     #     'eps': 1e-5
-    # },
 
     # CrossEntropyLoss from Pytorch
-    'loss': {
-        'type': 'CrossEntropyLoss',
-        'ignore_index': 255,
-    },
+    #     'type': 'CrossEntropyLoss',
+    #     'ignore_index': 255,
 
     # # BinaryCrossEntropyLoss from Pytorch --> Not working
-    # 'loss': {
     #     '_delete_': True,
     #     'type': 'BCELoss',
     #     'ignore_index': 255,
     #     #  'smooth_factor': 0.1,
-    # },
 
     'optimizer': {
         'type': 'Adam',
@@ -318,26 +311,28 @@ train_options = {
 
     # -- Swin Transformer Options -- #
     'swin_hp': {'patch_size': 4,  # (int | tuple(int)): Patch size. Default: 4
-        'embed_dim': 96, #(int): Patch embedding dimension. Default: 96
-        'depths': [2, 2, 6, 2], #(tuple(int)): Depth of each Swin Transformer layer.
-        'num_heads': [3, 6, 12, 24], #(tuple(int)): Number of attention heads in different layers.
-        'window_size': 8, #(int): Window size. Default: 8
-        'mlp_ratio': 4.,#(float): Ratio of mlp hidden dim to embedding dim. Default: 4
-        'qkv_bias': True,#(bool): If True, add a learnable bias to query, key, value. Default: True
-        'qk_scale': None,#(float): Override default qk scale of head_dim ** -0.5 if set. Default: None
-        'drop_rate': 0.,#(float): Dropout rate. Default: 0
-        'attn_drop_rate': 0.,#(float): Attention dropout rate. Default: 0
-        'drop_path_rate': 0.1,#(float): Stochastic depth rate. Default: 0.1
-        'norm_layer': nn.LayerNorm,#(nn.Module): Normalization layer. Default: nn.LayerNorm.
-        'ape': False,#(bool): If True, add absolute position embedding to the patch embedding. Default: False
-        'patch_norm': True,#(bool): If True, add normalization after patch embedding. Default: True
-        'use_checkpoint': False,#(bool): Whether to use checkpointing to save memory. Default: False
-        'val_stride': [56, 56], #(tuple(int)): Stride for the sliding inference method during validation. Default 56
-        'test_stride': [4, 4], #(tuple(int)): Stride for the sliding inference method during testing. Default 4
-        },
+                'embed_dim': 96,  # (int): Patch embedding dimension. Default: 96
+                'depths': [2, 2, 6, 2],  # (tuple(int)): Depth of each Swin Transformer layer.
+                'num_heads': [3, 6, 12, 24],  # (tuple(int)): Number of attention heads in different layers.
+                'window_size': 8,  # (int): Window size. Default: 8
+                'mlp_ratio': 4.,  # (float): Ratio of mlp hidden dim to embedding dim. Default: 4
+                'qkv_bias': True,  # (bool): If True, add a learnable bias to query, key, value. Default: True
+                'qk_scale': None,  # (float): Override default qk scale of head_dim ** -0.5 if set. Default: None
+                'drop_rate': 0.,  # (float): Dropout rate. Default: 0
+                'attn_drop_rate': 0.,  # (float): Attention dropout rate. Default: 0
+                'drop_path_rate': 0.1,  # (float): Stochastic depth rate. Default: 0.1
+                'norm_layer': nn.LayerNorm,  # (nn.Module): Normalization layer. Default: nn.LayerNorm.
+                'ape': False,  # (bool): If True, add absolute position embedding to the patch embedding. Default: False
+                'patch_norm': True,  # (bool): If True, add normalization after patch embedding. Default: True
+                'use_checkpoint': False,  # (bool): Whether to use checkpointing to save memory. Default: False
+                # (tuple(int)): Stride for the sliding inference method during validation. Default 56
+                'val_stride': [56, 56],
+                # (tuple(int)): Stride for the sliding inference method during testing. Default 4
+                'test_stride': [4, 4],
+                },
 
     # -- Model selection -- #
-    'model_selection': 'unet', #Either 'swin' or 'unet
+    'model_selection': 'unet',  # Either 'swin' or 'unet
 
     # -- Latitude and Longitude Information for Normalization -- #
     'latitude': {
@@ -350,7 +345,7 @@ train_options = {
         'std': 31.32935694114249
     },
 
-    'amsrenv_pixel_spacing': 2000,  # amsrenv pixel spacing is 2 km 
+    'amsrenv_pixel_spacing': 2000,  # amsrenv pixel spacing is 2 km
 
 
     # -- Data Augmentation Options -- #

@@ -153,7 +153,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     '''
     best_combined_score = -np.Inf  # Best weighted model score.
 
-    loss_functions = {chart: get_loss(train_options, **train_options['loss'])
+    loss_functions = {chart: get_loss(train_options['chart_loss'][chart]['type'], **train_options['chart_loss'][chart])
                       for chart in train_options['charts']}
 
     print('Training...')
@@ -445,46 +445,50 @@ def get_optimizer(train_options, net):
     return optimizer
 
 
-def get_loss(train_options, **kwargs):
+def get_loss(loss, **kwargs):
     # TODO Fix Dice loss, Jacard loss,  MCC loss, SoftBCEWithLogitsLoss,
 
-    if train_options['loss']['type'] == 'DiceLoss':
+    if loss == 'DiceLoss':
         raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.DiceLoss(**kwargs)
-    elif train_options['loss']['type'] == 'FocalLoss':
+    elif loss == 'FocalLoss':
         kwargs.pop('type')
         loss = smp.losses.FocalLoss(**kwargs)
-    elif train_options['loss']['type'] == 'JaccardLoss':
+    elif loss == 'JaccardLoss':
         raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.JaccardLoss(**kwargs)
-    elif train_options['loss']['type'] == 'LovaszLoss':
+    elif loss == 'LovaszLoss':
         kwargs.pop('type')
         loss = smp.losses.LovaszLoss(**kwargs)
-    elif train_options['loss']['type'] == 'MCCLoss':
+    elif loss == 'MCCLoss':
         kwargs.pop('type')
         loss = smp.losses.MCCLoss(**kwargs)
-    elif train_options['loss']['type'] == 'SoftBCEWithLogitsLoss':
+    elif loss == 'SoftBCEWithLogitsLoss':
         raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.SoftBCEWithLogitsLoss(**kwargs)
-    elif train_options['loss']['type'] == 'SoftCrossEntropyLoss':
+    elif loss == 'SoftCrossEntropyLoss':
         raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.SoftCrossEntropyLoss(**kwargs)
-    elif train_options['loss']['type'] == 'TverskyLoss':
+    elif loss == 'TverskyLoss':
         kwargs.pop('type')
         loss = smp.losses.TverskyLoss(**kwargs)
-    elif train_options['loss']['type'] == 'CrossEntropyLoss':
+    elif loss == 'CrossEntropyLoss':
         kwargs.pop('type')
         loss = torch.nn.CrossEntropyLoss(**kwargs)
-    elif train_options['loss']['type'] == '':
+    elif loss == 'BinaryCrossEntropyLoss':
         raise NotImplementedError
         kwargs.pop('type')
         loss = torch.nn.BCELoss(**kwargs)
+    elif loss == 'OrderedCrossEntropyLoss':
+        from losses import OrderedCrossEntropyLoss
+        kwargs.pop('type')
+        loss = OrderedCrossEntropyLoss(**kwargs)
     else:
-        raise ValueError(f'The given loss \'{train_options["loss"]["type"]}\' is unrecognized or Not implemented')
+        raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
 
     return loss
 
