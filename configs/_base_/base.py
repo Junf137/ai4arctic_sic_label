@@ -153,12 +153,15 @@ train_options = {
     'chart_loss': {  # Loss for the task
         'SIC': {
             'type': 'CrossEntropyLoss',
+            'ignore_index': 255,
         },
         'SOD': {
             'type': 'CrossEntropyLoss',
+            'ignore_index': 255,
         },
         'FLOE': {
             'type': 'CrossEntropyLoss',
+            'ignore_index': 255,
 
         },
     },
