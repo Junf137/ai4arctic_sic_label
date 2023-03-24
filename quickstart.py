@@ -447,7 +447,13 @@ def get_optimizer(train_options, net):
 
 def get_loss(loss, **kwargs):
     # TODO Fix Dice loss, Jacard loss,  MCC loss, SoftBCEWithLogitsLoss,
+    """_summary_
 
+    Args:
+        loss (str): the name of the loss
+    Returns:
+        loss: The corresponding
+    """
     if loss == 'DiceLoss':
         raise NotImplementedError
         kwargs.pop('type')
