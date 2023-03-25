@@ -605,12 +605,16 @@ class SwinTransformer(nn.Module):
         self.up3 = Up(self.num_features*3//8 , self.num_features//8 , bilinear=True)
         self.up4 = Up(self.num_features//8 , self.num_features//16, bilinear=True)
         self.up5 = Up(self.num_features//16, self.num_features//32, bilinear=True)
-        
-        
-        
-        self.out_SIC = nn.Conv2d(self.num_features//32, options['n_classes']['SIC'], kernel_size=1)
-        self.out_SOD = nn.Conv2d(self.num_features//32, options['n_classes']['SOD'], kernel_size=1)
-        self.out_FLOE = nn.Conv2d(self.num_features//32, options['n_classes']['FLOE'], kernel_size=1)
+        if patch_size == 8:
+            self.up6 = Up(self.num_features//32, self.num_features//64, bilinear=True)
+            self.out_SIC = nn.Conv2d(self.num_features//64, options['n_classes']['SIC'], kernel_size=1)
+            self.out_SOD = nn.Conv2d(self.num_features//64, options['n_classes']['SOD'], kernel_size=1)
+            self.out_FLOE = nn.Conv2d(self.num_features//64, options['n_classes']['FLOE'], kernel_size=1)
+        else:
+            self.up6 = None
+            self.out_SIC = nn.Conv2d(self.num_features//32, options['n_classes']['SIC'], kernel_size=1)
+            self.out_SOD = nn.Conv2d(self.num_features//32, options['n_classes']['SOD'], kernel_size=1)
+            self.out_FLOE = nn.Conv2d(self.num_features//32, options['n_classes']['FLOE'], kernel_size=1)
 
         self.apply(self._init_weights)
 
@@ -665,7 +669,10 @@ class SwinTransformer(nn.Module):
 
         out = self.up5.up(out)
         out = self.up5.conv(out)
-        
+        if self.up6 is not None:
+            out = self.up6.up(out)
+            out = self.up6.conv(out)
+            
         
 
         return {'SIC': self.out_SIC(out),
@@ -687,7 +694,7 @@ class SwinTransformer(nn.Module):
 
 if __name__ == '__main__':
 
-    options = {'swin_hp': {'patch_size': 4,  # (int | tuple(int)): Patch size. Default: 4
+    options = {'swin_hp': {'patch_size': 8,  # (int | tuple(int)): Patch size. Default: 4
         'embed_dim': 96, #(int): Patch embedding dimension. Default: 96
         'depths': [2, 2, 6, 2], #(tuple(int)): Depth of each Swin Transformer layer.
         'num_heads': [3, 6, 12, 24], #(tuple(int)): Number of attention heads in different layers.
