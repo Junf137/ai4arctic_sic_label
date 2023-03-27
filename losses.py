@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 class OrderedCrossEntropyLoss(nn.Module):
@@ -27,4 +28,47 @@ class OrderedCrossEntropyLoss(nn.Module):
         loss = (loss * weights)
         loss = loss.mean()
 
+        return loss
+
+
+class MSELossFromLogits(nn.Module):
+    def __init__(self, chart, ignore_index=-100):
+        super(MSELossFromLogits, self).__init__()
+        self.ignore_index = ignore_index
+        self.chart = chart
+        if self.chart == 'SIC':
+            self.replace_value = 11
+            self.num_classes = 12
+        elif self.chart == 'SOD':
+            self.replace_value = 6
+            self.num_classes = 7
+        elif self.chart == 'FLOE':
+            self.replace_value = 7
+            self.num_classes = 8
+        else:
+            raise NameError('The chart \'{self.chart} \'is not recognized')
+
+    def forward(self, output: torch.Tensor, target: torch.Tensor):
+
+        # replace ignore index value(for e.g 255) with a number 11. Becuz one hot encode requires
+        # continous numbers (you cant one hot encode 255)
+        target = torch.where(target == self.ignore_index,
+                             torch.tensor(self.replace_value, dtype=target.dtype,
+                                          device=target.device), target)
+        # do one hot encoding
+        target_one_hot = F.one_hot(target, num_classes=self.num_classes).permute(0, 3, 1, 2)
+
+        # apply softmax on logits
+        softmax = torch.softmax(output, dim=1, dtype=output.dtype)
+
+        criterion = torch.nn.MSELoss(reduction='none')
+
+        # calculate loss between softmax and one hot encoded target
+        loss = criterion(softmax, target_one_hot.to(softmax.dtype))
+
+        # drop the last channel since it belongs to ignore index value and should not
+        # contribute to the loss
+
+        loss = loss[:, :-1, :, :]
+        loss = loss.mean()
         return loss
