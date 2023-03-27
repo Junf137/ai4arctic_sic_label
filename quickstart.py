@@ -345,6 +345,8 @@ def main():
         net = UNet(options=train_options).to(device)
     elif train_options['model_selection'] == 'swin':
         net = SwinTransformer(options=train_options).to(device)
+    elif train_options['model_selection'] == 'Separate_decoder':
+        net = Sep_feat_dif_stages(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 

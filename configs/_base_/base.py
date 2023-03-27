@@ -334,6 +334,10 @@ train_options = {
                 'test_stride': [4, 4],
                 },
 
+    # -- Separate decoders options -- #
+    'common_features_last_layer': 5
+    'backbone': 'unet'
+
     # -- Model selection -- #
     'model_selection': 'unet',  # Either 'swin' or 'unet
 
