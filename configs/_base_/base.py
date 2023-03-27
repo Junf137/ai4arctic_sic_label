@@ -334,12 +334,12 @@ train_options = {
                 'test_stride': [4, 4],
                 },
 
-    # -- Separate decoders options -- #
-    'common_features_last_layer': 5
-    'backbone': 'unet'
+    # -- Separate_decoder options -- #
+    'common_features_last_layer': 6,
+    'backbone': 'unet',
 
     # -- Model selection -- #
-    'model_selection': 'unet',  # Either 'swin' or 'unet
+    'model_selection': 'unet',  # Either 'swin', 'unet, or Separate_decoder
 
     # -- Latitude and Longitude Information for Normalization -- #
     'latitude': {
