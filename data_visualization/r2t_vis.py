@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import cmocean.cm as cmocms
 
+import os.path as osp
 import argparse
 
 """
@@ -33,9 +34,9 @@ SIC_CLASSLABEL_LUT = {
     2: '2/10',
     3: '3/10',
     4: '4/10',
-    5: '5/10', 
+    5: '5/10',
     6: '6/10',
-    7: '7/10', 
+    7: '7/10',
     8: '8/10',
     9: '9/10',
     10: '10/10',
@@ -76,15 +77,19 @@ def plot_chart_data(data, type, fig, ax, cm, cbar_tick_spacing=1):
         - 255 values where chart data is not available
 
     `cm`: matplotlib.colors.Colormap instance
-    
+
     """
     type = type.lower()
-    if type not in ['sic', 'sod', 'floe']: raise ValueError(f"Unsupported type '{type}'")
+    if type not in ['sic', 'sod', 'floe']:
+        raise ValueError(f"Unsupported type '{type}'")
 
     label_LUT = None
-    if type == 'sic': label_LUT = SIC_CLASSLABEL_LUT
-    elif type == 'sod': label_LUT = SOD_CLASSLABEL_LUT
-    elif type == 'floe': label_LUT = FLOE_CLASSLABEL_LUT
+    if type == 'sic':
+        label_LUT = SIC_CLASSLABEL_LUT
+    elif type == 'sod':
+        label_LUT = SOD_CLASSLABEL_LUT
+    elif type == 'floe':
+        label_LUT = FLOE_CLASSLABEL_LUT
 
     # Set up discrete colormap for labels
     LUT_keys = list(label_LUT.keys())
@@ -104,8 +109,9 @@ def plot_chart_data(data, type, fig, ax, cm, cbar_tick_spacing=1):
     for i, k in enumerate(LUT_keys):
         if i == len(LUT_keys) - 1:
             cbar_ticks.append(k)
-        if i % cbar_tick_spacing == 0: cbar_ticks.append(k)
-    
+        if i % cbar_tick_spacing == 0:
+            cbar_ticks.append(k)
+
     sic_tick_formatter = mpl.ticker.FuncFormatter(lambda val, loc: label_LUT[val])
 
     divider = make_axes_locatable(ax)
@@ -121,11 +127,12 @@ def plot_chart_data(data, type, fig, ax, cm, cbar_tick_spacing=1):
 def plot_img_band(img_data, ax, clip=False):
     cmap = plt.get_cmap('gray')
     cmap.set_bad('dimgray')
-    if clip: img_data = percentile_clip(img_data)
+    if clip:
+        img_data = percentile_clip(img_data)
     ax.imshow(img_data, cmap=cmap)
 
 
-def run_vis(fpath):
+def run_vis(fpath, save_dir):
     """
     Driver function for visualizing imagery and associated charts
     """
@@ -150,7 +157,7 @@ def run_vis(fpath):
     sic_masked = SIC.where(~land_indcs)
     floe_masked = FLOE.where(~land_indcs)
 
-    # --- Invoke plotting functions --- # 
+    # --- Invoke plotting functions --- #
     fig, axs = plt.subplots(2, 3, figsize=(16, 8))
 
     plot_img_band(HH_masked[::4, ::4], axs[0, 0], clip=True)
@@ -161,11 +168,11 @@ def run_vis(fpath):
     axs[0, 2].set_title("IA")
 
     plot_chart_data(sic_masked, 'SIC', fig, axs[1, 0],
-        cm=cmocms.ice, cbar_tick_spacing=2)
+                    cm=cmocms.ice, cbar_tick_spacing=2)
     plot_chart_data(sod_masked, 'SOD', fig, axs[1, 1],
-        cm=cmocms.deep.reversed())
+                    cm=cmocms.deep.reversed())
     plot_chart_data(floe_masked, 'FLOE', fig, axs[1, 2],
-        cm=mpl.colormaps['gist_earth'])
+                    cm=mpl.colormaps['gist_earth'])
 
     plt.suptitle(fpath.split('/')[-1])
 
@@ -174,7 +181,12 @@ def run_vis(fpath):
         for ax in r:
             ax.axis('off')
 
-    plt.show()
+    # plt.show()
+    plt.savefig(osp.join(save_dir, osp.basename(fpath).split('.')[0] + '.png'))
+    # close figure and data to avoid memory leak and consumption
+    data.close()
+    plt.close()
+
 
 
 def main():
@@ -188,10 +200,11 @@ def main():
     parser.add_argument('filepath', help='Filepath of a training .nc scene')
 
     args = parser.parse_args()
-    
+
     fp = args.filepath.replace('\\', '/')
 
     run_vis(fp)
 
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
