@@ -153,7 +153,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     '''
     best_combined_score = -np.Inf  # Best weighted model score.
 
-    loss_functions = {chart: get_loss(train_options['chart_loss'][chart]['type'], **train_options['chart_loss'][chart])
+    loss_functions = {chart: get_loss(train_options['chart_loss'][chart]['type'], chart=chart, **train_options['chart_loss'][chart])
                       for chart in train_options['charts']}
 
     print('Training...')
@@ -445,7 +445,7 @@ def get_optimizer(train_options, net):
     return optimizer
 
 
-def get_loss(loss, **kwargs):
+def get_loss(loss, chart=None, **kwargs):
     # TODO Fix Dice loss, Jacard loss,  MCC loss, SoftBCEWithLogitsLoss,
     """_summary_
 
@@ -493,6 +493,10 @@ def get_loss(loss, **kwargs):
         from losses import OrderedCrossEntropyLoss
         kwargs.pop('type')
         loss = OrderedCrossEntropyLoss(**kwargs)
+    elif loss == 'MSELossFromLogits':
+        from losses import MSELossFromLogits
+        kwargs.pop('type')
+        loss = MSELossFromLogits(chart=chart, **kwargs)
     else:
         raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
 
