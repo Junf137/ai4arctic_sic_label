@@ -345,6 +345,12 @@ def main():
         net = UNet(options=train_options).to(device)
     elif train_options['model_selection'] == 'swin':
         net = SwinTransformer(options=train_options).to(device)
+    elif train_options['model_selection'] == 'h_unet':
+        from unet import H_UNet
+        net = H_UNet(options=train_options).to(device)
+    elif train_options['model_selection'] == 'h_unet_argmax':
+        from unet import H_UNet_argmax
+        net = H_UNet_argmax(options=train_options).to(device)    
     else:
         raise 'Unknown model selected'
 

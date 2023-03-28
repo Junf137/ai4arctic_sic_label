@@ -186,13 +186,16 @@ def expand_padding(x, x_contract, padding_style: str = 'constant'):
     return x
 
 # Added by No@
+
+
 class UNet_sep_dec(torch.nn.Module):
     """PyTorch U-Net Class. Uses unet_parts."""
 
     def __init__(self, options):
         super().__init__()
 
-        self.input_block = DoubleConv(options, input_n=len(options['train_variables']), output_n=options['unet_conv_filters'][0])
+        self.input_block = DoubleConv(options, input_n=len(
+            options['train_variables']), output_n=options['unet_conv_filters'][0])
 
         self.contract_blocks = torch.nn.ModuleList()
         for contract_n in range(1, len(options['unet_conv_filters'])):
@@ -201,7 +204,8 @@ class UNet_sep_dec(torch.nn.Module):
                                  input_n=options['unet_conv_filters'][contract_n - 1],
                                  output_n=options['unet_conv_filters'][contract_n]))  # only used to contract input patch.
 
-        self.bridge = ContractingBlock(options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1])
+        self.bridge = ContractingBlock(
+            options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1])
 
         self.expand_blocks = torch.nn.ModuleList()
         self.expand_blocks.append(
@@ -214,16 +218,17 @@ class UNet_sep_dec(torch.nn.Module):
 
         self.sic_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['SIC'])
         self.sod_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['SOD'])
-        self.floe_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['FLOE'])
-    
+        self.floe_feature_map = FeatureMap(
+            input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['FLOE'])
+
     def Decoder(self, x_contract):
-        
+
         x_expand = self.bridge(x_contract[-1])
         up_idx = len(x_contract)
         for expand_block in self.expand_blocks:
             x_expand = expand_block(x_expand, x_contract[up_idx - 1])
             up_idx -= 1
-        
+
         return x_expand
 
     def forward(self, x):
@@ -231,8 +236,71 @@ class UNet_sep_dec(torch.nn.Module):
         x_contract = [self.input_block(x)]
         for contract_block in self.contract_blocks:
             x_contract.append(contract_block(x_contract[-1]))
-        
-        return {'SIC' : self.sic_feature_map (self.Decoder(x_contract)),
-                'SOD' : self.sod_feature_map (self.Decoder(x_contract)),
+
+        return {'SIC': self.sic_feature_map(self.Decoder(x_contract)),
+                'SOD': self.sod_feature_map(self.Decoder(x_contract)),
                 'FLOE': self.floe_feature_map(self.Decoder(x_contract))}
 
+
+class H_UNet(UNet):
+    def __init__(self, options):
+        super().__init__(options)
+        self.sod_feature_map2 = FeatureMap(
+            input_n=options['unet_conv_filters'][0] + options['n_classes']['SIC'], output_n=options['n_classes']['SOD'])
+        self.floe_feature_map2 = FeatureMap(
+            input_n=options['unet_conv_filters'][0] + options['n_classes']['SIC'] + options['n_classes']['SOD'],
+            output_n=options['n_classes']['FLOE'])
+
+    def forward(self, x):
+        """Forward model pass."""
+        x_contract = [self.input_block(x)]
+        for contract_block in self.contract_blocks:
+            x_contract.append(contract_block(x_contract[-1]))
+        x_expand = self.bridge(x_contract[-1])
+        up_idx = len(x_contract)
+        for expand_block in self.expand_blocks:
+            x_expand = expand_block(x_expand, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        sic_logits = self.sic_feature_map(x_expand)
+        sod_logits = self.sod_feature_map(x_expand)
+
+        # sod_sic_combine = self.sod_feature_map(torch.cat((sic_logits, x_expand), dim=1))
+
+        return {'SIC': sic_logits,
+                'SOD': self.sod_feature_map2(torch.cat((sic_logits, x_expand), dim=1)),
+                'FLOE': self.floe_feature_map2(torch.cat((sic_logits, sod_logits, x_expand), dim=1))}
+
+
+
+
+class H_UNet_argmax(UNet):
+    def __init__(self, options):
+        super().__init__(options)
+        self.sod_feature_map2 = FeatureMap(
+            input_n=options['unet_conv_filters'][0] + 1, output_n=options['n_classes']['SOD'])
+        self.floe_feature_map2 = FeatureMap(
+            input_n=options['unet_conv_filters'][0] + 1 + 1,
+            output_n=options['n_classes']['FLOE'])
+
+    def forward(self, x):
+        """Forward model pass."""
+        x_contract = [self.input_block(x)]
+        for contract_block in self.contract_blocks:
+            x_contract.append(contract_block(x_contract[-1]))
+        x_expand = self.bridge(x_contract[-1])
+        up_idx = len(x_contract)
+        for expand_block in self.expand_blocks:
+            x_expand = expand_block(x_expand, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        sic_logits = self.sic_feature_map(x_expand)
+        sod_logits = self.sod_feature_map(x_expand)
+        
+        sic_chart = torch.argmax(sic_logits, dim=1).unsqueeze(dim=1)
+        sod_chart = torch.argmax(sod_logits, dim=1).unsqueeze(dim=1)
+        # sod_sic_combine = self.sod_feature_map(torch.cat((sic_logits, x_expand), dim=1))
+
+        return {'SIC': sic_logits,
+                'SOD': self.sod_feature_map2(torch.cat((sic_chart, x_expand), dim=1)),
+                'FLOE': self.floe_feature_map2(torch.cat((sic_chart, sod_chart, x_expand), dim=1))}
