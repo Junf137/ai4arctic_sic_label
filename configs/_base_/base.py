@@ -347,7 +347,7 @@ train_options = {
                 },
 
     # -- Model selection -- #
-    'model_selection': 'unet',  # Either 'swin' or 'unet
+    'model_selection': 'unet',  # Either 'swin' or 'unet' or 'h_unet' or 'h_unet_argmax'
 
     # -- Latitude and Longitude Information for Normalization -- #
     'latitude': {
