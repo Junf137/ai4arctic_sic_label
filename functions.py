@@ -132,6 +132,23 @@ def f1_metric(true, pred, num_classes):
 
     return f1
 
+def water_edge_metric(outputs, options):
+
+    
+
+
+    # Convert ouput into water and not water
+    for chart in options['charts']:
+        
+        outputs[chart] = torch.where(outputs[chart] > 0.0, 1.0, 0.0)
+
+    # subtract them and absolute
+    # perform mean
+    water_edge_accuracy = 1 - torch.mean(torch.abs(outputs[options['charts'][0]]-outputs[options['charts'][1]])
+                                    + torch.abs(outputs[options['charts'][1]]-outputs[options['charts'][2]])
+                                    + torch.abs(outputs[options['charts'][2]]-outputs[options['charts'][0]]))
+ 
+    return water_edge_accuracy
 
 def compute_combined_score(scores, charts, metrics):
     """

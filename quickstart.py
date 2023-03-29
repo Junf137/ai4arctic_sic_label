@@ -56,7 +56,7 @@ from tqdm import tqdm  # Progress bar
 
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
-from functions import compute_metrics, save_best_model, load_model, slide_inference, batched_slide_inference
+from functions import compute_metrics, save_best_model, load_model, slide_inference, batched_slide_inference, water_edge_metric
 # Custom dataloaders for regular training and validation.
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
@@ -210,7 +210,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
         outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options['charts']}
         inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options['charts']}
-
+        # Outputs mask by train fill values
+        outputs_tfv_mask = {chart: torch.Tensor().to(device) for chart in train_options['charts']}
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
@@ -219,6 +220,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                                                                             colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
+            #train fill value mask
+            tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
             val_loss_batch = 0
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.cuda.amp.autocast():
@@ -237,8 +240,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 output[chart] = torch.argmax(
                     output[chart], dim=1).squeeze()
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))
+                outputs_tfv_mask[chart] = torch.cat((outputs_tfv_mask[chart], output[chart][~tfv_mask]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]
                                                [~masks[chart]].to(device, non_blocking=True)))
+                
+                
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
@@ -250,6 +256,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         print('Computing Metrics on Val dataset')
         combined_score, scores = compute_metrics(true=inf_ys_flat, pred=outputs_flat, charts=train_options['charts'],
                                                  metrics=train_options['chart_metric'], num_classes=train_options['n_classes'])
+
+        water_edge_accuarcy = water_edge_metric(outputs_tfv_mask, train_options)
 
         print("")
         print(f"Epoch {epoch} score:")
@@ -263,11 +271,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         print(f"Combined score: {combined_score}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
         print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
+        print(f"Water edge Accuarcy: {water_edge_accuarcy}")
 
         # Log combine score and epoch loss to wandb
         wandb.log({"Combined score": combined_score,
                    "Train Epoch Loss": train_loss_epoch,
                    "Validation Epoch Loss": val_loss_epoch,
+                   "Water edge Accuarcy": water_edge_accuarcy,
                    "Learning Rate": optimizer.param_groups[0]["lr"]}, step=epoch)
 
         # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
@@ -277,6 +287,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # Log the best combine score, and the metrics that make that best combine score in summary in wandb.
             wandb.run.summary["Best Combined Score"] = best_combined_score
+            wandb.run.summary["Water Edge Accuarcy"] = water_edge_accuarcy
             for chart in train_options['charts']:
                 wandb.run.summary[f"{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
             wandb.run.summary["Train Epoch Loss"] = train_loss_epoch
@@ -388,6 +399,7 @@ def main():
         wandb.define_metric("SIC r2_metric", summary="none")
         wandb.define_metric("SOD f1_metric", summary="none")
         wandb.define_metric("FLOE f1_metric", summary="none")
+        wandb.define_metric("Water Edge Accuarcy", summary="none")
         wandb.define_metric("Learning Rate", summary="none")
 
         create_train_and_validation_scene_list(train_options)
