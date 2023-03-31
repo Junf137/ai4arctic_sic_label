@@ -56,10 +56,11 @@ from tqdm import tqdm  # Progress bar
 
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
-from functions import compute_metrics, save_best_model, load_model, slide_inference, batched_slide_inference, water_edge_metric
+from functions import compute_metrics, save_best_model, load_model, slide_inference, \
+    batched_slide_inference, water_edge_metric, class_decider
 
 # Load consutme loss function
-from losses import WaterConsistencyLoss()
+from losses import WaterConsistencyLoss
 # Custom dataloaders for regular training and validation.
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
@@ -260,8 +261,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
-                output[chart] = torch.argmax(
-                    output[chart], dim=1).squeeze()
+                output[chart] = class_decider(output[chart], train_options).squeeze()
+                # output[chart] = torch.argmax(
+                #     output[chart], dim=1).squeeze()
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))
                 outputs_tfv_mask[chart] = torch.cat((outputs_tfv_mask[chart], output[chart][~tfv_mask]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]

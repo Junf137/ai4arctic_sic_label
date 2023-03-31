@@ -20,7 +20,7 @@ import torch
 import xarray as xr
 from tqdm import tqdm
 # --Proprietary modules -- #
-from functions import chart_cbar
+from functions import chart_cbar, class_decider
 from loaders import AI4ArcticChallengeTestDataset, get_variable_options
 
 import wandb
@@ -87,7 +87,7 @@ def test(net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
 
         for chart in train_options['charts']:
-            output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
+            output[chart] = class_decider(output[chart], train_options).squeeze().cpu().numpy()
             upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
                                                                    dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
 

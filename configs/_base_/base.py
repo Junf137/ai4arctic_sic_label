@@ -235,6 +235,8 @@ train_options = {
     #     'type': 'MSELossFromLogits',
     #     'ignore_index': 255,
 
+    # If true accuracy will be calculated using binary classification between water and ice first
+    "binary_water_classifier": True,
 
     'optimizer': {
         'type': 'Adam',
