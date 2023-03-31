@@ -132,6 +132,7 @@ def f1_metric(true, pred, num_classes):
 
     return f1
 
+
 def water_edge_metric(outputs, options):
 
     # Convert ouput into water and not water
@@ -147,6 +148,7 @@ def water_edge_metric(outputs, options):
                                     + torch.abs(outputs[options['charts'][2]]-outputs[options['charts'][0]]))
  
     return water_edge_accuracy
+
 
 def water_edge_plot_overlay(output, mask, options):
     # Convert ouput into water and not water
@@ -189,6 +191,7 @@ def compute_combined_score(scores, charts, metrics):
         sum_weight += metrics[chart]['weight']
 
     return torch.round(combined_metric / sum_weight, decimals=3)
+
 
 # -- functions to save models -- #
 def save_best_model(cfg, train_options: dict, net, optimizer, scheduler, epoch: int):
@@ -284,6 +287,7 @@ def rand_bbox(size, lam):
     bby2 = np.clip(cy + cut_w // 2, 0, W)
 
     return bbx1, bby1, bbx2, bby2
+  
     
 def slide_inference(img, net, options, mode):
     """

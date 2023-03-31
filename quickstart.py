@@ -57,6 +57,9 @@ from tqdm import tqdm  # Progress bar
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
 from functions import compute_metrics, save_best_model, load_model, slide_inference, batched_slide_inference, water_edge_metric
+
+# Load consutme loss function
+from losses import WaterConsistencyLoss()
 # Custom dataloaders for regular training and validation.
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
@@ -153,9 +156,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     '''
     best_combined_score = -np.Inf  # Best weighted model score.
 
-    loss_functions = {chart: get_loss(train_options['chart_loss'][chart]['type'], chart=chart, **train_options['chart_loss'][chart])
+    loss_ce_functions = {chart: get_loss(train_options['chart_loss'][chart]['type'], chart=chart, **train_options['chart_loss'][chart])
                       for chart in train_options['charts']}
 
+    loss_water_edge_consistency =  WaterConsistencyLoss()
     print('Training...')
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(start_epoch, train_options['epochs'])):
@@ -169,7 +173,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                                                     colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             train_loss_batch = 0  # Reset from previous batch.
-
+            edge_consistency_loss = 0
+            cross_entropy_loss = 0
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
 
@@ -180,8 +185,16 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 # breakpoint()
                 # - Calculate loss.
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
-                    train_loss_batch += weight * loss_functions[chart](
+
+                    if train_options['edge_consistency_loss'] !=0:
+                        edge_consistency_loss = loss_water_edge_consistency(output)
+
+                    cross_entropy_loss += weight * loss_ce_functions[chart](
                         output[chart], batch_y[chart].to(device))
+
+            a =  train_options['edge_consistency_loss']
+            train_loss_batch = cross_entropy_loss + a* edge_consistency_loss
+
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -223,6 +236,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             #train fill value mask
             tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
             val_loss_batch = 0
+            val_edge_consistency_loss = 0
+            val_cross_entropy_loss = 0
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.cuda.amp.autocast():
                 inf_x = inf_x.to(device, non_blocking=True)
@@ -231,9 +246,17 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     # output = batched_slide_inference(inf_x, net, train_options, 'val')
                 else:
                     output = net(inf_x)
+
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
-                    val_loss_batch += weight * loss_functions[chart](output[chart],
+
+                    if train_options['edge_consistency_loss'] !=0:
+                        val_edge_consistency_loss = loss_water_edge_consistency(output)
+
+                    val_cross_entropy_loss += weight * loss_ce_functions[chart](output[chart],
                                                                      inf_y[chart].unsqueeze(0).long().to(device))
+
+            a =  train_options['edge_consistency_loss']
+            val_loss_batch = val_cross_entropy_loss + a*val_edge_consistency_loss
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
@@ -244,8 +267,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]
                                                [~masks[chart]].to(device, non_blocking=True)))
                 
-                
-
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
 
@@ -270,14 +291,22 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         print(f"Combined score: {combined_score}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
+        print(f"Train Cross Entropy Epoch Loss: {cross_entropy_loss:.3f}")
+        print(f"Train Water Consistency Epoch Loss: {edge_consistency_loss:.3f}")
         print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
+        print(f"Validation Cross Entropy Epoch Loss: {val_cross_entropy_loss:.3f}")
+        print(f"Validation val_edge_consistency_loss: {val_edge_consistency_loss:.3f}")
         print(f"Water edge Accuarcy: {water_edge_accuarcy}")
 
         # Log combine score and epoch loss to wandb
         wandb.log({"Combined score": combined_score,
                    "Train Epoch Loss": train_loss_epoch,
+                   "Train Cross Entropy Epoch Loss": cross_entropy_loss,
+                   "Train Water Consistency Epoch Loss": edge_consistency_loss,
                    "Validation Epoch Loss": val_loss_epoch,
-                   "Water edge Accuarcy": water_edge_accuarcy,
+                   "Validation Cross Entropy Epoch Loss": val_cross_entropy_loss,
+                   "Validation Water Consistency Epoch Loss": val_cross_entropy_loss,
+                   "Water Consistency Accuarcy": water_edge_accuarcy,
                    "Learning Rate": optimizer.param_groups[0]["lr"]}, step=epoch)
 
         # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
@@ -287,7 +316,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # Log the best combine score, and the metrics that make that best combine score in summary in wandb.
             wandb.run.summary["Best Combined Score"] = best_combined_score
-            wandb.run.summary["Water Edge Accuarcy"] = water_edge_accuarcy
+            wandb.run.summary["Water Consistency Accuarcy"] = water_edge_accuarcy
             for chart in train_options['charts']:
                 wandb.run.summary[f"{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
             wandb.run.summary["Train Epoch Loss"] = train_loss_epoch
@@ -394,12 +423,16 @@ def main():
 
         # Define the metrics and make them such that they are not added to the summary
         wandb.define_metric("Train Epoch Loss", summary="none")
+        wandb.define_metric("Train Cross Entropy Epoch Loss", summary="none")
+        wandb.define_metric("Train Water Consistency Epoch Loss", summary="none")
         wandb.define_metric("Validation Epoch Loss", summary="none")
+        wandb.define_metric("Validation Cross Entropy Epoch Loss", summary="none")
+        wandb.define_metric("Validation Water Consistency Epoch Loss", summary="none")
         wandb.define_metric("Combined score", summary="none")
         wandb.define_metric("SIC r2_metric", summary="none")
         wandb.define_metric("SOD f1_metric", summary="none")
         wandb.define_metric("FLOE f1_metric", summary="none")
-        wandb.define_metric("Water Edge Accuarcy", summary="none")
+        wandb.define_metric("Water Consistency Accuarcy", summary="none")
         wandb.define_metric("Learning Rate", summary="none")
 
         create_train_and_validation_scene_list(train_options)

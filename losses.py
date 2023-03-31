@@ -75,9 +75,8 @@ class MSELossFromLogits(nn.Module):
 
 class WaterConsistencyLoss(nn.Module):
 
-    def __init__(self,ignore_index=-100):
+    def __init__(self):
         super().__init__()
-        self.ignore_index = ignore_index
         self.keys = ['SIC', 'SOD', 'FLOE']
         self.activation = nn.Softmax(dim=1)
     

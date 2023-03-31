@@ -165,7 +165,9 @@ train_options = {
 
         },
     },
-
+    # Having the following paramter greater than zero adds a new loss that penilizies inconsitent 
+    # water logits across the three outputs (SIC, SOD, FLOE)
+    "edge_consistency_loss": 0,
     # refer this link for more parameters related to loss :
     # https://github.com/qubvel/segmentation_models.pytorch/tree/master/segmentation_models_pytorch/losses
 
