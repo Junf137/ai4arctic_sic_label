@@ -1,12 +1,10 @@
 #!/bin/bash 
 set -e
 array=(
-
-configs/down_scaling_variation/down_scale_by_10_time_location.py
-
+"configs/edge_consitency/dw_10.py"
 )
 
-wandb_project=task_weights
+wandb_project=edge_consistency
 
 for i in "${!array[@]}"; do
    # bash test_echo.sh ${array[i]} ${array2[i]}
