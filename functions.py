@@ -507,3 +507,18 @@ def batched_slide_inference(img, net, options, mode):
     return {'SIC': preds_SIC,
             'SOD': preds_SOD,
             'FLOE': preds_FLOE}
+
+def class_decider(output, train_options):
+    if(train_options['binary_water_classifier'] == False):
+        return torch.argmax(output, dim=1).squeeze()
+    else:
+        probability = nn.Softmax(dim = 1)(output)
+        water = probability[:,0,:,:]
+        not_water = torch.sum(probability,dim = 1) - water
+        class_output = water <= not_water
+        without_water = probability[:,1:,:,:]
+        class_output_without_water = torch.argmax(without_water,dim = 1) + 1
+        class_output = class_output_without_water * class_output
+
+        return class_output
+
