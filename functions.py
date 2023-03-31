@@ -134,13 +134,11 @@ def f1_metric(true, pred, num_classes):
 
 def water_edge_metric(outputs, options):
 
-    
-
-
     # Convert ouput into water and not water
     for chart in options['charts']:
         
         outputs[chart] = torch.where(outputs[chart] > 0.0, 1.0, 0.0)
+        
 
     # subtract them and absolute
     # perform mean
@@ -149,6 +147,21 @@ def water_edge_metric(outputs, options):
                                     + torch.abs(outputs[options['charts'][2]]-outputs[options['charts'][0]]))
  
     return water_edge_accuracy
+
+def water_edge_plot_overlay(output, mask, options):
+    # Convert ouput into water and not water
+    charts = options['charts']
+    water_chart = {}
+    for chart in charts:
+        water_chart[chart] = np.where(output[chart] > 0.0, 0.75, 0.0)
+        water_chart[chart][mask] = np.nan
+        water_chart[chart] = water_chart[chart][..., np.newaxis]
+
+    img = np.concatenate((water_chart[charts[0]], water_chart[charts[1]],water_chart[charts[2]]), axis=2,)
+                         
+    return img
+
+
 
 def compute_combined_score(scores, charts, metrics):
     """
@@ -176,7 +189,6 @@ def compute_combined_score(scores, charts, metrics):
         sum_weight += metrics[chart]['weight']
 
     return torch.round(combined_metric / sum_weight, decimals=3)
-
 
 # -- functions to save models -- #
 def save_best_model(cfg, train_options: dict, net, optimizer, scheduler, epoch: int):

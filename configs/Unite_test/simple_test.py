@@ -36,9 +36,9 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 20,
+                 'epochs': 3,
                  'epoch_len': 1,
-                #  'val_path': 'datalists/test_val.json',
+                 'val_path': 'datalists/test_val.json',
                  'train_list_path': 'datalists/small_dataset.json',
                  'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
                  'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',

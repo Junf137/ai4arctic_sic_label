@@ -20,7 +20,7 @@ import torch
 import xarray as xr
 from tqdm import tqdm
 # --Proprietary modules -- #
-from functions import chart_cbar
+from functions import chart_cbar, water_edge_plot_overlay
 from loaders import AI4ArcticChallengeTestDataset, get_variable_options
 from functions import slide_inference, batched_slide_inference
 import wandb
@@ -83,7 +83,7 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
     net.eval()
-    for inf_x, _, masks, scene_name, original_size in tqdm(iterable=asid_loader,
+    for inf_x, inf_y, masks, scene_name, original_size in tqdm(iterable=asid_loader,
                                                            total=len(train_options['test_list']), colour='green', position=0):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
         torch.cuda.empty_cache()
@@ -106,34 +106,76 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
             if train_options['down_sample_scale'] != 1:
                 for chart in train_options['charts']:
                     output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode='nearest')
+                    if not test:
+                        inf_y[chart] = torch.nn.functional.interpolate(inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0),
+                                                                       size=original_size, mode='nearest')
 
         for chart in train_options['charts']:
             output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
-            upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
-                                                                   dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
+            if test:
+                upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", 
+                                                                       data=output[chart].astype('uint8'),
+                                                                       dims=(f"{scene_name}_{chart}_dim0", 
+                                                                             f"{scene_name}_{chart}_dim1"))
+            else:
+                inf_y[chart] = inf_y[chart].squeeze().cpu().numpy()
+
 
         # - Show the scene inference.
-        fig, axs = plt.subplots(nrows=1, ncols=5, figsize=(20, 20))
+        if test:
+            fig, axs2d = plt.subplots(nrows=2, ncols=3, figsize=(20, 20))
+        else:
+            fig, axs2d = plt.subplots(nrows=3, ncols=3, figsize=(20, 20))
+            
+        axs = axs2d.flat
+
+        for j in range(0, 2):
+            ax = axs[j]
+            img = torch.squeeze(inf_x, dim=0).cpu().numpy()[j]
+            if j == 0:
+                ax.set_title(f'Scene {scene_name}, HH')
+            else:
+                ax.set_title(f'Scene {scene_name}, HV')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.imshow(img, cmap='gray')
+
+        ax = axs[2]
+        ax.set_title('Water Edge SIC: Red, SOD: Green,Floe: Blue')
+        edge_water_output = water_edge_plot_overlay(output, masks, train_options)
+
+        ax.imshow(edge_water_output, vmin=0, vmax=1, interpolation='nearest')
+
         for idx, chart in enumerate(train_options['charts']):
-            for j in range(0, 2):
-                ax = axs[j]
-                img = torch.squeeze(inf_x, dim=0).cpu().numpy()[j]
-                if j == 0:
-                    ax.set_title('HH')
-                else:
-                    ax.set_title('HV')
-                ax.imshow(img, cmap='gray')
-            ax = axs[idx+2]
+
+            ax = axs[idx+3]
             output[chart] = output[chart].astype(float)
             output[chart][masks] = np.nan
             ax.imshow(output[chart], vmin=0, vmax=train_options['n_classes']
                       [chart] - 2, cmap='jet', interpolation='nearest')
             ax.set_xticks([])
             ax.set_yticks([])
+            ax.set_title([f'Scene {scene_name}, {chart}: Model Prediction'])
             chart_cbar(ax=ax, n_classes=train_options['n_classes'][chart], chart=chart, cmap='jet')
 
-        plt.suptitle(f"Scene: {scene_name}", y=0.65)
-        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0.5, hspace=-0)
+        if not test:
+
+            for idx, chart in enumerate(train_options['charts']):
+
+                ax = axs[idx+6]
+                inf_y[chart] = inf_y[chart].astype(float)
+                inf_y[chart][masks] = np.nan
+                ax.imshow(inf_y[chart], vmin=0, vmax=train_options['n_classes']
+                        [chart] - 2, cmap='jet', interpolation='nearest')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_title([f'Scene {scene_name}, {chart}: Ground Truth'])
+                chart_cbar(ax=ax, n_classes=train_options['n_classes'][chart], chart=chart, cmap='jet')
+
+        # plt.suptitle(f"Scene: {scene_name}", y=0.65)
+        # plt.suptitle(f"Scene: {scene_name}", y=0)
+        # plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0.5, hspace=-0)
+        plt.subplots_adjust(left=0, bottom=0, right=1, top=0.75, wspace=0.5, hspace=-0)
         fig.savefig(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png",
                     format='png', dpi=128, bbox_inches="tight")
         plt.close('all')
