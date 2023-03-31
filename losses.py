@@ -82,7 +82,6 @@ class WaterConsistencyLoss(nn.Module):
         self.activation = nn.Softmax(dim=1)
     
     def forward(self,output):
-        print()
         sic = self.activation(output[self.keys[0]]) [:,0,:,:]
         sod = self.activation(output[self.keys[1]])[:,0,:,:]
         floe = self.activation(output[self.keys[2]])[:,0,:,:]
