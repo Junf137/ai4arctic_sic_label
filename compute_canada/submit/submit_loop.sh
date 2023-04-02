@@ -1,7 +1,10 @@
 #!/bin/bash 
 set -e
 array=(
-"configs/edge_consitency/dw_10.py"
+"configs/edge_consitency/binary_no_water_loss.py"
+"configs/edge_consitency/binary_water_loss.py"
+"configs/edge_consitency/no_binary_no_water_loss.py"
+"configs/edge_consitency/no_binary_water_loss.py"
 )
 
 wandb_project=edge_consistency

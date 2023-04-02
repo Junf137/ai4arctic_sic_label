@@ -40,7 +40,6 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  "edge_consistency_loss": 0,
                  "binary_water_classifier": False,
 
-
                  'optimizer': {
                      'type': 'SGD',
                      'lr': 0.001,  # Optimizer learning rate.

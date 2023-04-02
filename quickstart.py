@@ -166,7 +166,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     for epoch in tqdm(iterable=range(start_epoch, train_options['epochs'])):
         # gc.collect()  # Collect garbage to free memory.
         train_loss_sum = torch.tensor([0.])  # To sum the training batch losses during the epoch.
+        cross_entropy_loss_sum = torch.tensor([0.]) # To sum the training cross entropy batch losses during the epoch.
+        edge_consistency_loss_sum = torch.tensor([0.]) # To sum the training edge consistency batch losses during the epoch.
+        
         val_loss_sum = torch.tensor([0.])  # To sum the validation batch losses during the epoch.
+        val_cross_entropy_loss_sum = torch.tensor([0.]) # To sum the validation cross entropy batch losses during the epoch.
+        val_edge_consistency_loss_sum = torch.tensor([0.]) # To sum the validation cedge consistency batch losses during the epoch.
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
@@ -192,9 +197,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     cross_entropy_loss += weight * loss_ce_functions[chart](
                         output[chart], batch_y[chart].to(device))
+                    
+            
+            if train_options['edge_consistency_loss'] !=0:
+                        a =  train_options['edge_consistency_loss']
+                        edge_consistency_loss = a*loss_water_edge_consistency(output)
 
-            a =  train_options['edge_consistency_loss']
-            train_loss_batch = cross_entropy_loss + a* edge_consistency_loss
+            
+            train_loss_batch = cross_entropy_loss + edge_consistency_loss
 
 
             # - Reset gradients from previous pass.
@@ -211,10 +221,15 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Add batch loss.
             train_loss_sum += train_loss_batch.detach().item()
+            cross_entropy_loss_sum += cross_entropy_loss.detach().item()
+            edge_consistency_loss_sum += edge_consistency_loss.detach().item()
 
-            # - Average loss for displaying
-            train_loss_epoch = torch.true_divide(train_loss_sum, i + 1).detach().item()
-            print('\rMean training loss: ' + f'{train_loss_epoch:.3f}', end='\r')
+        # - Average loss for displaying
+        train_loss_epoch = torch.true_divide(train_loss_sum, i + 1).detach().item()
+        cross_entropy_epoch = torch.true_divide(cross_entropy_loss_sum, i + 1).detach().item()
+        edge_consistency_epoch = torch.true_divide(edge_consistency_loss_sum, i + 1).detach().item()
+
+            
             # del output, batch_x, batch_y # Free memory.
         # del loss_sum
 
@@ -250,14 +265,15 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
 
-                    if train_options['edge_consistency_loss'] !=0:
-                        val_edge_consistency_loss = loss_water_edge_consistency(output)
-
                     val_cross_entropy_loss += weight * loss_ce_functions[chart](output[chart],
                                                                      inf_y[chart].unsqueeze(0).long().to(device))
 
-            a =  train_options['edge_consistency_loss']
-            val_loss_batch = val_cross_entropy_loss + a*val_edge_consistency_loss
+                
+                if train_options['edge_consistency_loss'] !=0:
+                        a =  train_options['edge_consistency_loss']
+                        val_edge_consistency_loss = a*loss_water_edge_consistency(output)
+
+            val_loss_batch = val_cross_entropy_loss + val_edge_consistency_loss
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
@@ -271,9 +287,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
+            val_cross_entropy_loss_sum += val_cross_entropy_loss.detach().item()
+            val_edge_consistency_loss_sum += val_edge_consistency_loss.detach().item()
 
-            # - Average loss for displaying
-            val_loss_epoch = torch.true_divide(val_loss_sum, i + 1).detach().item()
+        # - Average loss for displaying
+        val_loss_epoch = torch.true_divide(val_loss_sum, i + 1).detach().item()
+        val_cross_entropy_epoch = torch.true_divide(val_cross_entropy_loss_sum, i + 1).detach().item()
+        val_edge_consistency_epoch = torch.true_divide(val_edge_consistency_loss_sum, i + 1).detach().item()
+
 
         # - Compute the relevant scores.
         print('Computing Metrics on Val dataset')
@@ -293,21 +314,21 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         print(f"Combined score: {combined_score}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
-        print(f"Train Cross Entropy Epoch Loss: {cross_entropy_loss:.3f}")
-        print(f"Train Water Consistency Epoch Loss: {edge_consistency_loss:.3f}")
+        print(f"Train Cross Entropy Epoch Loss: {cross_entropy_epoch:.3f}")
+        print(f"Train Water Consistency Epoch Loss: {edge_consistency_epoch:.3f}")
         print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
-        print(f"Validation Cross Entropy Epoch Loss: {val_cross_entropy_loss:.3f}")
-        print(f"Validation val_edge_consistency_loss: {val_edge_consistency_loss:.3f}")
+        print(f"Validation Cross Entropy Epoch Loss: {val_cross_entropy_epoch:.3f}")
+        print(f"Validation val_edge_consistency_loss: {val_edge_consistency_epoch:.3f}")
         print(f"Water edge Accuarcy: {water_edge_accuarcy}")
 
         # Log combine score and epoch loss to wandb
         wandb.log({"Combined score": combined_score,
                    "Train Epoch Loss": train_loss_epoch,
-                   "Train Cross Entropy Epoch Loss": cross_entropy_loss,
-                   "Train Water Consistency Epoch Loss": edge_consistency_loss,
+                   "Train Cross Entropy Epoch Loss": cross_entropy_epoch,
+                   "Train Water Consistency Epoch Loss": edge_consistency_epoch,
                    "Validation Epoch Loss": val_loss_epoch,
-                   "Validation Cross Entropy Epoch Loss": val_cross_entropy_loss,
-                   "Validation Water Consistency Epoch Loss": val_cross_entropy_loss,
+                   "Validation Cross Entropy Epoch Loss": val_cross_entropy_epoch,
+                   "Validation Water Consistency Epoch Loss": val_edge_consistency_epoch,
                    "Water Consistency Accuarcy": water_edge_accuarcy,
                    "Learning Rate": optimizer.param_groups[0]["lr"]}, step=epoch)
 

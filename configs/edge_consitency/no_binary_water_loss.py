@@ -37,9 +37,8 @@ SCENE_VARIABLES = [
 
 train_options = {'train_variables': SCENE_VARIABLES,
                  'epochs': 100,
-                 "edge_consistency_loss": 0,
+                 "edge_consistency_loss": 10,
                  "binary_water_classifier": False,
-
 
                  'optimizer': {
                      'type': 'SGD',
