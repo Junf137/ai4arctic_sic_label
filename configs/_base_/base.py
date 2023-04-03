@@ -169,6 +169,10 @@ train_options = {
     # refer this link for more parameters related to loss :
     # https://github.com/qubvel/segmentation_models.pytorch/tree/master/segmentation_models_pytorch/losses
 
+    # some losses are defined locally in the losses.py file, refer them to see more
+    # about the parameters required
+
+
     # # Binary cross entropy loss
     #     'type': 'BinaryCrossEntropyLoss',
 
@@ -217,10 +221,18 @@ train_options = {
     #     'ignore_index': 255,
 
     # # BinaryCrossEntropyLoss from Pytorch --> Not working
-    #     '_delete_': True,
     #     'type': 'BCELoss',
     #     'ignore_index': 255,
     #     #  'smooth_factor': 0.1,
+
+    # OrderedCrossEntropyLoss
+    #     'type': 'OrderedCrossEntropyLoss',
+    #     'ignore_index': 255,
+
+    # MSELossFromLogits
+    #     'type': 'MSELossFromLogits',
+    #     'ignore_index': 255,
+
 
     'optimizer': {
         'type': 'Adam',
