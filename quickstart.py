@@ -458,7 +458,6 @@ def get_loss(loss, chart=None, **kwargs):
         loss: The corresponding
     """
     if loss == 'DiceLoss':
-        raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.DiceLoss(**kwargs)
     elif loss == 'FocalLoss':
