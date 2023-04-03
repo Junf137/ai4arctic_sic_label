@@ -150,7 +150,7 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0, cfg_path):
+def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0):
     '''
     Trains the model.
 
@@ -178,9 +178,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
                                                     colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
-            train_loss_batch = torch.tensor([0.])  # Reset from previous batch.
-            edge_consistency_loss = torch.tensor([0.])
-            cross_entropy_loss = torch.tensor([0.])
+            train_loss_batch = torch.tensor([0.]).to(device)  # Reset from previous batch.
+            edge_consistency_loss = torch.tensor([0.]).to(device)
+            cross_entropy_loss = torch.tensor([0.]).to(device)
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
 
@@ -198,12 +198,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     cross_entropy_loss += weight * loss_ce_functions[chart](
                         output[chart], batch_y[chart].to(device))
                     
-            
-            if train_options['edge_consistency_loss'] !=0:
-                        a =  train_options['edge_consistency_loss']
-                        edge_consistency_loss = a*loss_water_edge_consistency(output)
+            if train_options['edge_consistency_loss'] != 0:
+                a = train_options['edge_consistency_loss']
+                edge_consistency_loss = a*loss_water_edge_consistency(output)
 
-            
             train_loss_batch = cross_entropy_loss + edge_consistency_loss
 
 
@@ -249,11 +247,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                                                                             colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
-            #train fill value mask
+            # train fill value mask
             tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
-            val_loss_batch = 0
-            val_edge_consistency_loss = 0
-            val_cross_entropy_loss = 0
+            val_loss_batch = torch.tensor([0.]).to(device)
+            val_edge_consistency_loss = torch.tensor([0.]).to(device)
+            val_cross_entropy_loss = torch.tensor([0.]).to(device)
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.cuda.amp.autocast():
                 inf_x = inf_x.to(device, non_blocking=True)
@@ -266,12 +264,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
 
                     val_cross_entropy_loss += weight * loss_ce_functions[chart](output[chart],
-                                                                     inf_y[chart].unsqueeze(0).long().to(device))
+                                                                                inf_y[chart].unsqueeze(0).long().to(device))
 
-                
-                if train_options['edge_consistency_loss'] !=0:
-                        a =  train_options['edge_consistency_loss']
-                        val_edge_consistency_loss = a*loss_water_edge_consistency(output)
+                if train_options['edge_consistency_loss'] != 0:
+                    a = train_options['edge_consistency_loss']
+                    val_edge_consistency_loss = a*loss_water_edge_consistency(output)
 
             val_loss_batch = val_cross_entropy_loss + val_edge_consistency_loss
 
@@ -348,7 +345,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
 
             wandb.save(model_path)
-            wandb.save(cfg_path)
+            
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
@@ -441,6 +438,7 @@ def main():
     # os.environ['WANDB_RUN_ID'] = id
     # os.environ['RESUME'] = 'allow'
 
+
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
     with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
                     entity="ai4arctic", config=train_options, id=id, resume="allow"):
@@ -459,6 +457,9 @@ def main():
         wandb.define_metric("Water Consistency Accuarcy", summary="none")
         wandb.define_metric("Learning Rate", summary="none")
 
+        wandb.save(str(args.config))
+        print(colour_str('Save Config File', 'green'))
+
         create_train_and_validation_scene_list(train_options)
 
         dataloader_train, dataloader_val = create_dataloaders(train_options)
@@ -471,10 +472,10 @@ def main():
         #  This can be done by using 'net = net.cpu()'.
         if args.resume_from is not None:
             checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler, epoch_start, args.config)
+                                    scheduler, epoch_start)
         else:
             checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler, args.config)
+                                    scheduler)
         print('Training Complete')
         print('Testing...')
         test(False, net, checkpoint_path, device, cfg)
