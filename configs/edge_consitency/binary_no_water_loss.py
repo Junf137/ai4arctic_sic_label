@@ -36,7 +36,7 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 100,
+                 'epochs': 500,
                  "edge_consistency_loss": 0,
                  "binary_water_classifier": True,
 
@@ -49,12 +49,12 @@ train_options = {'train_variables': SCENE_VARIABLES,
                      'weight_decay': 0.01
                  },
 
+
                 'scheduler': {
-                  'type': 'CosineAnnealingWarmRestartsLR',  # Name of the schedulers
-                  'EpochsPerRestart': 20,  # Number of epochs for the first restart
-                  'RestartMult': 1,  # This number will be used to increase or descrase the number of epochs to restart after each restart.
-                  'lr_min': 0,  # Minimun learning rate
-                  },
+                '_delete_': True,
+                    'type': 'CosineAnnealingLR',  # Name of the schedulers
+                    'lr_min': 0,  # Minimun learning rate
+                },
 
                  'batch_size': 16,
                  'num_workers': 4,  # Number of parallel processes to fetch data.

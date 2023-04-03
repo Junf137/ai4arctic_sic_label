@@ -178,9 +178,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options['epoch_len'],
                                                     colour='red')):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
-            train_loss_batch = 0  # Reset from previous batch.
-            edge_consistency_loss = 0
-            cross_entropy_loss = 0
+            train_loss_batch = torch.tensor([0.])  # Reset from previous batch.
+            edge_consistency_loss = torch.tensor([0.])
+            cross_entropy_loss = torch.tensor([0.])
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
 
