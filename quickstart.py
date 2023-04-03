@@ -104,17 +104,17 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    # # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    # # np.random.seed(0)
-    # train_options['validate_list'] = np.random.choice(np.array(
-    #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
-
-    # load validation list
-    with open(train_options['path_to_env'] + train_options['val_path']) as file:
-        train_options['validate_list'] = json.loads(file.read())
-    # Convert the original scene names to the preprocessed names.
-    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
-                                      '_prep.nc' for file in train_options['validate_list']]
+    if train_options['cross_val_run']:
+        # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+        train_options['validate_list'] = np.random.choice(np.array(
+            train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    else:
+        # load validation list
+        with open(train_options['path_to_env'] + train_options['val_path']) as file:
+            train_options['validate_list'] = json.loads(file.read())
+        # Convert the original scene names to the preprocessed names.
+        train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                          '_prep.nc' for file in train_options['validate_list']]
 
     # from icecream import ic
     # ic(train_options['validate_list'])
@@ -146,7 +146,7 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0, cfg_path):
+def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, cfg_path, start_epoch=0):
     '''
     Trains the model.
 
@@ -299,18 +299,18 @@ def main():
     train_options = get_variable_options(train_options)
     # cfg['experiment_name']=
     # cfg.env_dict = {}
-
-    # set seed for everything
-    seed = train_options['seed']
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
-    # torch.backends.cudnn.enabled = True
+    if not train_options['cross_val_run']:
+        # set seed for everything
+        seed = train_options['seed']
+        random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        # torch.backends.cudnn.deterministic = True
+        # torch.backends.cudnn.benchmark = False
+        # torch.backends.cudnn.enabled = True
 
     # To be used in test_upload.
     # get_ipython().run_line_magic('store', 'train_options')
@@ -321,14 +321,21 @@ def main():
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dir',
-                                osp.splitext(osp.basename(args.config))[0])\
+        if not train_options['cross_val_run']:
+            cfg.work_dir = osp.join('./work_dir',
+                                    osp.splitext(osp.basename(args.config))[0])
+        else:
+            from utils import run_names
+            run_name = random.choice(run_names)
+            cfg.work_dir = osp.join('./work_dir',
+                                    osp.splitext(osp.basename(args.config))[0], run_name)
 
     ic(cfg.work_dir)
     # create work_dir
     mkdir_or_exist(osp.abspath(cfg.work_dir))
     # dump config
     shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
+    cfg_path = osp.join(cfg.work_dir, osp.basename(args.config))
     # ### CUDA / GPU Setup
     # Get GPU resources.
     if torch.cuda.is_available():
@@ -351,7 +358,7 @@ def main():
         net = H_UNet(options=train_options).to(device)
     elif train_options['model_selection'] == 'h_unet_argmax':
         from unet import H_UNet_argmax
-        net = H_UNet_argmax(options=train_options).to(device)    
+        net = H_UNet_argmax(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -379,39 +386,49 @@ def main():
     # os.environ['RESUME'] = 'allow'
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
-                    entity="ai4arctic", config=train_options, id=id, resume="allow"):
 
-        # Define the metrics and make them such that they are not added to the summary
-        wandb.define_metric("Train Epoch Loss", summary="none")
-        wandb.define_metric("Validation Epoch Loss", summary="none")
-        wandb.define_metric("Combined score", summary="none")
-        wandb.define_metric("SIC r2_metric", summary="none")
-        wandb.define_metric("SOD f1_metric", summary="none")
-        wandb.define_metric("FLOE f1_metric", summary="none")
-        wandb.define_metric("Learning Rate", summary="none")
+    # initialize wandb run
 
-        create_train_and_validation_scene_list(train_options)
+    if not train_options['cross_val_run']:
+        wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
+                   entity="ai4arctic", config=train_options, id=id, resume="allow")
+    else:
+        wandb.init(name=run_name, group=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
+                   entity="ai4arctic", config=train_options, id=id, resume="allow")
 
-        dataloader_train, dataloader_val = create_dataloaders(train_options)
+    # Define the metrics and make them such that they are not added to the summary
+    wandb.define_metric("Train Epoch Loss", summary="none")
+    wandb.define_metric("Validation Epoch Loss", summary="none")
+    wandb.define_metric("Combined score", summary="none")
+    wandb.define_metric("SIC r2_metric", summary="none")
+    wandb.define_metric("SOD f1_metric", summary="none")
+    wandb.define_metric("FLOE f1_metric", summary="none")
+    wandb.define_metric("Learning Rate", summary="none")
 
-        print('Data setup complete.')
+    create_train_and_validation_scene_list(train_options)
 
-        # ## Example of model training and validation loop
-        # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
-        #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
-        #  This can be done by using 'net = net.cpu()'.
-        if args.resume_from is not None:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler, epoch_start, args.config)
-        else:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler, args.config)
-        print('Training Complete')
-        print('Testing...')
-        test(False, net, checkpoint_path, device, cfg)
-        test(True, net, checkpoint_path, device, cfg)
-        print('Testing Complete')
+    dataloader_train, dataloader_val = create_dataloaders(train_options)
+
+    print('Data setup complete.')
+
+    # ## Example of model training and validation loop
+    # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
+    #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
+    #  This can be done by using 'net = net.cpu()'.
+    if args.resume_from is not None:
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
+                                scheduler, cfg_path, epoch_start)
+    else:
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
+                                scheduler, cfg_path)
+    print('Training Complete')
+    print('Testing...')
+    test(False, net, checkpoint_path, device, cfg)
+    test(True, net, checkpoint_path, device, cfg)
+    print('Testing Complete')
+
+    # finish the wandb run
+    wandb.finish()
 
 
 def get_scheduler(train_options, optimizer):

@@ -147,6 +147,9 @@ train_options = {
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
     'task_weights': [1, 1, 1],
+    # cross val run
+    # If set to true it will not set the random seed
+    'cross_val_run': False,
 
 
     # -- loss options -- #
