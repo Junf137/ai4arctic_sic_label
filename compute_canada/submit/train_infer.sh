@@ -18,15 +18,11 @@ module load python/3.9.6
 
 echo "Loading module done"
 
-source ~/AI4Artic/bin/activate
-
-
+source ~/env_ai4arctic/bin/activate
 
 echo "Activating virtual environment done"
 
-
-cd /home/fer96/projects/def-dclausi/AI4arctic/fer96/ai4arctic_challenge
-
+cd $HOME/projects/def-dclausi/share/ai4arctic/$USER/ai4arctic_challenge/
 
 echo "starting training..."
 # config=$1 
