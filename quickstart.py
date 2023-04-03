@@ -150,7 +150,7 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0):
+def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0, cfg_path):
     '''
     Trains the model.
 
@@ -348,6 +348,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
 
             wandb.save(model_path)
+            wandb.save(cfg_path)
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
@@ -470,10 +471,10 @@ def main():
         #  This can be done by using 'net = net.cpu()'.
         if args.resume_from is not None:
             checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler, epoch_start)
+                                    scheduler, epoch_start, args.config)
         else:
             checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler)
+                                    scheduler, args.config)
         print('Training Complete')
         print('Testing...')
         test(False, net, checkpoint_path, device, cfg)
