@@ -285,7 +285,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
 
             wandb.save(model_path)
-            wandb.save(cfg_path)
+    wandb.save(cfg_path)
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
