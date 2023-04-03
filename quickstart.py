@@ -297,6 +297,9 @@ def main():
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
+    # generate wandb run id, to be used to link the run with test_upload
+    id = wandb.util.generate_id()
+
     # cfg['experiment_name']=
     # cfg.env_dict = {}
     if not train_options['cross_val_run']:
@@ -325,8 +328,8 @@ def main():
             cfg.work_dir = osp.join('./work_dir',
                                     osp.splitext(osp.basename(args.config))[0])
         else:
-            from utils import run_names
-            run_name = random.choice(run_names)
+            # from utils import run_names
+            run_name = id
             cfg.work_dir = osp.join('./work_dir',
                                     osp.splitext(osp.basename(args.config))[0], run_name)
 
@@ -375,8 +378,6 @@ def main():
         print(f"\033[91m Finetune model from {args.finetune_from}\033[0m")
         _ = load_model(net, args.finetune_from)
 
-    # generate wandb run id, to be used to link the run with test_upload
-    id = wandb.util.generate_id()
     # subprocess.run(['export'])
 
     # cfg.env_dict['WANDB_RUN_ID'] = id
