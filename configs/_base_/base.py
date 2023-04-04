@@ -147,6 +147,9 @@ train_options = {
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
     'task_weights': [1, 1, 1],
+    # cross val run
+    # If set to true it will not set the random seed
+    'cross_val_run': False,
 
 
     # -- loss options -- #
@@ -350,8 +353,12 @@ train_options = {
                 'test_stride': [4, 4],
                 },
 
+    # -- Separate_decoder options -- #
+    'common_features_last_layer': 6,
+    'backbone': 'unet',
+
     # -- Model selection -- #
-    'model_selection': 'unet',  # Either 'swin' or 'unet' or 'h_unet' or 'h_unet_argmax'
+    'model_selection': 'unet',  # Either 'swin', 'unet, or Separate_decoder
 
     # -- Latitude and Longitude Information for Normalization -- #
     'latitude': {

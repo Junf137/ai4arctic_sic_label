@@ -199,3 +199,23 @@ COLOURS = {'red': '\033[0;31m',
 def colour_str(word, colour: str):
     """Function to colour strings."""
     return COLOURS[colour.lower()] + str(word) + COLOURS['black']
+
+
+run_names = [
+    'Goku', 'Naruto', 'Luffy', 'Ichigo', 'Light', 'Edward', 'Saitama', 'Levi', 'Gon', 'Eren',
+    'Vegeta', 'Zoro', 'Sasuke', 'Alucard', 'Kakashi', 'Guts', 'Tetsuo', 'Kenshin', 'Monkey',
+    'Gintoki', 'Spike', 'Kagome', 'Rei', 'Naruto', 'Shinya', 'Kira', 'Sesshomaru', 'Asuna',
+    'Simon', 'Holo', 'Rukia', 'Yato', 'Misato', 'Mikasa', 'Haruhi', 'Roy', 'Vash', 'Mugen',
+    'Jotaro', 'Vegeta', 'Killua', 'Kyon', 'Hiei', 'Sosuke', 'Frieza', 'Joseph', 'Zeref',
+    'Saber', 'Yugi', 'Vivi', 'Usagi', 'Nami', 'Sakura', 'Jiraiya', 'Itachi', 'Madara', 'Rias',
+    'Zoro', 'Tatsumi', 'Yuno', 'Shiro', 'Kirito', 'C.C.', 'Orihime', 'Kenshiro', 'Maka',
+    'Maka', 'Gon', 'Momo', 'Natsu', 'Koro-sensei', 'Katsuki', 'Riza', 'Akira', 'Makise',
+    'Kenshiro', 'Kagura', 'Faye', 'Ryuk', 'Suzaku', 'Touka', 'Lelouch', 'Homura', 'Rukako',
+    'Zero', 'Inuyasha', 'Sebastian', 'Homura', 'Shinichi', 'Sinon', 'Koyomi', 'Ryuko', 'Tamaki',
+    'Clare', 'Rito', 'Takumi', 'Midoriya', 'Yoh', 'Rukia', 'Kaori', 'Soma', 'Kaneki', 'Edward',
+    'Gray', 'Allen', 'Sasuke', 'Kaname', 'Shizuo', 'Kagami', 'Akame', 'Ken', 'Yukino', 'Taiga',
+    'Sakura', 'Rin', 'Miyuki', 'Mikoto', 'Kuroko', 'Haruka', 'Mikasa', 'Alois', 'Misa', 'Tomoya',
+    'Lelouch', 'Hikaru', 'Nagisa', 'Revy', 'Haruka', 'Mugen', 'Kotomine', 'Takashi', 'Ling', 'Shinji',
+    'Hikigaya', 'Allen', 'Kyo', 'Ayase', 'Rider', 'Kurama', 'Shiki', 'Shiroe', 'Asuka', 'Kaga', 'Nico',
+    'Riko', 'Mirai', 'Nanoha', 'Hinata', 'Tsubasa', 'Shinra', 'Homura', 'Takanashi', 'Kenshin', 'Tsubaki',
+    'Rei', 'Lan', 'Makoto', 'Kraft', 'Miyamura', 'Kaito', ]

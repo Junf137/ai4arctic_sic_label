@@ -65,7 +65,7 @@ from losses import WaterConsistencyLoss
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
-from unet import UNet  # Convolutional Neural Network model
+from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
 from swin_transformer import SwinTransformer  # Swin Transformer
 # -- Built-in modules -- #
 from utils import colour_str
@@ -108,17 +108,17 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    # # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-    # # np.random.seed(0)
-    # train_options['validate_list'] = np.random.choice(np.array(
-    #     train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
-
-    # load validation list
-    with open(train_options['path_to_env'] + train_options['val_path']) as file:
-        train_options['validate_list'] = json.loads(file.read())
-    # Convert the original scene names to the preprocessed names.
-    train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
-                                      '_prep.nc' for file in train_options['validate_list']]
+    if train_options['cross_val_run']:
+        # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+        train_options['validate_list'] = np.random.choice(np.array(
+            train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    else:
+        # load validation list
+        with open(train_options['path_to_env'] + train_options['val_path']) as file:
+            train_options['validate_list'] = json.loads(file.read())
+        # Convert the original scene names to the preprocessed names.
+        train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                          '_prep.nc' for file in train_options['validate_list']]
 
     # from icecream import ic
     # ic(train_options['validate_list'])
@@ -357,20 +357,23 @@ def main():
     train_options = cfg.train_options
     # Get options for variables, amsrenv grid, cropping and upsampling.
     train_options = get_variable_options(train_options)
+    # generate wandb run id, to be used to link the run with test_upload
+    id = wandb.util.generate_id()
+
     # cfg['experiment_name']=
     # cfg.env_dict = {}
-
-    # set seed for everything
-    seed = train_options['seed']
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
-    # torch.backends.cudnn.enabled = True
+    if not train_options['cross_val_run']:
+        # set seed for everything
+        seed = train_options['seed']
+        random.seed(seed)
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        # torch.backends.cudnn.deterministic = True
+        # torch.backends.cudnn.benchmark = False
+        # torch.backends.cudnn.enabled = True
 
     # To be used in test_upload.
     # get_ipython().run_line_magic('store', 'train_options')
@@ -381,14 +384,21 @@ def main():
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dir',
-                                osp.splitext(osp.basename(args.config))[0])\
+        if not train_options['cross_val_run']:
+            cfg.work_dir = osp.join('./work_dir',
+                                    osp.splitext(osp.basename(args.config))[0])
+        else:
+            # from utils import run_names
+            run_name = id
+            cfg.work_dir = osp.join('./work_dir',
+                                    osp.splitext(osp.basename(args.config))[0], run_name)
 
     ic(cfg.work_dir)
     # create work_dir
     mkdir_or_exist(osp.abspath(cfg.work_dir))
     # dump config
     shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
+    cfg_path = osp.join(cfg.work_dir, osp.basename(args.config))
     # ### CUDA / GPU Setup
     # Get GPU resources.
     if torch.cuda.is_available():
@@ -411,7 +421,9 @@ def main():
         net = H_UNet(options=train_options).to(device)
     elif train_options['model_selection'] == 'h_unet_argmax':
         from unet import H_UNet_argmax
-        net = H_UNet_argmax(options=train_options).to(device)    
+        net = H_UNet_argmax(options=train_options).to(device)
+    elif train_options['model_selection'] == 'Separate_decoder':
+        net = Sep_feat_dif_stages(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -428,8 +440,6 @@ def main():
         print(f"\033[91m Finetune model from {args.finetune_from}\033[0m")
         _ = load_model(net, args.finetune_from)
 
-    # generate wandb run id, to be used to link the run with test_upload
-    id = wandb.util.generate_id()
     # subprocess.run(['export'])
 
     # cfg.env_dict['WANDB_RUN_ID'] = id
@@ -440,8 +450,15 @@ def main():
 
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
-    with wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
-                    entity="ai4arctic", config=train_options, id=id, resume="allow"):
+
+    # initialize wandb run
+
+    if not train_options['cross_val_run']:
+        wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
+                   entity="ai4arctic", config=train_options, id=id, resume="allow")
+    else:
+        wandb.init(name=run_name, group=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
+                   entity="ai4arctic", config=train_options, id=id, resume="allow")
 
         # Define the metrics and make them such that they are not added to the summary
         wandb.define_metric("Train Epoch Loss", summary="none")
@@ -460,11 +477,11 @@ def main():
         wandb.save(str(args.config))
         print(colour_str('Save Config File', 'green'))
 
-        create_train_and_validation_scene_list(train_options)
+    create_train_and_validation_scene_list(train_options)
 
-        dataloader_train, dataloader_val = create_dataloaders(train_options)
+    dataloader_train, dataloader_val = create_dataloaders(train_options)
 
-        print('Data setup complete.')
+    print('Data setup complete.')
 
         # ## Example of model training and validation loop
         # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
@@ -481,6 +498,9 @@ def main():
         test(False, net, checkpoint_path, device, cfg)
         test(True, net, checkpoint_path, device, cfg)
         print('Testing Complete')
+
+    # finish the wandb run
+    wandb.finish()
 
 
 def get_scheduler(train_options, optimizer):
@@ -531,7 +551,6 @@ def get_loss(loss, chart=None, **kwargs):
         loss: The corresponding
     """
     if loss == 'DiceLoss':
-        raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.DiceLoss(**kwargs)
     elif loss == 'FocalLoss':
