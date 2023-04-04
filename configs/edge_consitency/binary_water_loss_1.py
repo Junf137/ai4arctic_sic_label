@@ -36,15 +36,10 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 3,
-                 'epoch_len': 1,
-                 'val_path': 'datalists/test_val.json',
-                 'train_list_path': 'datalists/small_dataset.json',
-                 'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
-                 'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',
-                 
-                 'edge_consistency_loss': 0,
+                 'epochs': 500,
+                 "edge_consistency_loss": 1,
                  "binary_water_classifier": True,
+
                  'optimizer': {
                      'type': 'SGD',
                      'lr': 0.001,  # Optimizer learning rate.
@@ -54,11 +49,11 @@ train_options = {'train_variables': SCENE_VARIABLES,
                      'weight_decay': 0.01
                  },
 
-                 'scheduler': {
-                    '_delete_': True,
+                'scheduler': {
+                '_delete_': True,
                     'type': 'CosineAnnealingLR',  # Name of the schedulers
                     'lr_min': 0,  # Minimun learning rate
-                 },
+                },
 
                  'batch_size': 16,
                  'num_workers': 4,  # Number of parallel processes to fetch data.
@@ -71,6 +66,8 @@ train_options = {'train_variables': SCENE_VARIABLES,
                      'Random_h_flip': 0.5,
                      'Random_v_flip': 0.5,
                      'Random_rotation': 90,
-                     'Random_scale': (0.8, 1.2)
+                     'Random_scale': (0.8, 1.2),
+                     'Cutmix_beta': 1.0,
+                     'Cutmix_prob': 0.5,
                  },
                  }

@@ -133,6 +133,38 @@ def f1_metric(true, pred, num_classes):
     return f1
 
 
+def water_edge_metric(outputs, options):
+
+    # Convert ouput into water and not water
+    for chart in options['charts']:
+        
+        outputs[chart] = torch.where(outputs[chart] > 0.0, 1.0, 0.0)
+        
+
+    # subtract them and absolute
+    # perform mean
+    water_edge_accuracy = 1 - torch.mean(torch.abs(outputs[options['charts'][0]]-outputs[options['charts'][1]])
+                                    + torch.abs(outputs[options['charts'][1]]-outputs[options['charts'][2]])
+                                    + torch.abs(outputs[options['charts'][2]]-outputs[options['charts'][0]]))
+ 
+    return water_edge_accuracy
+
+
+def water_edge_plot_overlay(output, mask, options):
+    # Convert ouput into water and not water
+    charts = options['charts']
+    water_chart = {}
+    for chart in charts:
+        water_chart[chart] = np.where(output[chart] > 0.0, 0.75, 0.0)
+        water_chart[chart][mask] = np.nan
+        water_chart[chart] = water_chart[chart][..., np.newaxis]
+
+    img = np.concatenate((water_chart[charts[0]], water_chart[charts[1]],water_chart[charts[2]]), axis=2,)
+                         
+    return img
+
+
+
 def compute_combined_score(scores, charts, metrics):
     """
     Calculate the combined weighted score.
@@ -255,7 +287,8 @@ def rand_bbox(size, lam):
     bby2 = np.clip(cy + cut_w // 2, 0, W)
 
     return bbx1, bby1, bbx2, bby2
-    
+
+
 def slide_inference(img, net, options, mode):
     """
     Inference by sliding-window with overlap.
@@ -478,3 +511,19 @@ def batched_slide_inference(img, net, options, mode):
     return {'SIC': preds_SIC,
             'SOD': preds_SOD,
             'FLOE': preds_FLOE}
+
+def class_decider(output, train_options):
+
+    if (train_options['binary_water_classifier'] == False):
+        return torch.argmax(output, dim=1).squeeze()
+    else:
+        probability = torch.nn.Softmax(dim=1)(output)
+        water = probability[:, 0, :, :]
+        not_water = torch.sum(probability, dim=1) - water
+        class_output = water <= not_water
+        without_water = probability[:, 1:, :, :]
+        class_output_without_water = torch.argmax(without_water, dim=1) + 1
+        class_output = class_output_without_water * class_output
+
+        return class_output
+

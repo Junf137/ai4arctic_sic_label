@@ -72,3 +72,16 @@ class MSELossFromLogits(nn.Module):
         loss = loss[:, :-1, :, :]
         loss = loss.mean()
         return loss
+
+class WaterConsistencyLoss(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.keys = ['SIC', 'SOD', 'FLOE']
+        self.activation = nn.Softmax(dim=1)
+    
+    def forward(self, output):
+        sic = self.activation(output[self.keys[0]])[:, 0, :, :]
+        sod = self.activation(output[self.keys[1]])[:, 0, :, :]
+        floe = self.activation(output[self.keys[2]])[:, 0, :, :]
+        return torch.mean((sic-sod)**2 + (sod-floe)**2 + (floe-sic)**2)

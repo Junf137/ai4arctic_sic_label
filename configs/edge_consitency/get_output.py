@@ -36,15 +36,13 @@ SCENE_VARIABLES = [
 
 
 train_options = {'train_variables': SCENE_VARIABLES,
-                 'epochs': 3,
+                 'epochs': 20,
                  'epoch_len': 1,
-                 'val_path': 'datalists/test_val.json',
+                #  'val_path': 'datalists/test_val.json',
                  'train_list_path': 'datalists/small_dataset.json',
                  'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
                  'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',
-                 
-                 'edge_consistency_loss': 0,
-                 "binary_water_classifier": True,
+
                  'optimizer': {
                      'type': 'SGD',
                      'lr': 0.001,  # Optimizer learning rate.
