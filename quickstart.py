@@ -477,11 +477,11 @@ def main():
         wandb.save(str(args.config))
         print(colour_str('Save Config File', 'green'))
 
-    create_train_and_validation_scene_list(train_options)
+        create_train_and_validation_scene_list(train_options)
 
-    dataloader_train, dataloader_val = create_dataloaders(train_options)
+        dataloader_train, dataloader_val = create_dataloaders(train_options)
 
-    print('Data setup complete.')
+        print('Data setup complete.')
 
         # ## Example of model training and validation loop
         # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
