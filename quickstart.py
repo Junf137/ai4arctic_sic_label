@@ -461,44 +461,44 @@ def main():
         wandb.init(name=run_name, group=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
                    entity="ai4arctic", config=train_options, id=id, resume="allow")
 
-        # Define the metrics and make them such that they are not added to the summary
-        wandb.define_metric("Train Epoch Loss", summary="none")
-        wandb.define_metric("Train Cross Entropy Epoch Loss", summary="none")
-        wandb.define_metric("Train Water Consistency Epoch Loss", summary="none")
-        wandb.define_metric("Validation Epoch Loss", summary="none")
-        wandb.define_metric("Validation Cross Entropy Epoch Loss", summary="none")
-        wandb.define_metric("Validation Water Consistency Epoch Loss", summary="none")
-        wandb.define_metric("Combined score", summary="none")
-        wandb.define_metric("SIC r2_metric", summary="none")
-        wandb.define_metric("SOD f1_metric", summary="none")
-        wandb.define_metric("FLOE f1_metric", summary="none")
-        wandb.define_metric("Water Consistency Accuarcy", summary="none")
-        wandb.define_metric("Learning Rate", summary="none")
+    # Define the metrics and make them such that they are not added to the summary
+    wandb.define_metric("Train Epoch Loss", summary="none")
+    wandb.define_metric("Train Cross Entropy Epoch Loss", summary="none")
+    wandb.define_metric("Train Water Consistency Epoch Loss", summary="none")
+    wandb.define_metric("Validation Epoch Loss", summary="none")
+    wandb.define_metric("Validation Cross Entropy Epoch Loss", summary="none")
+    wandb.define_metric("Validation Water Consistency Epoch Loss", summary="none")
+    wandb.define_metric("Combined score", summary="none")
+    wandb.define_metric("SIC r2_metric", summary="none")
+    wandb.define_metric("SOD f1_metric", summary="none")
+    wandb.define_metric("FLOE f1_metric", summary="none")
+    wandb.define_metric("Water Consistency Accuarcy", summary="none")
+    wandb.define_metric("Learning Rate", summary="none")
 
-        wandb.save(str(args.config))
-        print(colour_str('Save Config File', 'green'))
+    wandb.save(str(args.config))
+    print(colour_str('Save Config File', 'green'))
 
-        create_train_and_validation_scene_list(train_options)
+    create_train_and_validation_scene_list(train_options)
 
-        dataloader_train, dataloader_val = create_dataloaders(train_options)
+    dataloader_train, dataloader_val = create_dataloaders(train_options)
 
-        print('Data setup complete.')
+    print('Data setup complete.')
 
-        # ## Example of model training and validation loop
-        # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
-        #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
-        #  This can be done by using 'net = net.cpu()'.
-        if args.resume_from is not None:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler, epoch_start)
-        else:
-            checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
-                                    scheduler)
-        print('Training Complete')
-        print('Testing...')
-        test(False, net, checkpoint_path, device, cfg)
-        test(True, net, checkpoint_path, device, cfg)
-        print('Testing Complete')
+    # ## Example of model training and validation loop
+    # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
+    #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
+    #  This can be done by using 'net = net.cpu()'.
+    if args.resume_from is not None:
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
+                                scheduler, epoch_start)
+    else:
+        checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
+                                scheduler)
+    print('Training Complete')
+    print('Testing...')
+    test(False, net, checkpoint_path, device, cfg)
+    test(True, net, checkpoint_path, device, cfg)
+    print('Testing Complete')
 
     # finish the wandb run
     wandb.finish()
