@@ -105,12 +105,22 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
             # Upsample to match the correct size
             if train_options['down_sample_scale'] != 1:
                 for chart in train_options['charts']:
+                    # check if the output is regression output, if yes, permute the dimension
+                    if output[chart].size(3) == 1:
+                        output[chart] = output[chart].permute(0, 3, 1, 2)
                     output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode='nearest')
 
         for chart in train_options['charts']:
-            output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
-            upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
-                                                                   dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
+            # check if the output is regression output, if yes, round the output to integer
+            if output[chart].size(1) == 1:
+                rounded_tensor = torch.round(output[chart].float()).squeeze().cpu()
+                output[chart] = torch.clamp(rounded_tensor, min=0, max=train_options['n_classes'][chart]).numpy()
+                upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
+                                                                       dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
+            else:
+                output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
+                upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
+                                                                       dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
 
         # - Show the scene inference.
         fig, axs = plt.subplots(nrows=1, ncols=5, figsize=(20, 20))

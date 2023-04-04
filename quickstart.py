@@ -234,12 +234,16 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
-                output[chart] = torch.argmax(
-                    output[chart], dim=1).squeeze()
+                if output[chart].size(3) == 1:
+                    output[chart] = torch.round(output[chart].squeeze())
+                    output[chart] = torch.clamp(output[chart], min=0, max=train_options
+                                                ['n_classes'][chart])
+                else:
+                    output[chart] = torch.argmax(
+                        output[chart], dim=1).squeeze()
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]
-                                               [~masks[chart]].to(device, non_blocking=True)))
-
+                                                [~masks[chart]].to(device, non_blocking=True)))
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
 
@@ -364,6 +368,12 @@ def main():
         net = H_UNet_argmax(options=train_options).to(device)
     elif train_options['model_selection'] == 'Separate_decoder':
         net = Sep_feat_dif_stages(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
+        from unet import UNet_regression
+        net = UNet_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
+        from unet import UNet_sep_dec_regression
+        net = UNet_sep_dec_regression(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -523,6 +533,13 @@ def get_loss(loss, chart=None, **kwargs):
         from losses import MSELossFromLogits
         kwargs.pop('type')
         loss = MSELossFromLogits(chart=chart, **kwargs)
+    elif loss == 'MSELoss':
+        kwargs.pop('type')
+        loss = torch.nn.MSELoss(**kwargs)
+    elif loss == 'MSELossWithIgnoreIndex':
+        from losses import MSELossWithIgnoreIndex
+        kwargs.pop('type')
+        loss = MSELossWithIgnoreIndex(**kwargs)
     else:
         raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
 
