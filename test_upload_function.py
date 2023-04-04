@@ -84,7 +84,7 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
     net.eval()
     for inf_x, inf_y, masks, scene_name, original_size in tqdm(iterable=asid_loader,
-                                                           total=len(train_options['test_list']), colour='green', position=0):
+                                                               total=len(train_options['test_list']), colour='green', position=0):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
         torch.cuda.empty_cache()
         inf_x = inf_x.to(device, non_blocking=True)
@@ -105,28 +105,34 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
             # Upsample to match the correct size
             if train_options['down_sample_scale'] != 1:
                 for chart in train_options['charts']:
+                    # check if the output is regression output, if yes, permute the dimension
+                    if output[chart].size(3) == 1:
+                        output[chart] = output[chart].permute(0, 3, 1, 2)
                     output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode='nearest')
                     if not test:
                         inf_y[chart] = torch.nn.functional.interpolate(inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0),
                                                                        size=original_size, mode='nearest')
 
         for chart in train_options['charts']:
-            output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
+            # check if the output is regression output, if yes, round the output to integer
             if test:
-                upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", 
-                                                                       data=output[chart].astype('uint8'),
-                                                                       dims=(f"{scene_name}_{chart}_dim0", 
-                                                                             f"{scene_name}_{chart}_dim1"))
+                if output[chart].size(1) == 1:
+                    rounded_tensor = torch.round(output[chart].float()).squeeze().cpu()
+                    output[chart] = torch.clamp(rounded_tensor, min=0, max=train_options['n_classes'][chart]).numpy()
+                else:
+                    output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
+
+                upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
+                                                                       dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
             else:
                 inf_y[chart] = inf_y[chart].squeeze().cpu().numpy()
-
 
         # - Show the scene inference.
         if test:
             fig, axs2d = plt.subplots(nrows=2, ncols=3, figsize=(20, 20))
         else:
             fig, axs2d = plt.subplots(nrows=3, ncols=3, figsize=(20, 20))
-            
+
         axs = axs2d.flat
 
         for j in range(0, 2):
@@ -166,7 +172,7 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
                 inf_y[chart] = inf_y[chart].astype(float)
                 inf_y[chart][masks] = np.nan
                 ax.imshow(inf_y[chart], vmin=0, vmax=train_options['n_classes']
-                        [chart] - 2, cmap='jet', interpolation='nearest')
+                          [chart] - 2, cmap='jet', interpolation='nearest')
                 ax.set_xticks([])
                 ax.set_yticks([])
                 ax.set_title([f'Scene {scene_name}, {chart}: Ground Truth'])

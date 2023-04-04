@@ -158,20 +158,23 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     best_combined_score = -np.Inf  # Best weighted model score.
 
     loss_ce_functions = {chart: get_loss(train_options['chart_loss'][chart]['type'], chart=chart, **train_options['chart_loss'][chart])
-                      for chart in train_options['charts']}
+                         for chart in train_options['charts']}
 
-    loss_water_edge_consistency =  WaterConsistencyLoss()
+    loss_water_edge_consistency = WaterConsistencyLoss()
     print('Training...')
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(start_epoch, train_options['epochs'])):
         # gc.collect()  # Collect garbage to free memory.
         train_loss_sum = torch.tensor([0.])  # To sum the training batch losses during the epoch.
-        cross_entropy_loss_sum = torch.tensor([0.]) # To sum the training cross entropy batch losses during the epoch.
-        edge_consistency_loss_sum = torch.tensor([0.]) # To sum the training edge consistency batch losses during the epoch.
-        
+        cross_entropy_loss_sum = torch.tensor([0.])  # To sum the training cross entropy batch losses during the epoch.
+        # To sum the training edge consistency batch losses during the epoch.
+        edge_consistency_loss_sum = torch.tensor([0.])
+
         val_loss_sum = torch.tensor([0.])  # To sum the validation batch losses during the epoch.
-        val_cross_entropy_loss_sum = torch.tensor([0.]) # To sum the validation cross entropy batch losses during the epoch.
-        val_edge_consistency_loss_sum = torch.tensor([0.]) # To sum the validation cedge consistency batch losses during the epoch.
+        # To sum the validation cross entropy batch losses during the epoch.
+        val_cross_entropy_loss_sum = torch.tensor([0.])
+        # To sum the validation cedge consistency batch losses during the epoch.
+        val_edge_consistency_loss_sum = torch.tensor([0.])
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
@@ -192,19 +195,18 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 # - Calculate loss.
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
 
-                    if train_options['edge_consistency_loss'] !=0:
+                    if train_options['edge_consistency_loss'] != 0:
                         edge_consistency_loss = loss_water_edge_consistency(output)
 
                     cross_entropy_loss += weight * loss_ce_functions[chart](
                         output[chart], batch_y[chart].to(device))
-                    
+
             if train_options['edge_consistency_loss'] != 0:
                 a = train_options['edge_consistency_loss']
                 edge_consistency_loss = a*loss_water_edge_consistency(output)
                 train_loss_batch = cross_entropy_loss + edge_consistency_loss
             else:
                 train_loss_batch = cross_entropy_loss + edge_consistency_loss
-
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -228,8 +230,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         cross_entropy_epoch = torch.true_divide(cross_entropy_loss_sum, i + 1).detach().item()
         edge_consistency_epoch = torch.true_divide(edge_consistency_loss_sum, i + 1).detach().item()
 
-            
-            # del output, batch_x, batch_y # Free memory.
+        # del output, batch_x, batch_y # Free memory.
         # del loss_sum
 
         # -- Validation Loop -- #
@@ -281,8 +282,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))
                 outputs_tfv_mask[chart] = torch.cat((outputs_tfv_mask[chart], output[chart][~tfv_mask]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]
-                                               [~masks[chart]].to(device, non_blocking=True)))
-                
+                                                [~masks[chart]].to(device, non_blocking=True)))
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
             val_cross_entropy_loss_sum += val_cross_entropy_loss.detach().item()
@@ -292,7 +292,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         val_loss_epoch = torch.true_divide(val_loss_sum, i + 1).detach().item()
         val_cross_entropy_epoch = torch.true_divide(val_cross_entropy_loss_sum, i + 1).detach().item()
         val_edge_consistency_epoch = torch.true_divide(val_edge_consistency_loss_sum, i + 1).detach().item()
-
 
         # - Compute the relevant scores.
         print('Computing Metrics on Val dataset')
@@ -346,7 +345,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
 
             wandb.save(model_path)
-            
+
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
@@ -425,6 +424,12 @@ def main():
         net = H_UNet_argmax(options=train_options).to(device)
     elif train_options['model_selection'] == 'Separate_decoder':
         net = Sep_feat_dif_stages(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
+        from unet import UNet_regression
+        net = UNet_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
+        from unet import UNet_sep_dec_regression
+        net = UNet_sep_dec_regression(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -448,7 +453,6 @@ def main():
 
     # os.environ['WANDB_RUN_ID'] = id
     # os.environ['RESUME'] = 'allow'
-
 
     # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
 
@@ -593,6 +597,13 @@ def get_loss(loss, chart=None, **kwargs):
         from losses import MSELossFromLogits
         kwargs.pop('type')
         loss = MSELossFromLogits(chart=chart, **kwargs)
+    elif loss == 'MSELoss':
+        kwargs.pop('type')
+        loss = torch.nn.MSELoss(**kwargs)
+    elif loss == 'MSELossWithIgnoreIndex':
+        from losses import MSELossWithIgnoreIndex
+        kwargs.pop('type')
+        loss = MSELossWithIgnoreIndex(**kwargs)
     else:
         raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
 

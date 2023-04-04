@@ -4,6 +4,9 @@
 """U-Net model."""
 
 # -- File info -- #
+from torchvision.models.resnet import BasicBlock
+from torch import nn
+from torchvision import models
 __author__ = 'Andreas R. Stokholm'
 __contributor__ = 'Andrzej S. Kucik'
 __copyright__ = ['Technical University of Denmark', 'European Space Agency']
@@ -239,6 +242,7 @@ class UNet_sep_dec(torch.nn.Module):
                 'SOD': self.sod_feature_map(self.Decoder(x_contract)),
                 'FLOE': self.floe_feature_map(self.Decoder(x_contract))}
 
+
 class Sep_feat_dif_stages(torch.nn.Module):
     """PyTorch U-Net Class. Uses unet_parts."""
 
@@ -247,15 +251,15 @@ class Sep_feat_dif_stages(torch.nn.Module):
 
         self.stage = options['common_features_last_layer']
         self.drop = nn.Identity()
-    
+
         if 'resnet' in options['backbone']:
             a = Resnet_backbone(options, len(options['train_variables']), drop_rate=0.1, output_stride=16)
             self.comm_feat = a.comm_feat
             self.ind_feat1 = a.ind_feat1
             self.ind_feat2 = a.ind_feat2
             self.ind_feat3 = a.ind_feat3
-            self.drop      = a.drop
-            count_stage    = a.count_stage
+            self.drop = a.drop
+            count_stage = a.count_stage
 
         else:   # unet
             self.comm_feat, self.ind_feat1, self.ind_feat2, self.ind_feat3 = [torch.nn.ModuleList() for i in range(4)]
@@ -263,48 +267,69 @@ class Sep_feat_dif_stages(torch.nn.Module):
             # input_block
             count_stage = 1
             if count_stage <= self.stage:
-                self.comm_feat.append(  DoubleConv(options, input_n=len(options['train_variables']), output_n=options['unet_conv_filters'][0]))
+                self.comm_feat.append(DoubleConv(options, input_n=len(
+                    options['train_variables']), output_n=options['unet_conv_filters'][0]))
             else:
-                a, b, c =              [DoubleConv(options, input_n=len(options['train_variables']), output_n=options['unet_conv_filters'][0]) for i in range(3)]
-                self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+                a, b, c = [DoubleConv(options, input_n=len(options['train_variables']),
+                                      output_n=options['unet_conv_filters'][0]) for i in range(3)]
+                self.ind_feat1.append(a)
+                self.ind_feat2.append(b)
+                self.ind_feat3.append(c)
 
             # contract_blocks, only used to contract input patch
             for contract_n in range(1, len(options['unet_conv_filters'])):
                 count_stage += 1
                 if count_stage <= self.stage:
-                    self.comm_feat.append(ContractingBlock(options=options, input_n=options['unet_conv_filters'][contract_n - 1],output_n=options['unet_conv_filters'][contract_n]))
+                    self.comm_feat.append(ContractingBlock(
+                        options=options, input_n=options['unet_conv_filters'][contract_n - 1], output_n=options['unet_conv_filters'][contract_n]))
                 else:
-                    a, b, c =            [ContractingBlock(options=options, input_n=options['unet_conv_filters'][contract_n - 1],output_n=options['unet_conv_filters'][contract_n]) for i in range(3)]
-                    self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+                    a, b, c = [ContractingBlock(options=options, input_n=options['unet_conv_filters']
+                                                [contract_n - 1], output_n=options['unet_conv_filters'][contract_n]) for i in range(3)]
+                    self.ind_feat1.append(a)
+                    self.ind_feat2.append(b)
+                    self.ind_feat3.append(c)
 
             # bridge
             count_stage += 1
             if count_stage <= self.stage:
-                self.comm_feat.append(ContractingBlock(options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]))
+                self.comm_feat.append(ContractingBlock(
+                    options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]))
             else:
-                a, b, c =            [ContractingBlock(options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]) for i in range(3)]
-                self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+                a, b, c = [ContractingBlock(options, input_n=options['unet_conv_filters'][-1],
+                                            output_n=options['unet_conv_filters'][-1]) for i in range(3)]
+                self.ind_feat1.append(a)
+                self.ind_feat2.append(b)
+                self.ind_feat3.append(c)
 
         # expand_blocks
         count_stage += 1
         if count_stage <= self.stage:
-            self.comm_feat.append(ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]))
+            self.comm_feat.append(ExpandingBlock(
+                options=options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]))
         else:
-            a, b, c =            [ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1], output_n=options['unet_conv_filters'][-1]) for i in range(3)]
-            self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+            a, b, c = [ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1],
+                                      output_n=options['unet_conv_filters'][-1]) for i in range(3)]
+            self.ind_feat1.append(a)
+            self.ind_feat2.append(b)
+            self.ind_feat3.append(c)
 
         for expand_n in range(len(options['unet_conv_filters']), 1, -1):
             count_stage += 1
             if count_stage <= self.stage:
-                self.comm_feat.append(ExpandingBlock(options=options, input_n=options['unet_conv_filters'][expand_n - 1], output_n=options['unet_conv_filters'][expand_n - 2]))
+                self.comm_feat.append(ExpandingBlock(
+                    options=options, input_n=options['unet_conv_filters'][expand_n - 1], output_n=options['unet_conv_filters'][expand_n - 2]))
             else:
-                a, b, c =            [ExpandingBlock(options=options, input_n=options['unet_conv_filters'][expand_n - 1], output_n=options['unet_conv_filters'][expand_n - 2]) for i in range(3)]
-                self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+                a, b, c = [ExpandingBlock(options=options, input_n=options['unet_conv_filters'][expand_n - 1],
+                                          output_n=options['unet_conv_filters'][expand_n - 2]) for i in range(3)]
+                self.ind_feat1.append(a)
+                self.ind_feat2.append(b)
+                self.ind_feat3.append(c)
 
         self.sic_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['SIC'])
         self.sod_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['SOD'])
-        self.floe_feature_map = FeatureMap(input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['FLOE'])
-    
+        self.floe_feature_map = FeatureMap(
+            input_n=options['unet_conv_filters'][0], output_n=options['n_classes']['FLOE'])
+
     def Independent(self, ind_feat, features, up_idx):
 
         for block in ind_feat:
@@ -313,7 +338,7 @@ class Sep_feat_dif_stages(torch.nn.Module):
                 up_idx += 1
             else:
                 features.append(block(features[-1], features[up_idx - 1]))
-                up_idx -= 1         
+                up_idx -= 1
 
         return features[-1]
 
@@ -330,15 +355,10 @@ class Sep_feat_dif_stages(torch.nn.Module):
             else:
                 features.append(block(features[-1], features[up_idx - 1]))
                 up_idx -= 1
-        
-        return {'SIC' : self.sic_feature_map (self.Independent(self.ind_feat1, features[:], up_idx)),
-                'SOD' : self.sod_feature_map (self.Independent(self.ind_feat2, features[:], up_idx)),
+
+        return {'SIC': self.sic_feature_map(self.Independent(self.ind_feat1, features[:], up_idx)),
+                'SOD': self.sod_feature_map(self.Independent(self.ind_feat2, features[:], up_idx)),
                 'FLOE': self.floe_feature_map(self.Independent(self.ind_feat3, features[:], up_idx))}
-
-
-from torchvision import models
-from torch import nn
-from torchvision.models.resnet import BasicBlock
 
 
 class Resnet_backbone(torch.nn.Module):
@@ -356,7 +376,7 @@ class Resnet_backbone(torch.nn.Module):
             layers = [3, 4, 6, 3]
         elif options['backbone'] == 'resnet101':
             layers = [3, 4, 23, 3]
-        
+
         # Custom strides
         self.strides = [1]
         for i in range(4):
@@ -365,7 +385,7 @@ class Resnet_backbone(torch.nn.Module):
                 output_stride //= 2
             else:
                 self.strides.append(1)
-        
+
         self.stage = options['common_features_last_layer']
         self.comm_feat, self.ind_feat1, self.ind_feat2, self.ind_feat3 = [torch.nn.ModuleList() for i in range(4)]
 
@@ -385,56 +405,67 @@ class Resnet_backbone(torch.nn.Module):
             a, b, c = [nn.Sequential(nn.Conv2d(in_chans, self.enc.inplanes, kernel_size=7, stride=self.strides[0], padding=3, bias=False),
                                      nn.BatchNorm2d(options['unet_conv_filters'][0]),
                                      nn.ReLU(inplace=True)) for i in range(3)]
-            self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+            self.ind_feat1.append(a)
+            self.ind_feat2.append(b)
+            self.ind_feat3.append(c)
 
         # self.enc.layer1 = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 1], layers[0])
         self.count_stage += 1
         if self.count_stage <= self.stage:
             self.comm_feat.append(nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(),
-                                                self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 1], layers[0])))
+                                                self.enc._make_layer(BasicBlock, options['unet_conv_filters'][1], layers[0])))
 
         else:
             aux = self.enc.inplanes
-            a = nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(), 
-                              self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 1], layers[0]))
+            a = nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(),
+                              self.enc._make_layer(BasicBlock, options['unet_conv_filters'][1], layers[0]))
             self.enc.inplanes = aux
-            b = nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(), 
-                              self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 1], layers[0]))
+            b = nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(),
+                              self.enc._make_layer(BasicBlock, options['unet_conv_filters'][1], layers[0]))
             self.enc.inplanes = aux
-            c = nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(), 
-                              self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 1], layers[0]))
-            self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+            c = nn.Sequential(nn.MaxPool2d(kernel_size=3, stride=self.strides[1], padding=1) if self.strides[1] > 1 else nn.Identity(),
+                              self.enc._make_layer(BasicBlock, options['unet_conv_filters'][1], layers[0]))
+            self.ind_feat1.append(a)
+            self.ind_feat2.append(b)
+            self.ind_feat3.append(c)
 
         # self.enc.layer2 = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 2], layers[1], stride=self.strides[2])
         self.count_stage += 1
         if self.count_stage <= self.stage:
-            self.comm_feat.append(self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 2], layers[1], stride=self.strides[2]))
+            self.comm_feat.append(self.enc._make_layer(
+                BasicBlock, options['unet_conv_filters'][2], layers[1], stride=self.strides[2]))
         else:
             aux = self.enc.inplanes
-            a = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 2], layers[1], stride=self.strides[2])
+            a = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][2], layers[1], stride=self.strides[2])
             self.enc.inplanes = aux
-            b = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 2], layers[1], stride=self.strides[2])
+            b = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][2], layers[1], stride=self.strides[2])
             self.enc.inplanes = aux
-            c = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 2], layers[1], stride=self.strides[2])
-            self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+            c = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][2], layers[1], stride=self.strides[2])
+            self.ind_feat1.append(a)
+            self.ind_feat2.append(b)
+            self.ind_feat3.append(c)
 
         # self.enc.layer3 = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 3] , layers[2], stride=self.strides[3])
         self.count_stage += 1
         if self.count_stage <= self.stage:
-            self.comm_feat.append(self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 3] , layers[2], stride=self.strides[3]))
+            self.comm_feat.append(self.enc._make_layer(
+                BasicBlock, options['unet_conv_filters'][3], layers[2], stride=self.strides[3]))
         else:
             aux = self.enc.inplanes
-            a = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 3] , layers[2], stride=self.strides[3])
+            a = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][3], layers[2], stride=self.strides[3])
             self.enc.inplanes = aux
-            b = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 3] , layers[2], stride=self.strides[3])
+            b = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][3], layers[2], stride=self.strides[3])
             self.enc.inplanes = aux
-            c = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][ 3] , layers[2], stride=self.strides[3])
-            self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+            c = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][3], layers[2], stride=self.strides[3])
+            self.ind_feat1.append(a)
+            self.ind_feat2.append(b)
+            self.ind_feat3.append(c)
 
         # self.enc.layer4 = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][-1], layers[3], stride=self.strides[4])
         self.count_stage += 1
         if self.count_stage <= self.stage:
-            self.comm_feat.append(self.enc._make_layer(BasicBlock, options['unet_conv_filters'][-1], layers[3], stride=self.strides[4]))
+            self.comm_feat.append(self.enc._make_layer(
+                BasicBlock, options['unet_conv_filters'][-1], layers[3], stride=self.strides[4]))
         else:
             aux = self.enc.inplanes
             a = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][-1], layers[3], stride=self.strides[4])
@@ -442,7 +473,99 @@ class Resnet_backbone(torch.nn.Module):
             b = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][-1], layers[3], stride=self.strides[4])
             self.enc.inplanes = aux
             c = self.enc._make_layer(BasicBlock, options['unet_conv_filters'][-1], layers[3], stride=self.strides[4])
-            self.ind_feat1.append(a); self.ind_feat2.append(b); self.ind_feat3.append(c)
+            self.ind_feat1.append(a)
+            self.ind_feat2.append(b)
+            self.ind_feat3.append(c)
 
         self.drop = nn.Dropout2d(drop_rate)
 
+
+class UNet_regression(UNet):
+    def __init__(self, options):
+        super().__init__(options)
+        self.regression_layer = torch.nn.Linear(options['unet_conv_filters'][0], 1)
+
+    def forward(self, x):
+        """Forward model pass."""
+        x_contract = [self.input_block(x)]
+        for contract_block in self.contract_blocks:
+            x_contract.append(contract_block(x_contract[-1]))
+
+        x_expand = self.bridge(x_contract[-1])
+        up_idx = len(x_contract)
+        for expand_block in self.expand_blocks:
+            x_expand = expand_block(x_expand, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        return {'SIC': self.regression_layer(x_expand.permute(0, 2, 3, 1)),
+                'SOD': self.sod_feature_map(x_expand),
+                'FLOE': self.floe_feature_map(x_expand)}
+
+
+class UNet_sep_dec_regression(UNet):
+    def __init__(self, options):
+        super().__init__(options)
+
+        # SIC decoder
+        self.expand_sic_blocks = torch.nn.ModuleList()
+        self.expand_sic_blocks.append(
+            ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1],
+                           output_n=options['unet_conv_filters'][-1]))
+        for expand_n in range(len(options['unet_conv_filters']), 1, -1):
+            self.expand_sic_blocks.append(ExpandingBlock(options=options,
+                                                         input_n=options['unet_conv_filters'][expand_n - 1],
+                                                         output_n=options['unet_conv_filters'][expand_n - 2]))
+        # SOD decoder
+        self.expand_sod_blocks = torch.nn.ModuleList()
+        self.expand_sod_blocks.append(
+            ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1],
+                           output_n=options['unet_conv_filters'][-1]))
+        for expand_n in range(len(options['unet_conv_filters']), 1, -1):
+            self.expand_sod_blocks.append(ExpandingBlock(options=options,
+                                                         input_n=options['unet_conv_filters'][expand_n - 1],
+                                                         output_n=options['unet_conv_filters'][expand_n - 2]))
+        # FLOE decoder
+        self.expand_floe_blocks = torch.nn.ModuleList()
+        self.expand_floe_blocks.append(
+            ExpandingBlock(options=options, input_n=options['unet_conv_filters'][-1],
+                           output_n=options['unet_conv_filters'][-1]))
+        for expand_n in range(len(options['unet_conv_filters']), 1, -1):
+            self.expand_floe_blocks.append(ExpandingBlock(options=options,
+                                                          input_n=options['unet_conv_filters'][expand_n - 1],
+                                                          output_n=options['unet_conv_filters'][expand_n - 2]))
+
+        # regression layer
+        self.regression_layer = torch.nn.Linear(options['unet_conv_filters'][0], 1)
+
+    def forward(self, x):
+        """Forward model pass."""
+        x_contract = [self.input_block(x)]
+        for contract_block in self.contract_blocks:
+            x_contract.append(contract_block(x_contract[-1]))
+        x_expand = self.bridge(x_contract[-1])
+
+        up_idx = len(x_contract)
+        x_expand_sic = x_expand
+        x_expand_sod = x_expand
+        x_expand_floe = x_expand
+
+        # decoder SIC
+        for expand_block in self.expand_sic_blocks:
+            x_expand_sic = expand_block(x_expand_sic, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        up_idx = len(x_contract)
+        # decoder SOD
+        for expand_block in self.expand_sod_blocks:
+            x_expand_sod = expand_block(x_expand_sod, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        up_idx = len(x_contract)
+        # decoder FLOE
+        for expand_block in self.expand_floe_blocks:
+            x_expand_floe = expand_block(x_expand_floe, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        return {'SIC': self.regression_layer(x_expand_sic.permute(0, 2, 3, 1)),
+                'SOD': self.sod_feature_map(x_expand_sod),
+                'FLOE': self.floe_feature_map(x_expand_floe)}
