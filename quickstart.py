@@ -61,7 +61,7 @@ from functions import compute_metrics, save_best_model, load_model, slide_infere
 from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
                      get_variable_options)
 #  get_variable_options
-from unet import UNet  # Convolutional Neural Network model
+from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
 from swin_transformer import SwinTransformer  # Swin Transformer
 # -- Built-in modules -- #
 from utils import colour_str
@@ -362,6 +362,8 @@ def main():
     elif train_options['model_selection'] == 'h_unet_argmax':
         from unet import H_UNet_argmax
         net = H_UNet_argmax(options=train_options).to(device)
+    elif train_options['model_selection'] == 'Separate_decoder':
+        net = Sep_feat_dif_stages(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -480,7 +482,6 @@ def get_loss(loss, chart=None, **kwargs):
         loss: The corresponding
     """
     if loss == 'DiceLoss':
-        raise NotImplementedError
         kwargs.pop('type')
         loss = smp.losses.DiceLoss(**kwargs)
     elif loss == 'FocalLoss':
