@@ -98,3 +98,16 @@ class MSELossWithIgnoreIndex(nn.MSELoss):
         diff = diff * mask
         loss = torch.sum(diff ** 2) / mask.sum()
         return loss
+
+# only applicable to regression outputs
+class MSELossWithIgnoreIndex(nn.MSELoss):
+    def __init__(self, ignore_index=255, reduction='mean'):
+        super(MSELossWithIgnoreIndex, self).__init__(reduction=reduction)
+        self.ignore_index = ignore_index
+
+    def forward(self, input, target):
+        mask = (target != self.ignore_index).type_as(input)
+        diff = input.squeeze(-1) - target
+        diff = diff * mask
+        loss = torch.sum(diff ** 2) / mask.sum()
+        return loss
