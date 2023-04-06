@@ -430,12 +430,6 @@ def main():
     elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
         from unet import UNet_sep_dec_regression
         net = UNet_sep_dec_regression(options=train_options).to(device)
-    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
-        from unet import UNet_regression
-        net = UNet_regression(options=train_options).to(device)
-    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
-        from unet import UNet_sep_dec_regression
-        net = UNet_sep_dec_regression(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -603,13 +597,6 @@ def get_loss(loss, chart=None, **kwargs):
         from losses import MSELossFromLogits
         kwargs.pop('type')
         loss = MSELossFromLogits(chart=chart, **kwargs)
-    elif loss == 'MSELoss':
-        kwargs.pop('type')
-        loss = torch.nn.MSELoss(**kwargs)
-    elif loss == 'MSELossWithIgnoreIndex':
-        from losses import MSELossWithIgnoreIndex
-        kwargs.pop('type')
-        loss = MSELossWithIgnoreIndex(**kwargs)
     elif loss == 'MSELoss':
         kwargs.pop('type')
         loss = torch.nn.MSELoss(**kwargs)
