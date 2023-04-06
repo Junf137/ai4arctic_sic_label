@@ -276,7 +276,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options['charts']:
-                output[chart] = class_decider(output[chart], train_options).squeeze()
+                output[chart] = class_decider(output[chart], train_options, chart)
                 # output[chart] = torch.argmax(
                 #     output[chart], dim=1).squeeze()
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))

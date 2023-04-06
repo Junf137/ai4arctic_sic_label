@@ -115,13 +115,12 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg):
 
         for chart in train_options['charts']:
             # check if the output is regression output, if yes, round the output to integer
+            if output[chart].size(1) == 1:
+                rounded_tensor = torch.round(output[chart].float()).squeeze().cpu()
+                output[chart] = torch.clamp(rounded_tensor, min=0, max=train_options['n_classes'][chart]).numpy()
+            else:
+                output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
             if test:
-                if output[chart].size(1) == 1:
-                    rounded_tensor = torch.round(output[chart].float()).squeeze().cpu()
-                    output[chart] = torch.clamp(rounded_tensor, min=0, max=train_options['n_classes'][chart]).numpy()
-                else:
-                    output[chart] = torch.argmax(output[chart], dim=1).squeeze().cpu().numpy()
-
                 upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=output[chart].astype('uint8'),
                                                                        dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
             else:

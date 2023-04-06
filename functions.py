@@ -512,18 +512,19 @@ def batched_slide_inference(img, net, options, mode):
             'FLOE': preds_FLOE}
 
 
-def class_decider(output, train_options):
+def class_decider(output, train_options, chart):
 
     # normal
     if (train_options['binary_water_classifier'] == False):
-        return torch.argmax(output, dim=1).squeeze()
-
-    # if regression head
-    elif output.size(3) == 1:
-        output = torch.round(output.squeeze())
-        output = torch.clamp(output, min=0, max=train_options
-                             ['n_classes'])
+        if output.size(3) == 1:
+            output = torch.round(output.squeeze())
+            output = torch.clamp(output, min=0, max=train_options
+                                 ['n_classes'][chart])
+        else:
+            output = torch.argmax(output, dim=1).squeeze()
         return output
+
+    # if regression head    return output
     # class water
     else:
         probability = torch.nn.Softmax(dim=1)(output)
@@ -534,4 +535,4 @@ def class_decider(output, train_options):
         class_output_without_water = torch.argmax(without_water, dim=1) + 1
         class_output = class_output_without_water * class_output
 
-        return class_output
+        return class_output.squeeze()
