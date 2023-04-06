@@ -98,7 +98,7 @@ def r2_metric(true, pred, num_classes=None):
     num_classes :
         Num of classes in the dataset, this value is not used in this function but used in f1_metric function
         which requires num_classes argument. The reason it was included here was to keep the same structure.  
-    
+
 
     Returns
     -------
@@ -137,16 +137,15 @@ def water_edge_metric(outputs, options):
 
     # Convert ouput into water and not water
     for chart in options['charts']:
-        
+
         outputs[chart] = torch.where(outputs[chart] > 0.0, 1.0, 0.0)
-        
 
     # subtract them and absolute
     # perform mean
     water_edge_accuracy = 1 - torch.mean(torch.abs(outputs[options['charts'][0]]-outputs[options['charts'][1]])
-                                    + torch.abs(outputs[options['charts'][1]]-outputs[options['charts'][2]])
-                                    + torch.abs(outputs[options['charts'][2]]-outputs[options['charts'][0]]))
- 
+                                         + torch.abs(outputs[options['charts'][1]]-outputs[options['charts'][2]])
+                                         + torch.abs(outputs[options['charts'][2]]-outputs[options['charts'][0]]))
+
     return water_edge_accuracy
 
 
@@ -159,10 +158,9 @@ def water_edge_plot_overlay(output, mask, options):
         water_chart[chart][mask] = np.nan
         water_chart[chart] = water_chart[chart][..., np.newaxis]
 
-    img = np.concatenate((water_chart[charts[0]], water_chart[charts[1]],water_chart[charts[2]]), axis=2,)
-                         
-    return img
+    img = np.concatenate((water_chart[charts[0]], water_chart[charts[1]], water_chart[charts[2]]), axis=2,)
 
+    return img
 
 
 def compute_combined_score(scores, charts, metrics):
@@ -244,7 +242,7 @@ def load_model(net, checkpoint_path, optimizer=None, scheduler=None):
     :return: If optimizer and scheduler are provided, return the model, optimizer, and scheduler.
     """
 
-    checkpoint = torch.load(checkpoint_path)   
+    checkpoint = torch.load(checkpoint_path)
     net.load_state_dict(checkpoint['model_state_dict'])
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -266,7 +264,7 @@ def rand_bbox(size, lam):
     ----------
     size : 4D shape of the batch (N, C, H, W)
     lam : Ratio (portion) of the input to be cutmix'd
-    
+
     Returns 
     ----------
     Bounding box (x1, y1, x2, y2)
@@ -300,7 +298,7 @@ def slide_inference(img, net, options, mode):
     net : PyTorch model of nn.Module 
     options: configuration dictionary
     mode: either 'val' or 'test'
-    
+
     Returns 
     ----------
     pred: Dictionary with SIC, SOD, and FLOE predictions of the batch  (N, C", H, W)
@@ -311,7 +309,7 @@ def slide_inference(img, net, options, mode):
         h_stride, w_stride = options['swin_hp']['test_stride']
     else:
         raise 'Unrecognized mode'
-    
+
     h_crop = options['patch_size']
     w_crop = options['patch_size']
 
@@ -361,14 +359,14 @@ def slide_inference(img, net, options, mode):
                 crop_seg_logit['FLOE'] = crop_seg_logit['FLOE'][:, :, :, :-crop_width_pad]
 
             preds_SIC += torch.nn.functional.pad(crop_seg_logit['SIC'],
-                            (int(x1), int(preds_SIC.shape[3] - x2), int(y1),
-                            int(preds_SIC.shape[2] - y2)))
+                                                 (int(x1), int(preds_SIC.shape[3] - x2), int(y1),
+                                                  int(preds_SIC.shape[2] - y2)))
             preds_SOD += torch.nn.functional.pad(crop_seg_logit['SOD'],
-                            (int(x1), int(preds_SOD.shape[3] - x2), int(y1),
-                            int(preds_SOD.shape[2] - y2)))
+                                                 (int(x1), int(preds_SOD.shape[3] - x2), int(y1),
+                                                  int(preds_SOD.shape[2] - y2)))
             preds_FLOE += torch.nn.functional.pad(crop_seg_logit['FLOE'],
-                            (int(x1), int(preds_FLOE.shape[3] - x2), int(y1),
-                            int(preds_FLOE.shape[2] - y2)))
+                                                  (int(x1), int(preds_FLOE.shape[3] - x2), int(y1),
+                                                   int(preds_FLOE.shape[2] - y2)))
 
             count_mat[:, :, y1:y2, x1:x2] += 1
     assert (count_mat == 0).sum() == 0
@@ -376,7 +374,6 @@ def slide_inference(img, net, options, mode):
     preds_SIC = preds_SIC / count_mat
     preds_SOD = preds_SOD / count_mat
     preds_FLOE = preds_FLOE / count_mat
-
 
     return {'SIC': preds_SIC,
             'SOD': preds_SOD,
@@ -391,7 +388,7 @@ class Slide_patches_index(data.Dataset):
         w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
 
         self.patches_list = []
-        
+
         for h_idx in range(h_grids):
             for w_idx in range(w_grids):
                 y1 = h_idx * h_stride
@@ -405,24 +402,26 @@ class Slide_patches_index(data.Dataset):
 
     def __getitem__(self, index):
         return self.patches_list[index]
-    
+
     def __len__(self):
         return len(self.patches_list)
+
 
 class Take_crops(data.Dataset):
     def __init__(self, img, patches):
         super(Take_crops, self).__init__()
-        
+
         self.img = img
         self.patches = patches
-        
+
     def __getitem__(self, index):
         y1, y2, x1, x2 = self.patches[index]
 
         return self.img[:, y1:y2, x1:x2]
-    
+
     def __len__(self):
         return len(self.patches)
+
 
 def batched_slide_inference(img, net, options, mode):
     """
@@ -434,7 +433,7 @@ def batched_slide_inference(img, net, options, mode):
     net : PyTorch model of nn.Module 
     y_type: str, One of 'SIC', 'SOD', or 'FLOE'
     options: configuration dictionary
-    
+
     Returns 
     ----------
     pred: Dictionary with SIC, SOD, and FLOE predictions of the batch  (N, C", H, W)
@@ -445,25 +444,25 @@ def batched_slide_inference(img, net, options, mode):
         h_stride, w_stride = options['swin_hp']['test_stride']
     else:
         raise 'Unrecognized mode'
-    
+
     h_crop = options['patch_size']
     w_crop = options['patch_size']
 
     # ------------ Add Padding to the image to match with the patch size / stride
     _, _, h_img, w_img = img.size()
     height_pad = h_crop - h_img if h_img - h_crop < 0 else \
-                (h_stride - (h_img - h_crop) % h_stride) % h_stride
-    width_pad  = w_crop - w_img if w_img - w_crop < 0 else \
-                (w_stride - (w_img - w_crop) % w_stride) % w_stride
+        (h_stride - (h_img - h_crop) % h_stride) % h_stride
+    width_pad = w_crop - w_img if w_img - w_crop < 0 else \
+        (w_stride - (w_img - w_crop) % w_stride) % w_stride
     if height_pad > 0 or width_pad > 0:
         img = torch.nn.functional.pad(
-            img, (0, width_pad, 0, height_pad), mode='constant', value=0)        
-    
+            img, (0, width_pad, 0, height_pad), mode='constant', value=0)
+
     # ------------ create dataloader and index track
     _, _, h_img, w_img = img.size()
     indexes = Slide_patches_index(h_img, w_img, h_crop, w_crop, h_stride, w_stride)
     samples = Take_crops(img.detach().cpu().numpy()[0], indexes.patches_list)
-    samples_dataloader = data.DataLoader(dataset=samples, batch_size=options['batch_size']*4, 
+    samples_dataloader = data.DataLoader(dataset=samples, batch_size=options['batch_size']*4,
                                          shuffle=False, num_workers=options['num_workers_val'])
 
     n_batches = len(samples_dataloader)
@@ -473,10 +472,10 @@ def batched_slide_inference(img, net, options, mode):
     SIC_channels = options['n_classes']['SIC']
     SOD_channels = options['n_classes']['SOD']
     FLOE_channels = options['n_classes']['FLOE']
-    preds_SIC  = img.new_zeros((SIC_channels, h_img, w_img))
-    preds_SOD  = img.new_zeros((SOD_channels, h_img, w_img))
+    preds_SIC = img.new_zeros((SIC_channels, h_img, w_img))
+    preds_SOD = img.new_zeros((SOD_channels, h_img, w_img))
     preds_FLOE = img.new_zeros((FLOE_channels, h_img, w_img))
-    count_mat  = img.new_zeros((h_img, w_img))
+    count_mat = img.new_zeros((h_img, w_img))
 
     for i in range(n_batches):
 
@@ -491,31 +490,42 @@ def batched_slide_inference(img, net, options, mode):
         for j in range(crop_imgs.shape[0]):
             y1, y2, x1, x2 = next(idx_iterator)
 
-            preds_SIC [:, y1:y2, x1:x2]  += crop_seg_logit['SIC'] [j, :, 0:(y2-y1), 0:(x2-x1)]
-            preds_SOD [:, y1:y2, x1:x2]  += crop_seg_logit['SOD'] [j, :, 0:(y2-y1), 0:(x2-x1)]
-            preds_FLOE[:, y1:y2, x1:x2]  += crop_seg_logit['FLOE'][j, :, 0:(y2-y1), 0:(x2-x1)]
+            preds_SIC[:, y1:y2, x1:x2] += crop_seg_logit['SIC'][j, :, 0:(y2-y1), 0:(x2-x1)]
+            preds_SOD[:, y1:y2, x1:x2] += crop_seg_logit['SOD'][j, :, 0:(y2-y1), 0:(x2-x1)]
+            preds_FLOE[:, y1:y2, x1:x2] += crop_seg_logit['FLOE'][j, :, 0:(y2-y1), 0:(x2-x1)]
 
             count_mat[y1:y2, x1:x2] += 1
-    
+
     assert (count_mat == 0).sum() == 0
 
-    preds_SIC  = preds_SIC  / count_mat
-    preds_SOD  = preds_SOD  / count_mat
+    preds_SIC = preds_SIC / count_mat
+    preds_SOD = preds_SOD / count_mat
     preds_FLOE = preds_FLOE / count_mat
 
     # ------------ Remove pad
-    preds_SIC  = preds_SIC [:, :-height_pad, :-width_pad].unsqueeze(0)
-    preds_SOD  = preds_SOD [:, :-height_pad, :-width_pad].unsqueeze(0)
+    preds_SIC = preds_SIC[:, :-height_pad, :-width_pad].unsqueeze(0)
+    preds_SOD = preds_SOD[:, :-height_pad, :-width_pad].unsqueeze(0)
     preds_FLOE = preds_FLOE[:, :-height_pad, :-width_pad].unsqueeze(0)
 
     return {'SIC': preds_SIC,
             'SOD': preds_SOD,
             'FLOE': preds_FLOE}
 
-def class_decider(output, train_options):
 
+def class_decider(output, train_options, chart):
+
+    # normal
     if (train_options['binary_water_classifier'] == False):
-        return torch.argmax(output, dim=1).squeeze()
+        if output.size(3) == 1:
+            output = torch.round(output.squeeze())
+            output = torch.clamp(output, min=0, max=train_options
+                                 ['n_classes'][chart])
+        else:
+            output = torch.argmax(output, dim=1).squeeze()
+        return output
+
+    # if regression head    return output
+    # class water
     else:
         probability = torch.nn.Softmax(dim=1)(output)
         water = probability[:, 0, :, :]
@@ -525,5 +535,4 @@ def class_decider(output, train_options):
         class_output_without_water = torch.argmax(without_water, dim=1) + 1
         class_output = class_output_without_water * class_output
 
-        return class_output
-
+        return class_output.squeeze()
