@@ -536,3 +536,22 @@ def class_decider(output, train_options, chart):
         class_output = class_output_without_water * class_output
 
         return class_output.squeeze()
+
+
+def compute_classwise_f1score(true, pred, charts, num_classes):
+    """ This function computes the classwise evaluation score for each task and stores them in a dic
+
+    Args:
+        true (dictionary): The true tensor as value and chart tensor as key
+        pred (dictionary): The pred tensor as value and chart tensor as key
+        charts (list): list of charts
+        num_classes (dictionary): key = chart , value = num_class
+
+    Returns:
+        dictionary: returns score_dictionary
+    """
+    score = {}
+    for chart in charts:
+        score[chart] = f1_score(target=true[chart], preds=pred[chart], average='none',
+                                task='multiclass', num_classes=num_classes[chart])
+    return score

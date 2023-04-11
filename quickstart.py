@@ -300,6 +300,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         water_edge_accuarcy = water_edge_metric(outputs_tfv_mask, train_options)
 
+        if train_options['compute_classwise_f1score']:
+            from functions import compute_classwise_f1score
+            classwise_scores = compute_classwise_f1score(true=inf_ys_flat, pred=outputs_flat,
+                                               charts=train_options['charts'], num_classes=train_options['n_classes'])
         print("")
         print(f"Epoch {epoch} score:")
 
@@ -308,6 +312,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
+
+            # if classwise_f1score is True,
+            if train_options['compute_classwise_f1score']:
+                for index, class_score in enumerate(classwise_scores[chart]):
+                    wandb.log({f"{chart}/Class: {index}": class_score.item()}, step=epoch)
+                print(f"{chart} F1 score:", classwise_scores[chart])    
 
         print(f"Combined score: {combined_score}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
