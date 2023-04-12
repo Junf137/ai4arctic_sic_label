@@ -58,8 +58,8 @@ train_options = {
     },
 
     'batch_size': 16,
-    'num_workers': 4,  # Number of parallel processes to fetch data.
-    'num_workers_val': 4,  # Number of parallel processes during validation.
+    'num_workers': 12,  # Number of parallel processes to fetch data.
+    'num_workers_val': 12,  # Number of parallel processes during validation.
     'patch_size': 256,
     'down_sample_scale': 10,
     'unet_conv_filters': [32, 32, 64, 64],

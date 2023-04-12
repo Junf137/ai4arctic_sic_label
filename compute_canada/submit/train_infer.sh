@@ -2,7 +2,7 @@
 #SBATCH --nodes 1
 #SBATCH --gpus-per-node=1 # request a GPU
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
+#SBATCH --cpus-per-task=24 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=128G
 #SBATCH --time=10:00:00
 #SBATCH --output=../output/%j.out
