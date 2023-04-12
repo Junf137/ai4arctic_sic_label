@@ -42,11 +42,11 @@ train_options = {
 
     'optimizer': {
         'type': 'SGD',
-        'lr': 0.1,  # Optimizer learning rate.
+        'lr': 0.001,  # Optimizer learning rate.
         'momentum': 0.9,
         'dampening': 0,
         'nesterov': False,
-                    'weight_decay': 0.01
+        'weight_decay': 0.01
     },
 
     'scheduler': {
@@ -63,5 +63,5 @@ train_options = {
     'patch_size': 256,
     'down_sample_scale': 1,
     'unet_conv_filters': [32, 32, 64, 64],
-    
+
 }
