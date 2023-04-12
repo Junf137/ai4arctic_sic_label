@@ -206,7 +206,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 edge_consistency_loss = a*loss_water_edge_consistency(output)
                 train_loss_batch = cross_entropy_loss + edge_consistency_loss
             else:
-                train_loss_batch = cross_entropy_loss + edge_consistency_loss
+                train_loss_batch = cross_entropy_loss
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
