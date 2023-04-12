@@ -32,7 +32,7 @@ echo "starting training..."
 
 
 export WANDB_MODE=offline
-python quickstart.py $1 --wandb-project=$2
+python quickstart.py $1 --wandb-project=$2 --seed=$3
 
 
 # # the above python script will generate a .env at the workdir/config-name/.env

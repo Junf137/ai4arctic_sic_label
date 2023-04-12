@@ -81,7 +81,7 @@ def parse_args():
     parser.add_argument('config', type=pathlib.Path, help='train config file path',)
     parser.add_argument('--wandb-project', required=True, help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
-
+    parser.add_argument('--seed', default= None ,help='the seed to use, if not provided, seed from config file will be taken')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--resume-from', type=pathlib.Path, default=None,
                        help='Resume Training from checkpoint, it will use the \
@@ -374,7 +374,10 @@ def main():
     # cfg.env_dict = {}
     if not train_options['cross_val_run']:
         # set seed for everything
-        seed = train_options['seed']
+        if args.seed != None
+            seed = args.seed
+        else:
+            seed = train_options['seed']    
         random.seed(seed)
         os.environ['PYTHONHASHSEED'] = str(seed)
         np.random.seed(seed)
