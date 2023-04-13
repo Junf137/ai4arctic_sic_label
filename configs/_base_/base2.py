@@ -245,11 +245,12 @@ train_options = {
     "binary_water_classifier": False,
 
     'optimizer': {
-        'type': 'Adam',
-        'lr': 0.0001,  # Optimizer learning rate.
-        'b1': 0.9,
-        'b2': 0.999,
-        'weight_decay': 0.0
+        'type': 'SGD',
+        'lr': 0.001,  # Optimizer learning rate.
+        'momentum': 0,
+        'dampening': 0,
+        'nesterov': False,
+        'weight_decay': 0.01
     },
 
     # 'optimizer': {
