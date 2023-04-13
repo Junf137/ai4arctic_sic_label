@@ -150,6 +150,8 @@ train_options = {
     # cross val run
     # If set to true it will not set the random seed
     'cross_val_run': False,
+    # If set true it will use the same train and val set for all the cross val runs
+    'same_train_val_set': True,
 
 
     # -- loss options -- #
@@ -168,7 +170,7 @@ train_options = {
 
         },
     },
-    # Having the following paramter greater than zero adds a new loss that penilizies inconsitent 
+    # Having the following paramter greater than zero adds a new loss that penilizies inconsitent
     # water logits across the three outputs (SIC, SOD, FLOE)
     "edge_consistency_loss": 0,
     # refer this link for more parameters related to loss :

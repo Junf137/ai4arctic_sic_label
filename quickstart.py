@@ -108,7 +108,7 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    if train_options['cross_val_run']:
+    if train_options['cross_val_run'] is True and train_options['same_val_set'] is False:
         # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
         train_options['validate_list'] = np.random.choice(np.array(
             train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
