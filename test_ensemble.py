@@ -32,6 +32,7 @@ from functions import slide_inference, batched_slide_inference
 import wandb
 from unet import UNet  # Convolutional Neural Network model
 from swin_transformer import SwinTransformer  # Swin Transformer
+from quickstart import get_model
 
 
 def parse_args():
@@ -75,18 +76,7 @@ if __name__ == '__main__':
 
     device = torch.device(f"cuda:{train_options['gpu_id']}")
 
-    if train_options['model_selection'] == 'unet':
-        net = UNet(options=train_options).to(device)
-    elif train_options['model_selection'] == 'swin':
-        net = SwinTransformer(options=train_options).to(device)
-    elif train_options['model_selection'] == 'h_unet':
-        from unet import H_UNet
-        net = H_UNet(options=train_options).to(device)
-    elif train_options['model_selection'] == 'h_unet_argmax':
-        from unet import H_UNet_argmax
-        net = H_UNet_argmax(options=train_options).to(device)
-    else:
-        raise 'Unknown model selected'
+    net = get_model(train_options, device)
 
     # Initialize dataloader and dataset
     with open(train_options['path_to_env'] + 'datalists/testset.json') as file:
@@ -122,6 +112,9 @@ if __name__ == '__main__':
                 net.eval()
 
                 output = net(inf_x)
+                # turn off requrie grad
+                for chart in train_options['charts']:
+                    output[chart] = output[chart].detach()
                 masks_int = masks.to(torch.uint8)
                 masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(
                     0).unsqueeze(0), size=original_size, mode='nearest').squeeze().squeeze()
@@ -129,18 +122,37 @@ if __name__ == '__main__':
 
                 # masks = torch.nn.functional.interpolate(masks.unsqueeze(0).unsqueeze(0), size = original_size, mode = 'nearest').squeeze().squeeze()
                 # Upsample to match the correct size
-                if train_options['down_sample_scale'] != 1:
-                    for chart in train_options['charts']:
-                        output[chart] = torch.nn.functional.interpolate(
-                            output[chart], size=original_size, mode='nearest')
-                        model_logits[chart].append(torch.nn.functional.softmax(output[chart].cpu(), dim= 1))
+                for chart in train_options['charts']:
+                    if output[chart].size(3) == 1:  # regression output
+                        output[chart] = output[chart].permute(0, 3, 1, 2)
+                        model_logits[chart].append(output[chart].cpu())
+                    else:    # normal output
+                        if train_options['ensemble_after_softmax']:
+                            model_logits[chart].append(torch.nn.functional.softmax(output[chart].cpu(), dim=1))
+                        else:
+                            model_logits[chart].append(output[chart].cpu())
 
                 # override model logits which is a list to a tensor for each chart
             for chart in train_options['charts']:
                 model_logits[chart] = torch.mean(torch.cat(model_logits[chart], dim=0), dim=0).unsqueeze(dim=0)
 
             for chart in train_options['charts']:
-                model_logits[chart] = torch.argmax(model_logits[chart], dim=1).squeeze().cpu().numpy()
+                if model_logits[chart].size(1) == 1:
+                    model_logits[chart] = torch.round(model_logits[chart].float()).squeeze().cpu()
+                    model_logits[chart] = torch.clamp(model_logits[chart], min=0,
+                                                      max=train_options['n_classes'][chart])
+
+                else:
+                    if train_options['ensemble_after_softmax']:
+                        model_logits[chart] = torch.argmax(model_logits[chart], dim=1).squeeze().cpu()
+                    else:
+                        model_logits[chart] = torch.argmax(torch.nn.functional.softmax(
+                            model_logits[chart]), dim=1).squeeze().cpu().numpy()
+
+                if train_options['down_sample_scale'] != 1:
+                    model_logits[chart] = torch.nn.functional.interpolate(
+                        model_logits[chart].unsqueeze(dim=0).unsqueeze(dim=0).to(torch.float32), size=original_size, mode='nearest').squeeze().squeeze().numpy()
+
                 upload_package[f"{scene_name}_{chart}"] = xr.DataArray(name=f"{scene_name}_{chart}", data=model_logits[chart].astype('uint8'),
                                                                        dims=(f"{scene_name}_{chart}_dim0", f"{scene_name}_{chart}_dim1"))
 
