@@ -119,6 +119,9 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
                 masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(
                     0).unsqueeze(0), size=original_size, mode='nearest').squeeze().squeeze()
                 masks = torch.gt(masks_int, 0)
+                tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
+                tfv_mask = torch.nn.functional.interpolate(tfv_mask.type(torch.uint8).unsqueeze(
+                    0).unsqueeze(0), size=original_size, mode='nearest').squeeze().squeeze().to(torch.bool)
             else:
                 tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
                 tfv_mask = torch.nn.functional.interpolate(tfv_mask.type(torch.uint8).unsqueeze(
@@ -254,7 +257,7 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
                 print(
                     f"{osp.basename(cfg_datalist_path).split('.')[0]}/{chart}: classwise score: = {classwise_scores[chart]}")
 
-        wandb.run.summary[f"{osp.basename(cfg_datalist_path).split('.')[0]}/Water Consistency Accuarcy {cfg_datalist_path}"] = water_edge_accuarcy
+        wandb.run.summary[f"{osp.basename(cfg_datalist_path).split('.')[0]}/Water Consistency Accuarcy"] = water_edge_accuarcy
         print(
             f"{osp.basename(cfg_datalist_path).split('.')[0]}/Water Consistency Accuarcy {cfg_datalist_path} = {water_edge_accuarcy}")
 
