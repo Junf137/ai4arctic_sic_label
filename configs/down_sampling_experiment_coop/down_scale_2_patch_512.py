@@ -4,42 +4,10 @@
 
 _base_ = ['../_base_/base2.py']
 
-SCENE_VARIABLES = [
-    # -- Sentinel-1 variables -- #
-    'nersc_sar_primary',
-    'nersc_sar_secondary',
-    'sar_incidenceangle',
+train_options = {
 
-    # -- Geographical variables -- #
-    'distance_map',
-
-    # -- AMSR2 channels -- #
-    'btemp_6_9h', 'btemp_6_9v',
-    'btemp_7_3h', 'btemp_7_3v',
-    'btemp_10_7h', 'btemp_10_7v',
-    'btemp_18_7h', 'btemp_18_7v',
-    'btemp_23_8h', 'btemp_23_8v',
-    'btemp_36_5h', 'btemp_36_5v',
-    'btemp_89_0h', 'btemp_89_0v',
-
-    # -- Environmental variables -- #
-    'u10m_rotated', 'v10m_rotated',
-    't2m', 
-    # 'skt', 
-    'tcwv', 'tclw',
-
-    # -- Auxilary Variables -- #
-    'aux_time',
-    'aux_lat',
-    'aux_long'
-]
-
-
-train_options = {'train_variables': SCENE_VARIABLES,
-                 
                  'patch_size': 512,
                  'down_sample_scale': 2,
-
 
 #-------- The following variables will never change in this experiment run ------#                 
                  'compute_classwise_f1score': True,
