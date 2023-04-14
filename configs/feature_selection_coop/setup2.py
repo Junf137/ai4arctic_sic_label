@@ -16,7 +16,7 @@ train_options = {
 
     'train_variables': SCENE_VARIABLES,
     'patch_size': 256,
-    'down_sample_scale': 10,
+    'down_sample_scale': 5,
 
     #-------- The following variables will never change in this experiment run ------#
     'compute_classwise_f1score': True,
