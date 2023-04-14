@@ -129,7 +129,7 @@ train_options = {
     'path_to_train_data': '../../dataset/train',
     'path_to_test_data': '../../dataset/test',
     # Which train set is going to be used
-    'train_list_path': 'datalists/dataset.json',
+    'train_list_path': 'datalists/dataset2.json.json',
     # Which validation set is going to be used
     'val_path': 'datalists/valset1.json',
     'test_path': 'datalists/valset2.json',
