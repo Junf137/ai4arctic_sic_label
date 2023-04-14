@@ -153,6 +153,9 @@ train_options = {
     # If set true it will use the same train and val set for all the cross val runs
     'same_train_val_set': True,
 
+    # ensemble after softmax?
+    'ensemble_after_softmax': True,
+
 
     # -- loss options -- #
     'chart_loss': {  # Loss for the task

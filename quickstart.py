@@ -412,28 +412,7 @@ def main():
         device = torch.device('cpu')
     print('GPU setup completed!')
 
-    if train_options['model_selection'] == 'unet':
-        net = UNet(options=train_options).to(device)
-    elif train_options['model_selection'] == 'swin':
-        net = SwinTransformer(options=train_options).to(device)
-    elif train_options['model_selection'] == 'h_unet':
-        from unet import H_UNet
-        net = H_UNet(options=train_options).to(device)
-    elif train_options['model_selection'] == 'h_unet_argmax':
-        from unet import H_UNet_argmax
-        net = H_UNet_argmax(options=train_options).to(device)
-    elif train_options['model_selection'] == 'Separate_decoder':
-        net = Sep_feat_dif_stages(options=train_options).to(device)
-    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
-        from unet import UNet_regression
-        net = UNet_regression(options=train_options).to(device)
-    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
-        from unet import UNet_sep_dec_regression
-        net = UNet_sep_dec_regression(options=train_options).to(device)
-    else:
-        raise 'Unknown model selected'
-
-    # net = UNet_sep_dec(options=train_options).to(device)
+    net = get_model(train_options, device)
 
     optimizer = get_optimizer(train_options, net)
 
@@ -608,6 +587,30 @@ def get_loss(loss, chart=None, **kwargs):
         raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
 
     return loss
+
+
+def get_model(train_options, device):
+    if train_options['model_selection'] == 'unet':
+        net = UNet(options=train_options).to(device)
+    elif train_options['model_selection'] == 'swin':
+        net = SwinTransformer(options=train_options).to(device)
+    elif train_options['model_selection'] == 'h_unet':
+        from unet import H_UNet
+        net = H_UNet(options=train_options).to(device)
+    elif train_options['model_selection'] == 'h_unet_argmax':
+        from unet import H_UNet_argmax
+        net = H_UNet_argmax(options=train_options).to(device)
+    elif train_options['model_selection'] == 'Separate_decoder':
+        net = Sep_feat_dif_stages(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
+        from unet import UNet_regression
+        net = UNet_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
+        from unet import UNet_sep_dec_regression
+        net = UNet_sep_dec_regression(options=train_options).to(device)
+    else:
+        raise 'Unknown model selected'
+    return net
 
 
 if __name__ == '__main__':
