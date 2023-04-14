@@ -5,9 +5,11 @@
 _base_ = ['../_base_/base2.py']
 
 
+
+
 train_options = {
                  
-                'unet_conv_filters': [32, 64, 128, 128],
+                'unet_conv_filters': [16, 32, 64, 64],
 
 #-------- The following variables will never change in this experiment run ------#  
 
