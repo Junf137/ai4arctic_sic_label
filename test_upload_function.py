@@ -139,9 +139,14 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
                     # check if the output is regression output, if yes, permute the dimension
                     if output[chart].size(3) == 1:
                         output[chart] = output[chart].permute(0, 3, 1, 2)
+                        output[chart] = torch.nn.functional.interpolate(
+                            output[chart], size=original_size, mode='nearest')
+                        output[chart] = output[chart].permute(0, 2, 3, 1)
+                    else:
+                        output[chart] = torch.nn.functional.interpolate(
+                            output[chart], size=original_size, mode='nearest')
 
                     # upscale the output
-                    output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode='nearest')
 
                     if not test:
                         inf_y[chart] = torch.nn.functional.interpolate(inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0),
@@ -198,9 +203,9 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
             ax = axs[idx+3]
             output[chart] = output[chart].astype(float)
             if test is False:
-                output[chart][tfv_mask.cpu().numpy()] = np.nan
+                output[chart][masks[chart]] = np.nan
             else:
-                output[chart][masks] = np.nan
+                output[chart][masks.cpu().numpy()] = np.nan
             ax.imshow(output[chart], vmin=0, vmax=train_options['n_classes']
                       [chart] - 2, cmap='jet', interpolation='nearest')
             ax.set_xticks([])
@@ -215,9 +220,10 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
                 ax = axs[idx+6]
                 inf_y[chart] = inf_y[chart].astype(float)
                 if test is False:
-                    output[chart][tfv_mask.cpu().numpy()] = np.nan
+                    # output[chart][tfv_mask.cpu().numpy()] = np.nan
+                    inf_y[chart][masks[chart]] = np.nan
                 else:
-                    output[chart][masks] = np.nan
+                    inf_y[chart][masks.cpu().numpy()] = np.nan
                 ax.imshow(inf_y[chart], vmin=0, vmax=train_options['n_classes']
                           [chart] - 2, cmap='jet', interpolation='nearest')
                 ax.set_xticks([])
