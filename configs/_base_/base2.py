@@ -154,7 +154,6 @@ train_options = {
     'cross_val_run': False,
     'compute_classwise_f1score': False,
 
-
     # -- loss options -- #
     'chart_loss': {  # Loss for the task
         'SIC': {

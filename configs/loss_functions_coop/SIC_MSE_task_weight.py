@@ -26,16 +26,16 @@ train_options = {
         },
     },
 
-  'data_augmentations':{
-                  'Random_h_flip': 0.5,
-                  'Random_v_flip': 0.5,
-                  'Random_rotation_prob': 0.5,
-                  'Random_rotation': 90,
-                  'Random_scale_prob': 0.5,
-                  'Random_scale': (0.9, 1.1),
-                  'Cutmix_beta': 1.0,
-                  'Cutmix_prob': 0.5,
-                  },
+    'data_augmentations': {
+        'Random_h_flip': 0.5,
+        'Random_v_flip': 0.5,
+        'Random_rotation_prob': 0.5,
+        'Random_rotation': 90,
+        'Random_scale_prob': 0.5,
+        'Random_scale': (0.9, 1.1),
+        'Cutmix_beta': 1.0,
+        'Cutmix_prob': 0.5,
+    },
     'optimizer': {
         'type': 'SGD',
         'lr': 0.001,  # Optimizer learning rate.
@@ -44,8 +44,9 @@ train_options = {
         'nesterov': False,
         'weight_decay': 0.01
     },
+    'task_weights': [1, 3, 3],
 
-    #-------- The following variables will never change in this experiment run ------#
+    # -------- The following variables will never change in this experiment run ------#
 
     'compute_classwise_f1score': True,
     'seed': 10,

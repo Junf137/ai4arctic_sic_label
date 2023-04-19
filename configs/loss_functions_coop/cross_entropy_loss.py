@@ -7,13 +7,10 @@ _base_ = ['../_base_/base2.py']
 
 train_options = {
 
-    # model selection
-    'model_selection': 'UNet_regression',
-
     # -- loss options -- #
     'chart_loss': {  # Loss for the task
         'SIC': {
-            'type': 'MSELossWithIgnoreIndex',
+            'type': 'CrossEntropyLoss',
             'ignore_index': 255
         },
         'SOD': {
@@ -26,16 +23,18 @@ train_options = {
         },
     },
 
-  'data_augmentations':{
-                  'Random_h_flip': 0.5,
-                  'Random_v_flip': 0.5,
-                  'Random_rotation_prob': 0.5,
-                  'Random_rotation': 90,
-                  'Random_scale_prob': 0.5,
-                  'Random_scale': (0.9, 1.1),
-                  'Cutmix_beta': 1.0,
-                  'Cutmix_prob': 0.5,
-                  },
+
+    'data_augmentations': {
+        'Random_h_flip': 0.5,
+        'Random_v_flip': 0.5,
+        'Random_rotation_prob': 0.5,
+        'Random_rotation': 90,
+        'Random_scale_prob': 0.5,
+        'Random_scale': (0.9, 1.1),
+        'Cutmix_beta': 1.0,
+        'Cutmix_prob': 0.5,
+    },
+
     'optimizer': {
         'type': 'SGD',
         'lr': 0.001,  # Optimizer learning rate.
@@ -45,7 +44,7 @@ train_options = {
         'weight_decay': 0.01
     },
 
-    #-------- The following variables will never change in this experiment run ------#
+    # -------- The following variables will never change in this experiment run ------#
 
     'compute_classwise_f1score': True,
     'seed': 10,
