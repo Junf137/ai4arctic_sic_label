@@ -501,6 +501,29 @@ class UNet_regression(UNet):
                 'SOD': self.sod_feature_map(x_expand),
                 'FLOE': self.floe_feature_map(x_expand)}
 
+class UNet_regression_all(UNet):
+    def __init__(self, options):
+        super().__init__(options)
+        self.regression_layer = torch.nn.Linear(options['unet_conv_filters'][0], 1)
+
+    def forward(self, x):
+        """Forward model pass."""
+        x_contract = [self.input_block(x)]
+        for contract_block in self.contract_blocks:
+            x_contract.append(contract_block(x_contract[-1]))
+
+        x_expand = self.bridge(x_contract[-1])
+        up_idx = len(x_contract)
+        for expand_block in self.expand_blocks:
+            x_expand = expand_block(x_expand, x_contract[up_idx - 1])
+            up_idx -= 1
+
+        return {'SIC': self.regression_layer(x_expand.permute(0, 2, 3, 1)),
+                'SOD': self.regression_layer(x_expand.permute(0, 2, 3, 1)),
+                'FLOE': self.regression_layer(x_expand.permute(0, 2, 3, 1))}
+
+
+
 
 class UNet_sep_dec_regression(UNet):
     def __init__(self, options):
