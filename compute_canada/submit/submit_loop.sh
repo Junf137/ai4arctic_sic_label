@@ -26,10 +26,11 @@ array=(
 # "configs/loss_functions_coop/cross_entropy_loss.py"
 # "configs/loss_functions_coop/tversky.py"
 # "configs/loss_functions_coop/tversky_log.py"
-"configs/loss_functions_coop/tversky_log_0.1_0.9.py"
-"configs/loss_functions_coop/tversky_log_0.2_0.8.py"
-"configs/loss_functions_coop/tversky_log_0.3_0.7.py"
-"configs/loss_functions_coop/tversky_log_0.4_0.6.py"
+# "configs/loss_functions_coop/tversky_log_0.1_0.9.py"
+# "configs/loss_functions_coop/tversky_log_0.2_0.8.py"
+# "configs/loss_functions_coop/tversky_log_0.3_0.7.py"
+# "configs/loss_functions_coop/tversky_log_0.4_0.6.py"
+"configs/down_sampling_experiment_coop/down_scale_1_patch_256.py"
 )
 wandb_project=loss_coop
 seed=10
