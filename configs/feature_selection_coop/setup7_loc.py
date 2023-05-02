@@ -4,6 +4,7 @@
 
 _base_ = ['../_base_/base2.py']
 
+# dual pole with incedence angle distance map and environment variables
 SCENE_VARIABLES = [
     # -- Sentinel-1 variables -- #
     'nersc_sar_primary',

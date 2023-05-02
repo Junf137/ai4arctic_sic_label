@@ -135,3 +135,6 @@ def main():
     
     # finish the wandb run
     wandb.finish()
+
+if __name__ == '__main__':
+    main()
