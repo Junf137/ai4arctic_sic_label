@@ -122,6 +122,9 @@ def main():
     elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
         from unet import UNet_sep_dec_regression
         net = UNet_sep_dec_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_sep_dec_mse']:
+        from unet import UNet_sep_dec_mse
+        net = UNet_sep_dec_mse(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
 
@@ -132,9 +135,10 @@ def main():
     # todo
     # this is for valset 2 visualization along with gt
     test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
-    
+
     # finish the wandb run
     wandb.finish()
+
 
 if __name__ == '__main__':
     main()
