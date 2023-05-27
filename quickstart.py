@@ -528,7 +528,10 @@ def main():
     # this is for valset 2 visualization along with gt
     test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
 
-    test(True, net, checkpoint_path, device, cfg, train_options['test_challenge_path'])
+     # this is for test path along with gt after the gt has been released
+    test(False, net, checkpoint_path, device, cfg, train_options['test_path_gt_embedded_json'])
+
+    # test(True, net, checkpoint_path, device, cfg, train_options['test_challenge_path'])
     print('Testing Complete')
 
     # finish the wandb run

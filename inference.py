@@ -131,6 +131,8 @@ def main():
     wandb.init(name=osp.splitext(osp.basename(args.config))[0] + '_inference', project=args.wandb_project,
                entity="ai4arctic", config=train_options, id=id, resume="allow")
 
+    test(False, net, checkpoint_path, device, cfg, train_options['test_path_gt_embedded_json'])
+
     test(False, net, checkpoint_path, device, cfg, train_options['val_path'])
     # todo
     # this is for valset 2 visualization along with gt

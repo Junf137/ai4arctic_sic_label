@@ -38,6 +38,7 @@ SCENE_VARIABLES = [
 train_options = {'train_variables': SCENE_VARIABLES,
                  'path_to_train_data': '../dataset/train',
                  'path_to_test_data': '../dataset/test',
+                 'test_path_gt_embedded_json' : 'datalists/dataset_test_gt_embedded.json',
 
                  'optimizer': {
                      'type': 'SGD',
