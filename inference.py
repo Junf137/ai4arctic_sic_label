@@ -38,7 +38,6 @@ from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
 from swin_transformer import SwinTransformer  # Swin Transformer
 # -- Built-in modules -- #
 from utils import colour_str
-
 from test_upload_function import test
 import segmentation_models_pytorch as smp
 
@@ -133,10 +132,10 @@ def main():
 
     test(False, net, checkpoint_path, device, cfg, train_options['test_path_gt_embedded_json'])
 
-    test(False, net, checkpoint_path, device, cfg, train_options['val_path'])
+    # test(False, net, checkpoint_path, device, cfg, train_options['val_path'])
     # todo
     # this is for valset 2 visualization along with gt
-    test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
+    # test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
 
     # finish the wandb run
     wandb.finish()

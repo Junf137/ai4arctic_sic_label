@@ -252,6 +252,39 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
             classwise_scores = compute_classwise_f1score(true=inf_ys_flat, pred=outputs_flat,
                                                          charts=train_options['charts'], num_classes=train_options['n_classes'])
 
+        if train_options['plot_confusion_matrix']:
+            from torchmetrics.functional.classification import multiclass_confusion_matrix
+            import seaborn as sns
+            from utils import GROUP_NAMES
+
+            for chart in train_options['charts']:
+                cm = multiclass_confusion_matrix(
+                    preds=outputs_flat[chart], target=inf_ys_flat[chart], num_classes=train_options['n_classes'][chart])
+                # Calculate percentages
+                cm = cm.cpu().numpy()
+                cm_percent = np.round(cm / cm.sum(axis=1)[:, np.newaxis] * 100, 2)
+                # Plot the confusion matrix
+                plt.figure(figsize=(10, 8))
+                ax = sns.heatmap(cm_percent, annot=True, cmap='Blues')
+                # Customize the plot
+                class_names = list(GROUP_NAMES[chart].values())
+                class_names.append('255')
+                tick_marks = np.arange(len(class_names)) + 0.5
+                plt.xticks(tick_marks, class_names, rotation=45)
+                if chart in ['FLOE', 'SOD']:
+                    plt.yticks(tick_marks, class_names, rotation=45)
+                else:
+                    plt.yticks(tick_marks, class_names)
+
+                plt.xlabel('Predicted Labels')
+                plt.ylabel('Actual Labels')
+                plt.title('Confusion Matrix')
+                cbar = ax.collections[0].colorbar
+                # cbar.set_ticks([0, .2, .75, 1])
+                cbar.set_ticklabels(['0%', '20%', '40%', '60%', '80%', '100%'])
+                plt.savefig(f"{osp.join(cfg.work_dir)}/{chart}_confusion_matrix.png",
+                            format='png', dpi=128, bbox_inches="tight")
+
         wandb.run.summary[f"{osp.basename(cfg_datalist_path).split('.')[0]}/Best Combined Score"] = combined_score
         print(f"{osp.basename(cfg_datalist_path).split('.')[0]}/Best Combined Score = {combined_score}")
         for chart in train_options['charts']:
@@ -271,9 +304,9 @@ def test(test: bool, net: torch.nn.modules, checkpoint: str, device: str, cfg, c
         artifact.add(table, experiment_name+'_test')
     else:
         artifact.add(table, experiment_name+'_val')
-    wandb.log_artifact(artifact)
+        wandb.log_artifact(artifact)
 
-    # - Save upload_package with zlib compression.
+        # - Save upload_package with zlib compression.
     if test:
         print('Saving upload_package. Compressing data with zlib.')
         compression = dict(zlib=True, complevel=1)
