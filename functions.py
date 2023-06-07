@@ -13,7 +13,7 @@ __date__ = '2022-10-17'
 
 # -- Built-in modules -- #
 import os
-
+import json
 # -- Third-party modules -- #
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -22,9 +22,13 @@ import torch
 import torch.utils.data as data
 # from sklearn.metrics import r2_score, f1_score
 from torchmetrics.functional import r2_score, f1_score
+import segmentation_models_pytorch as smp
 from tqdm import tqdm  # Progress bar
 # -- Proprietary modules -- #
+
 from utils import ICE_STRINGS, GROUP_NAMES
+from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
+from swin_transformer import SwinTransformer  # Swin Transformer
 
 
 def chart_cbar(ax, n_classes, chart, cmap='vridis'):
@@ -536,3 +540,161 @@ def class_decider(output, train_options, chart):
         class_output = class_output_without_water * class_output
 
         return class_output.squeeze()
+
+
+def create_train_and_validation_scene_list(train_options):
+    '''
+    Creates the a train and validation scene list. Adds these two list to the config file train_options
+
+    '''
+    with open(train_options['path_to_env'] + train_options['train_list_path']) as file:
+        train_options['train_list'] = json.loads(file.read())
+
+    # Convert the original scene names to the preprocessed names.
+    train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
+                                   '_prep.nc' for file in train_options['train_list']]
+
+    if train_options['cross_val_run'] is True and train_options['same_train_val_set'] is False:
+        # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
+        train_options['validate_list'] = np.random.choice(np.array(
+            train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+    else:
+        # load validation list
+        with open(train_options['path_to_env'] + train_options['val_path']) as file:
+            train_options['validate_list'] = json.loads(file.read())
+        # Convert the original scene names to the preprocessed names.
+        train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
+                                          '_prep.nc' for file in train_options['validate_list']]
+
+    # from icecream import ic
+    # ic(train_options['validate_list'])
+    # Remove the validation scenes from the train list.
+    train_options['train_list'] = [scene for scene in train_options['train_list']
+                                   if scene not in train_options['validate_list']]
+    print('Options initialised')
+
+
+def get_scheduler(train_options, optimizer):
+    if train_options['scheduler']['type'] == 'CosineAnnealingLR':
+        T_max = train_options['epochs']*train_options['epoch_len']
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max,
+                                                               eta_min=train_options['scheduler']['lr_min'])
+    elif train_options['scheduler']['type'] == 'CosineAnnealingWarmRestartsLR':
+        # T_max = train_options['epochs']*train_options['epoch_len']
+        T_0 = train_options['scheduler']['EpochsPerRestart']*train_options['epoch_len']
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0,
+                                                                         T_mult=train_options['scheduler']['RestartMult'],
+                                                                         eta_min=train_options['scheduler']['lr_min'],
+                                                                         last_epoch=-1,
+                                                                         verbose=False)
+    else:
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1,
+                                                        verbose=False)
+    return scheduler
+
+
+def get_optimizer(train_options, net):
+    if train_options['optimizer']['type'] == 'Adam':
+        optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                     betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                                     weight_decay=train_options['optimizer']['weight_decay'])
+
+    elif train_options['optimizer']['type'] == 'AdamW':
+        optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                      betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
+                                      weight_decay=train_options['optimizer']['weight_decay'])
+    else:
+        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'],
+                                    momentum=train_options['optimizer']['momentum'],
+                                    dampening=train_options['optimizer']['dampening'],
+                                    weight_decay=train_options['optimizer']['weight_decay'],
+                                    nesterov=train_options['optimizer']['nesterov'])
+    return optimizer
+
+
+def get_loss(loss, chart=None, **kwargs):
+    # TODO Fix Dice loss, Jacard loss,  MCC loss, SoftBCEWithLogitsLoss,
+    """_summary_
+
+    Args:
+        loss (str): the name of the loss
+    Returns:
+        loss: The corresponding
+    """
+    if loss == 'DiceLoss':
+        kwargs.pop('type')
+        loss = smp.losses.DiceLoss(**kwargs)
+    elif loss == 'FocalLoss':
+        kwargs.pop('type')
+        loss = smp.losses.FocalLoss(**kwargs)
+    elif loss == 'JaccardLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.JaccardLoss(**kwargs)
+    elif loss == 'LovaszLoss':
+        kwargs.pop('type')
+        loss = smp.losses.LovaszLoss(**kwargs)
+    elif loss == 'MCCLoss':
+        kwargs.pop('type')
+        loss = smp.losses.MCCLoss(**kwargs)
+    elif loss == 'SoftBCEWithLogitsLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.SoftBCEWithLogitsLoss(**kwargs)
+    elif loss == 'SoftCrossEntropyLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = smp.losses.SoftCrossEntropyLoss(**kwargs)
+    elif loss == 'TverskyLoss':
+        kwargs.pop('type')
+        loss = smp.losses.TverskyLoss(**kwargs)
+    elif loss == 'CrossEntropyLoss':
+        kwargs.pop('type')
+        loss = torch.nn.CrossEntropyLoss(**kwargs)
+    elif loss == 'BinaryCrossEntropyLoss':
+        raise NotImplementedError
+        kwargs.pop('type')
+        loss = torch.nn.BCELoss(**kwargs)
+    elif loss == 'OrderedCrossEntropyLoss':
+        from losses import OrderedCrossEntropyLoss
+        kwargs.pop('type')
+        loss = OrderedCrossEntropyLoss(**kwargs)
+    elif loss == 'MSELossFromLogits':
+        from losses import MSELossFromLogits
+        kwargs.pop('type')
+        loss = MSELossFromLogits(chart=chart, **kwargs)
+    elif loss == 'MSELoss':
+        kwargs.pop('type')
+        loss = torch.nn.MSELoss(**kwargs)
+    elif loss == 'MSELossWithIgnoreIndex':
+        from losses import MSELossWithIgnoreIndex
+        kwargs.pop('type')
+        loss = MSELossWithIgnoreIndex(**kwargs)
+    else:
+        raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
+
+    return loss
+
+
+def get_model(train_options, device):
+    if train_options['model_selection'] == 'unet':
+        net = UNet(options=train_options).to(device)
+    elif train_options['model_selection'] == 'swin':
+        net = SwinTransformer(options=train_options).to(device)
+    elif train_options['model_selection'] == 'h_unet':
+        from unet import H_UNet
+        net = H_UNet(options=train_options).to(device)
+    elif train_options['model_selection'] == 'h_unet_argmax':
+        from unet import H_UNet_argmax
+        net = H_UNet_argmax(options=train_options).to(device)
+    elif train_options['model_selection'] == 'Separate_decoder':
+        net = Sep_feat_dif_stages(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
+        from unet import UNet_regression
+        net = UNet_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
+        from unet import UNet_sep_dec_regression
+        net = UNet_sep_dec_regression(options=train_options).to(device)
+    else:
+        raise 'Unknown model selected'
+    return net

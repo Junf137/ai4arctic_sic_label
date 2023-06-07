@@ -58,21 +58,18 @@ from tqdm import tqdm  # Progress bar
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
 from functions import compute_metrics, save_best_model, load_model, slide_inference, \
-    batched_slide_inference, water_edge_metric, class_decider
+    batched_slide_inference, water_edge_metric, class_decider, create_train_and_validation_scene_list, \
+    get_scheduler, get_optimizer, get_loss, get_model
 
 # Load consutme loss function
 from losses import WaterConsistencyLoss
 # Custom dataloaders for regular training and validation.
-from loaders import (AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset,
-                     get_variable_options)
+from loaders import get_variable_options, AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset
 #  get_variable_options
-from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
-from swin_transformer import SwinTransformer  # Swin Transformer
+
 # -- Built-in modules -- #
 from utils import colour_str
-
 from test_upload_function import test
-import segmentation_models_pytorch as smp
 
 
 def parse_args():
@@ -93,62 +90,6 @@ def parse_args():
     args = parser.parse_args()
 
     return args
-
-# Load training list.
-
-
-def create_train_and_validation_scene_list(train_options):
-    '''
-    Creates the a train and validation scene list. Adds these two list to the config file train_options
-
-    '''
-    with open(train_options['path_to_env'] + train_options['train_list_path']) as file:
-        train_options['train_list'] = json.loads(file.read())
-
-    # Convert the original scene names to the preprocessed names.
-    train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
-                                   '_prep.nc' for file in train_options['train_list']]
-
-    if train_options['cross_val_run'] is True and train_options['same_train_val_set'] is False:
-        # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
-        train_options['validate_list'] = np.random.choice(np.array(
-            train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
-    else:
-        # load validation list
-        with open(train_options['path_to_env'] + train_options['val_path']) as file:
-            train_options['validate_list'] = json.loads(file.read())
-        # Convert the original scene names to the preprocessed names.
-        train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
-                                          '_prep.nc' for file in train_options['validate_list']]
-
-    # from icecream import ic
-    # ic(train_options['validate_list'])
-    # Remove the validation scenes from the train list.
-    train_options['train_list'] = [scene for scene in train_options['train_list']
-                                   if scene not in train_options['validate_list']]
-    print('Options initialised')
-
-
-def create_dataloaders(train_options):
-    '''
-    Create train and validation dataloader based on the train and validation list inside train_options.
-
-    '''
-    # Custom dataset and dataloader.
-    dataset = AI4ArcticChallengeDataset(
-        files=train_options['train_list'], options=train_options, do_transform=True)
-
-    dataloader_train = torch.utils.data.DataLoader(
-        dataset, batch_size=None, shuffle=True, num_workers=train_options['num_workers'], pin_memory=True)
-    # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
-
-    dataset_val = AI4ArcticChallengeTestDataset(
-        options=train_options, files=train_options['validate_list'], mode='train_val')
-
-    dataloader_val = torch.utils.data.DataLoader(
-        dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
-
-    return dataloader_train, dataloader_val
 
 
 def train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, start_epoch=0):
@@ -350,6 +291,28 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
+def create_dataloaders(train_options):
+    '''
+    Create train and validation dataloader based on the train and validation list inside train_options.
+
+    '''
+    # Custom dataset and dataloader.
+    dataset = AI4ArcticChallengeDataset(
+        files=train_options['train_list'], options=train_options, do_transform=True)
+
+    dataloader_train = torch.utils.data.DataLoader(
+        dataset, batch_size=None, shuffle=True, num_workers=train_options['num_workers'], pin_memory=True)
+    # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
+
+    dataset_val = AI4ArcticChallengeTestDataset(
+        options=train_options, files=train_options['validate_list'], mode='train_val')
+
+    dataloader_val = torch.utils.data.DataLoader(
+        dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
+
+    return dataloader_train, dataloader_val
+
+
 
 def main():
     args = parse_args()
@@ -399,7 +362,7 @@ def main():
     mkdir_or_exist(osp.abspath(cfg.work_dir))
     # dump config
     shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
-    cfg_path = osp.join(cfg.work_dir, osp.basename(args.config))
+    # cfg_path = osp.join(cfg.work_dir, osp.basename(args.config))
     # ### CUDA / GPU Setup
     # Get GPU resources.
     if torch.cuda.is_available():
@@ -439,16 +402,6 @@ def main():
     elif args.finetune_from is not None:
         print(f"\033[91m Finetune model from {args.finetune_from}\033[0m")
         _ = load_model(net, args.finetune_from)
-
-    # subprocess.run(['export'])
-
-    # cfg.env_dict['WANDB_RUN_ID'] = id
-    # cfg.env_dict['RESUME'] = 'allow'
-
-    # os.environ['WANDB_RUN_ID'] = id
-    # os.environ['RESUME'] = 'allow'
-
-    # This sets up the 'device' variable containing GPU information, and the custom dataset and dataloader.
 
     # initialize wandb run
 
@@ -500,132 +453,6 @@ def main():
 
     # finish the wandb run
     wandb.finish()
-
-
-def get_scheduler(train_options, optimizer):
-    if train_options['scheduler']['type'] == 'CosineAnnealingLR':
-        T_max = train_options['epochs']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max,
-                                                               eta_min=train_options['scheduler']['lr_min'])
-    elif train_options['scheduler']['type'] == 'CosineAnnealingWarmRestartsLR':
-        # T_max = train_options['epochs']*train_options['epoch_len']
-        T_0 = train_options['scheduler']['EpochsPerRestart']*train_options['epoch_len']
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0,
-                                                                         T_mult=train_options['scheduler']['RestartMult'],
-                                                                         eta_min=train_options['scheduler']['lr_min'],
-                                                                         last_epoch=-1,
-                                                                         verbose=False)
-    else:
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1, total_iters=5, last_epoch=- 1,
-                                                        verbose=False)
-    return scheduler
-
-
-def get_optimizer(train_options, net):
-    if train_options['optimizer']['type'] == 'Adam':
-        optimizer = torch.optim.Adam(list(net.parameters()), lr=train_options['optimizer']['lr'],
-                                     betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
-                                     weight_decay=train_options['optimizer']['weight_decay'])
-
-    elif train_options['optimizer']['type'] == 'AdamW':
-        optimizer = torch.optim.AdamW(list(net.parameters()), lr=train_options['optimizer']['lr'],
-                                      betas=(train_options['optimizer']['b1'], train_options['optimizer']['b2']),
-                                      weight_decay=train_options['optimizer']['weight_decay'])
-    else:
-        optimizer = torch.optim.SGD(list(net.parameters()), lr=train_options['optimizer']['lr'],
-                                    momentum=train_options['optimizer']['momentum'],
-                                    dampening=train_options['optimizer']['dampening'],
-                                    weight_decay=train_options['optimizer']['weight_decay'],
-                                    nesterov=train_options['optimizer']['nesterov'])
-    return optimizer
-
-
-def get_loss(loss, chart=None, **kwargs):
-    # TODO Fix Dice loss, Jacard loss,  MCC loss, SoftBCEWithLogitsLoss,
-    """_summary_
-
-    Args:
-        loss (str): the name of the loss
-    Returns:
-        loss: The corresponding
-    """
-    if loss == 'DiceLoss':
-        kwargs.pop('type')
-        loss = smp.losses.DiceLoss(**kwargs)
-    elif loss == 'FocalLoss':
-        kwargs.pop('type')
-        loss = smp.losses.FocalLoss(**kwargs)
-    elif loss == 'JaccardLoss':
-        raise NotImplementedError
-        kwargs.pop('type')
-        loss = smp.losses.JaccardLoss(**kwargs)
-    elif loss == 'LovaszLoss':
-        kwargs.pop('type')
-        loss = smp.losses.LovaszLoss(**kwargs)
-    elif loss == 'MCCLoss':
-        kwargs.pop('type')
-        loss = smp.losses.MCCLoss(**kwargs)
-    elif loss == 'SoftBCEWithLogitsLoss':
-        raise NotImplementedError
-        kwargs.pop('type')
-        loss = smp.losses.SoftBCEWithLogitsLoss(**kwargs)
-    elif loss == 'SoftCrossEntropyLoss':
-        raise NotImplementedError
-        kwargs.pop('type')
-        loss = smp.losses.SoftCrossEntropyLoss(**kwargs)
-    elif loss == 'TverskyLoss':
-        kwargs.pop('type')
-        loss = smp.losses.TverskyLoss(**kwargs)
-    elif loss == 'CrossEntropyLoss':
-        kwargs.pop('type')
-        loss = torch.nn.CrossEntropyLoss(**kwargs)
-    elif loss == 'BinaryCrossEntropyLoss':
-        raise NotImplementedError
-        kwargs.pop('type')
-        loss = torch.nn.BCELoss(**kwargs)
-    elif loss == 'OrderedCrossEntropyLoss':
-        from losses import OrderedCrossEntropyLoss
-        kwargs.pop('type')
-        loss = OrderedCrossEntropyLoss(**kwargs)
-    elif loss == 'MSELossFromLogits':
-        from losses import MSELossFromLogits
-        kwargs.pop('type')
-        loss = MSELossFromLogits(chart=chart, **kwargs)
-    elif loss == 'MSELoss':
-        kwargs.pop('type')
-        loss = torch.nn.MSELoss(**kwargs)
-    elif loss == 'MSELossWithIgnoreIndex':
-        from losses import MSELossWithIgnoreIndex
-        kwargs.pop('type')
-        loss = MSELossWithIgnoreIndex(**kwargs)
-    else:
-        raise ValueError(f'The given loss \'{loss}\' is unrecognized or Not implemented')
-
-    return loss
-
-
-def get_model(train_options, device):
-    if train_options['model_selection'] == 'unet':
-        net = UNet(options=train_options).to(device)
-    elif train_options['model_selection'] == 'swin':
-        net = SwinTransformer(options=train_options).to(device)
-    elif train_options['model_selection'] == 'h_unet':
-        from unet import H_UNet
-        net = H_UNet(options=train_options).to(device)
-    elif train_options['model_selection'] == 'h_unet_argmax':
-        from unet import H_UNet_argmax
-        net = H_UNet_argmax(options=train_options).to(device)
-    elif train_options['model_selection'] == 'Separate_decoder':
-        net = Sep_feat_dif_stages(options=train_options).to(device)
-    elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
-        from unet import UNet_regression
-        net = UNet_regression(options=train_options).to(device)
-    elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
-        from unet import UNet_sep_dec_regression
-        net = UNet_sep_dec_regression(options=train_options).to(device)
-    else:
-        raise 'Unknown model selected'
-    return net
 
 
 if __name__ == '__main__':
