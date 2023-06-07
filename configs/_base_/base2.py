@@ -123,15 +123,17 @@ FLOE_LOOKUP = {
 
 train_options = {
     # -- Random Seed -- #
-    'seed': -1,
+    'seed': 390,
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_train_data': '../../dataset/train',
     'path_to_test_data': '../../dataset/test',
     # Which train set is going to be used
-    'train_list_path': 'datalists/dataset.json',
+    'train_list_path': 'datalists/dataset2.json',
     # Which validation set is going to be used
-    'val_path': 'datalists/valset2.json',
+    'val_path': 'datalists/valset1.json',
+    'test_path': 'datalists/valset2.json',
+    'test_challenge_path': 'datalists/testset.json',
 
     'path_to_env': './',
 
@@ -147,20 +149,10 @@ train_options = {
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
     'task_weights': [1, 1, 1],
-    
-    # p leave out cross val run
+    # cross val run
+    # If set to true it will not set the random seed
     'cross_val_run': False,
-    'p-out': 20,
     'compute_classwise_f1score': False,
-    
-    
-    # # If set true it will use the same train and val set for all the cross val runs
-    # 'same_train_val_set': True,
-    # TODO: Speak with Muhammed different quickstart.py should have different configs.
-
-    # ensemble after softmax?
-    # 'ensemble_after_softmax': True,
-    # TODO: Speak with Muhammed different quickstart.py should have different configs.
 
     # -- loss options -- #
     'chart_loss': {  # Loss for the task
@@ -252,11 +244,12 @@ train_options = {
     "binary_water_classifier": False,
 
     'optimizer': {
-        'type': 'Adam',
-        'lr': 0.0001,  # Optimizer learning rate.
-        'b1': 0.9,
-        'b2': 0.999,
-        'weight_decay': 0.0
+        'type': 'SGD',
+        'lr': 0.001,  # Optimizer learning rate.
+        'momentum': 0,
+        'dampening': 0,
+        'nesterov': False,
+        'weight_decay': 0.01
     },
 
     # 'optimizer': {

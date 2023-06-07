@@ -542,6 +542,25 @@ def class_decider(output, train_options, chart):
         return class_output.squeeze()
 
 
+def compute_classwise_f1score(true, pred, charts, num_classes):
+    """ This function computes the classwise evaluation score for each task and stores them in a dic
+
+    Args:
+        true (dictionary): The true tensor as value and chart tensor as key
+        pred (dictionary): The pred tensor as value and chart tensor as key
+        charts (list): list of charts
+        num_classes (dictionary): key = chart , value = num_class
+
+    Returns:
+        dictionary: returns score_dictionary
+    """
+    score = {}
+    for chart in charts:
+        score[chart] = f1_score(target=true[chart], preds=pred[chart], average='none',
+                                task='multiclass', num_classes=num_classes[chart])
+    return score
+
+
 def create_train_and_validation_scene_list(train_options):
     '''
     Creates the a train and validation scene list. Adds these two list to the config file train_options
@@ -690,9 +709,15 @@ def get_model(train_options, device):
     elif train_options['model_selection'] in ['UNet_regression', 'unet_regression']:
         from unet import UNet_regression
         net = UNet_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_regression_all']:
+        from unet import UNet_regression_all
+        net = UNet_regression_all(options=train_options).to(device)
     elif train_options['model_selection'] in ['UNet_sep_dec_regression', 'unet_sep_dec_regression']:
         from unet import UNet_sep_dec_regression
         net = UNet_sep_dec_regression(options=train_options).to(device)
+    elif train_options['model_selection'] in ['UNet_sep_dec_mse']:
+        from unet import UNet_sep_dec_mse
+        net = UNet_sep_dec_mse(options=train_options).to(device)
     else:
         raise 'Unknown model selected'
     return net

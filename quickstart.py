@@ -79,7 +79,8 @@ def parse_args():
     parser.add_argument('config', type=pathlib.Path, help='train config file path',)
     parser.add_argument('--wandb-project', required=True, help='Name of wandb project')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
-
+    parser.add_argument('--seed', default=None,
+                        help='the seed to use, if not provided, seed from config file will be taken')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--resume-from', type=pathlib.Path, default=None,
                        help='Resume Training from checkpoint, it will use the \
@@ -148,7 +149,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 edge_consistency_loss = a*loss_water_edge_consistency(output)
                 train_loss_batch = cross_entropy_loss + edge_consistency_loss
             else:
-                train_loss_batch = cross_entropy_loss + edge_consistency_loss
+                train_loss_batch = cross_entropy_loss
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -242,6 +243,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         water_edge_accuarcy = water_edge_metric(outputs_tfv_mask, train_options)
 
+        if train_options['compute_classwise_f1score']:
+            from functions import compute_classwise_f1score
+            # dictionary key = chart, value = tensor; e.g  key = SOD, value = tensor([0, 0.2, 0.4, 0.2, 0.1])
+            classwise_scores = compute_classwise_f1score(true=inf_ys_flat, pred=outputs_flat,
+                                                         charts=train_options['charts'], num_classes=train_options['n_classes'])
         print("")
         print(f"Epoch {epoch} score:")
 
@@ -250,6 +256,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
+
+            # if classwise_f1score is True,
+            if train_options['compute_classwise_f1score']:
+                for index, class_score in enumerate(classwise_scores[chart]):
+                    wandb.log({f"{chart}/Class: {index}": class_score.item()}, step=epoch)
+                print(f"{chart} F1 score:", classwise_scores[chart])
 
         print(f"Combined score: {combined_score}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
@@ -327,7 +339,10 @@ def main():
     # Set the seed if not -1
     if train_options['seed'] != -1:
         # set seed for everything
-        seed = train_options['seed']
+        if args.seed != None:
+            seed = int(args.seed)
+        else:
+            seed = train_options['seed']
         random.seed(seed)
         os.environ['PYTHONHASHSEED'] = str(seed)
         np.random.seed(seed)
@@ -445,8 +460,17 @@ def main():
                                 scheduler)
     print('Training Complete')
     print('Testing...')
-    test(False, net, checkpoint_path, device, cfg)
-    test(True, net, checkpoint_path, device, cfg)
+    # todo
+    # this is for valset 1 visualization along with gt
+    test(False, net, checkpoint_path, device, cfg, train_options['val_path'])
+    # todo
+    # this is for valset 2 visualization along with gt
+    test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
+
+     # this is for test path along with gt after the gt has been released
+    test(False, net, checkpoint_path, device, cfg, train_options['test_path_gt_embedded_json'])
+
+    # test(True, net, checkpoint_path, device, cfg, train_options['test_challenge_path'])
     print('Testing Complete')
 
     # finish the wandb run
