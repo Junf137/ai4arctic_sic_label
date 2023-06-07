@@ -2,8 +2,6 @@ xarray==2022.10.0
 h5netcdf
 numpy
 matplotlib
-torch==2.0.1
-torchvision==0.15.2
 tqdm==4.64.1
 sklearn
 # ipywidgets==8.0.2
