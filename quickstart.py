@@ -291,6 +291,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
+
 def create_dataloaders(train_options):
     '''
     Create train and validation dataloader based on the train and validation list inside train_options.
@@ -313,7 +314,6 @@ def create_dataloaders(train_options):
     return dataloader_train, dataloader_val
 
 
-
 def main():
     args = parse_args()
     ic(args.config)
@@ -324,9 +324,8 @@ def main():
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
 
-    # cfg['experiment_name']=
-    # cfg.env_dict = {}
-    if not train_options['cross_val_run']:
+    # Set the seed if not -1
+    if train_options['seed'] != -1:
         # set seed for everything
         seed = train_options['seed']
         random.seed(seed)
@@ -338,10 +337,9 @@ def main():
         # torch.backends.cudnn.deterministic = True
         # torch.backends.cudnn.benchmark = False
         # torch.backends.cudnn.enabled = True
-
-    # To be used in test_upload.
-    # get_ipython().run_line_magic('store', 'train_options')
-
+        print(f"Seed: {seed}")
+    else:
+        print("Random Seed Chosen")
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None

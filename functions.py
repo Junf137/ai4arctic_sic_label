@@ -554,10 +554,10 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
-    if train_options['cross_val_run'] is True and train_options['same_train_val_set'] is False:
+    if train_options['cross_val_run']:
         # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
         train_options['validate_list'] = np.random.choice(np.array(
-            train_options['train_list']), size=train_options['num_val_scenes'], replace=False)
+            train_options['train_list']), size=train_options['p-out'], replace=False)
     else:
         # load validation list
         with open(train_options['path_to_env'] + train_options['val_path']) as file:
@@ -566,8 +566,6 @@ def create_train_and_validation_scene_list(train_options):
         train_options['validate_list'] = [file[17:32] + '_' + file[77:80] +
                                           '_prep.nc' for file in train_options['validate_list']]
 
-    # from icecream import ic
-    # ic(train_options['validate_list'])
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
                                    if scene not in train_options['validate_list']]

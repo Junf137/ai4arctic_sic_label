@@ -123,7 +123,7 @@ FLOE_LOOKUP = {
 
 train_options = {
     # -- Random Seed -- #
-    'seed': 390,
+    'seed': -1,
     # -- Training options -- #
     # Replace with data directory path.
     'path_to_train_data': '../../dataset/train',
@@ -147,15 +147,18 @@ train_options = {
     # Down Sampling scale (If it is by 2 the image will get downsample by 2)
     'down_sample_scale': 1,
     'task_weights': [1, 1, 1],
-    # cross val run
-    # If set to true it will not set the random seed
+    
+    # p leave out cross val run
     'cross_val_run': False,
-    # If set true it will use the same train and val set for all the cross val runs
-    'same_train_val_set': True,
+    'p-out': 20,
+    
+    # # If set true it will use the same train and val set for all the cross val runs
+    # 'same_train_val_set': True,
+    # TODO: Speak with Muhammed different quickstart.py should have different configs.
 
     # ensemble after softmax?
-    'ensemble_after_softmax': True,
-
+    # 'ensemble_after_softmax': True,
+    # TODO: Speak with Muhammed different quickstart.py should have different configs.
 
     # -- loss options -- #
     'chart_loss': {  # Loss for the task
