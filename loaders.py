@@ -547,7 +547,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
         # if mode not in ["train_val", "test_val", "test"]:
         if mode not in ["train", "test", "test_no_gt"]:
-            raise ValueError("String variable must be one of 'train_val', 'test_val', or 'train'")
+            raise ValueError("String variable must be one of 'train', 'test', or 'test_no_gt'")
         self.mode = mode
 
     def __len__(self):
