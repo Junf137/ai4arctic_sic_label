@@ -42,11 +42,9 @@ train_options = {'train_variables': SCENE_VARIABLES,
                  'train_list_path': 'datalists/small_dataset.json',
                  'path_to_train_data': '/media/fernando/Storage/Databases/ai4arcticready2train_v2',
                  'path_to_test_data': '/media/fernando/Storage/Databases/ai4arcticready2test',
-                 
-
-                'cross_val_run': True,
-                'p-out': 20,
-
+                 'cross_val_run': True,
+                 'p-out': 5,
+                 'plot_confusion_matrix': True,
                  'edge_consistency_loss': 0,
                  "binary_water_classifier": True,
                  'optimizer': {

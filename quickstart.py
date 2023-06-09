@@ -58,7 +58,7 @@ from tqdm import tqdm  # Progress bar
 import wandb
 # Functions to calculate metrics and show the relevant chart colorbar.
 from functions import compute_metrics, save_best_model, load_model, slide_inference, \
-    batched_slide_inference, water_edge_metric, class_decider, create_train_and_validation_scene_list, \
+    batched_slide_inference, water_edge_metric, class_decider, create_train_validation_and_test_scene_list, \
     get_scheduler, get_optimizer, get_loss, get_model
 
 # Load consutme loss function
@@ -187,13 +187,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
         print('Validating...')
         # - Loops though scenes in queue.
-        for i, (inf_x, inf_y, masks, name, original_size) in enumerate(tqdm(iterable=dataloader_val,
+        for i, (inf_x, inf_y, cfv_masks, tfv_mask, name, original_size) in enumerate(tqdm(iterable=dataloader_val,
                                                                             total=len(train_options['validate_list']),
                                                                             colour='green')):
             torch.cuda.empty_cache()
             # Reset from previous batch.
             # train fill value mask
-            tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
+            # tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
             val_loss_batch = torch.tensor([0.]).to(device)
             val_edge_consistency_loss = torch.tensor([0.]).to(device)
             val_cross_entropy_loss = torch.tensor([0.]).to(device)
@@ -222,10 +222,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 output[chart] = class_decider(output[chart], train_options, chart)
                 # output[chart] = torch.argmax(
                 #     output[chart], dim=1).squeeze()
-                outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~masks[chart]]))
+                outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~cfv_masks[chart]]))
                 outputs_tfv_mask[chart] = torch.cat((outputs_tfv_mask[chart], output[chart][~tfv_mask]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart]
-                                                [~masks[chart]].to(device, non_blocking=True)))
+                                                [~cfv_masks[chart]].to(device, non_blocking=True)))
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
             val_cross_entropy_loss_sum += val_cross_entropy_loss.detach().item()
@@ -289,16 +289,18 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             best_combined_score = combined_score
 
             # Log the best combine score, and the metrics that make that best combine score in summary in wandb.
-            wandb.run.summary["Best Combined Score"] = best_combined_score
-            wandb.run.summary["Water Consistency Accuarcy"] = water_edge_accuarcy
+            wandb.run.summary[f"While training/Best Combined Score"] = best_combined_score
+            wandb.run.summary[f"While training/Water Consistency Accuarcy"] = water_edge_accuarcy
             for chart in train_options['charts']:
-                wandb.run.summary[f"{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
-            wandb.run.summary["Train Epoch Loss"] = train_loss_epoch
+                wandb.run.summary[f"While training/{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
+            wandb.run.summary[f"While training/Train Epoch Loss"] = train_loss_epoch
 
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
 
             wandb.save(model_path)
+
+            f"{'Validation while training'}/Best Combined Score"
 
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
@@ -318,7 +320,7 @@ def create_dataloaders(train_options):
     # - Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
 
     dataset_val = AI4ArcticChallengeTestDataset(
-        options=train_options, files=train_options['validate_list'], mode='train_val')
+        options=train_options, files=train_options['validate_list'], mode='train')
 
     dataloader_val = torch.utils.data.DataLoader(
         dataset_val, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
@@ -442,7 +444,7 @@ def main():
     wandb.save(str(args.config))
     print(colour_str('Save Config File', 'green'))
 
-    create_train_and_validation_scene_list(train_options)
+    create_train_validation_and_test_scene_list(train_options)
 
     dataloader_train, dataloader_val = create_dataloaders(train_options)
 
@@ -462,13 +464,13 @@ def main():
     print('Testing...')
     # todo
     # this is for valset 1 visualization along with gt
-    test(False, net, checkpoint_path, device, cfg, train_options['val_path'])
+    test('val', net, checkpoint_path, device, cfg.deepcopy(), train_options['validate_list'], 'Cross Validation')
     # todo
-    # this is for valset 2 visualization along with gt
-    test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
+    # # this is for valset 2 visualization along with gt
+    # test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
 
-     # this is for test path along with gt after the gt has been released
-    test(False, net, checkpoint_path, device, cfg, train_options['test_path_gt_embedded_json'])
+    # this is for test path along with gt after the gt has been released
+    test('test', net, checkpoint_path, device, cfg.deepcopy(), train_options['test_list'], 'Test')
 
     # test(True, net, checkpoint_path, device, cfg, train_options['test_challenge_path'])
     print('Testing Complete')

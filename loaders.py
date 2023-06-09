@@ -82,7 +82,6 @@ class AI4ArcticChallengeDataset(Dataset):
                     temp_amsr = np.array(scene[self.options['amsrenv_variables']].to_array())
                     self.amsrs.append(temp_amsr)
 
-                
                 if len(self.options['auxiliary_variables']) > 0:
                     temp_aux = []
 
@@ -546,7 +545,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.options = options
         self.files = files
 
-        if mode not in ["train_val", "test_val", "test"]:
+        # if mode not in ["train_val", "test_val", "test"]:
+        if mode not in ["train", "test", "test_no_gt"]:
             raise ValueError("String variable must be one of 'train_val', 'test_val', or 'train'")
         self.mode = mode
 
@@ -651,7 +651,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
             x = torch.nn.functional.interpolate(
                 x, scale_factor=1/self.options['down_sample_scale'], mode=self.options['loader_downsampling'])
 
-        if self.mode != 'test':
+        # TODO: 
+        if self.mode != 'test_no_gt':
             y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
             y_charts = torch.nn.functional.interpolate(
                 y_charts, scale_factor=1/self.options['down_sample_scale'], mode='nearest')
@@ -685,29 +686,30 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Name of scene.
 
         """
-        if self.mode == 'test':
+        if self.mode == 'test' or  self.mode == 'test_no_gt':
             scene = xr.open_dataset(os.path.join(
                 self.options['path_to_test_data'], self.files[idx]), engine='h5netcdf')
-        else:
+        elif self.mode == 'train':
             scene = xr.open_dataset(os.path.join(
                 self.options['path_to_train_data'], self.files[idx]), engine='h5netcdf')
 
         x, y = self.prep_scene(scene)
         name = self.files[idx]
 
-        if self.mode == 'train_val':
-            masks = {}
+        if self.mode != 'test_no_gt':
+            cfv_masks = {}
             for chart in self.options['charts']:
-                masks[chart] = (
+                cfv_masks[chart] = (
                     y[chart] == self.options['class_fill_values'][chart]).squeeze()
-
         else:
-            masks = (x.squeeze()[0, :, :] ==
-                     self.options['train_fill_value']).squeeze()
+            cfv_masks = None
+
+        tfv_mask = (x.squeeze()[0, :, :] ==
+                    self.options['train_fill_value']).squeeze()
 
         original_size = scene['nersc_sar_primary'].values.shape
 
-        return x, y, masks, name, original_size
+        return x, y, cfv_masks, tfv_mask, name, original_size
 
 
 def get_variable_options(train_options: dict):

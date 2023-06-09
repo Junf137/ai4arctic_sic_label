@@ -561,11 +561,13 @@ def compute_classwise_f1score(true, pred, charts, num_classes):
     return score
 
 
-def create_train_and_validation_scene_list(train_options):
+def create_train_validation_and_test_scene_list(train_options):
     '''
     Creates the a train and validation scene list. Adds these two list to the config file train_options
 
     '''
+
+    # Train ------------
     with open(train_options['path_to_env'] + train_options['train_list_path']) as file:
         train_options['train_list'] = json.loads(file.read())
 
@@ -573,6 +575,7 @@ def create_train_and_validation_scene_list(train_options):
     train_options['train_list'] = [file[17:32] + '_' + file[77:80] +
                                    '_prep.nc' for file in train_options['train_list']]
 
+    # Validation ---------
     if train_options['cross_val_run']:
         # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
         train_options['validate_list'] = np.random.choice(np.array(
@@ -588,6 +591,12 @@ def create_train_and_validation_scene_list(train_options):
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
                                    if scene not in train_options['validate_list']]
+    
+    # Test ----------
+    with open(train_options['path_to_env'] + train_options['test_path']) as file:
+        train_options['test_list'] = json.loads(file.read())
+        train_options['test_list'] = [file[17:32] + '_' + file[77:80] + '_prep.nc'
+                                      for file in train_options['test_list']]
     print('Options initialised')
 
 
