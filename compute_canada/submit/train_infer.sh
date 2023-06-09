@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes 1
-#SBATCH --gpus-per-node=a100:1 # request a GPU
+#SBATCH --gpus-per-node=1 # request a GPU
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=128G
@@ -31,7 +31,7 @@ echo "starting training..."
 
 
 export WANDB_MODE=offline
-python quickstart.py $1 --wandb-project=$2
+python quickstart.py $1 --wandb-project=$2 --seed=$3
 
 
 # # the above python script will generate a .env at the workdir/config-name/.env
