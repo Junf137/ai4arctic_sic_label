@@ -386,15 +386,16 @@ def main():
               colour_str(torch.cuda.device_count(), 'orange'))
         
         # Check if NVIDIA V100, A100, or H100 is available for torch compile speed up
-        gpu_ok = False
-        device_cap = torch.cuda.get_device_capability()
-        if device_cap in ((7, 0), (8, 0), (9, 0)):
-            gpu_ok = True
-        
-        if not gpu_ok:
-            warnings.warn(
-                colour_str("GPU is not NVIDIA V100, A100, or H100. Speedup numbers may be lower than expected.", 'red')
-            )
+        if train_options['compile_model']:
+            gpu_ok = False
+            device_cap = torch.cuda.get_device_capability()
+            if device_cap in ((7, 0), (8, 0), (9, 0)):
+                gpu_ok = True
+            
+            if not gpu_ok:
+                warnings.warn(
+                    colour_str("GPU is not NVIDIA V100, A100, or H100. Speedup numbers may be lower than expected.", 'red')
+                )
 
         # Setup device to be used
         device = torch.device(f"cuda:{train_options['gpu_id']}")
@@ -405,7 +406,9 @@ def main():
     print('GPU setup completed!')
 
     net = get_model(train_options, device)
-    net = torch.compile(net)
+
+    if train_options['compile_model']:
+        net = torch.compile(net)
 
     optimizer = get_optimizer(train_options, net)
 

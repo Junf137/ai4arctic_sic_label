@@ -156,6 +156,10 @@ train_options = {
     'p-out': 20,
     'compute_classwise_f1score': False,
     'plot_confusion_matrix': False,
+
+    # If true it compiles the model. This will increase the speed of the model for training and inference. 
+    # Needs Pytorch 2 to work.
+    'compile_model': False,
     
     # # If set true it will use the same train and val set for all the cross val runs
     # 'same_train_val_set': True,
