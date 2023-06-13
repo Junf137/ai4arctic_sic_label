@@ -161,10 +161,6 @@ train_options = {
     # Needs Pytorch 2 to work.
     'compile_model': False,
     
-    # # If set true it will use the same train and val set for all the cross val runs
-    # 'same_train_val_set': True,
-    # TODO: Speak with Muhammed different quickstart.py should have different configs.
-
     # ensemble after softmax?
     # 'ensemble_after_softmax': True,
     # TODO: Speak with Muhammed different quickstart.py should have different configs.

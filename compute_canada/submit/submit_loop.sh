@@ -1,7 +1,7 @@
 #!/bin/bash 
 set -e
 array=(
-"configs/Unite_test/simple_test.py"
+"configs/Unite_test/cross_val_test.py"
 )
 
 wandb_project=test

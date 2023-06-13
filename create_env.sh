@@ -23,7 +23,7 @@ pip download torch==2.0.1 --index-url https://download.pytorch.org/whl/cu118
 pip download torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
 
 echo "Installing Pytorch 2 and Torch Vision"
-pip install --no-index --find-links=. torchvision==2.0.1
+pip install --no-index --find-links=. torch==2.0.1
 pip install --no-index --find-links=. torchvision==0.15.2
 
 echo "Installing Requirements"

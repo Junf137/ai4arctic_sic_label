@@ -339,7 +339,7 @@ def main():
     id = wandb.util.generate_id()
 
     # Set the seed if not -1
-    if train_options['seed'] != -1:
+    if train_options['seed'] != -1 and args.seed == None:
         # set seed for everything
         if args.seed != None:
             seed = int(args.seed)
