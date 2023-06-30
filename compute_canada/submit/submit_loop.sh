@@ -1,7 +1,7 @@
 #!/bin/bash 
 set -e
 array=(
-"configs/Unite_test/cross_val_test.py"
+"configs/feature_selection/remove_IA.py"
 )
 
 wandb_project=test

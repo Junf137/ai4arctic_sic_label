@@ -300,8 +300,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             wandb.save(model_path)
 
-            f"{'Validation while training'}/Best Combined Score"
-
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
@@ -427,7 +425,7 @@ def main():
         wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
                    entity="ai4arctic", config=train_options, id=id, resume="allow")
     else:
-        wandb.init(name=run_name, group=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
+        wandb.init(name=osp.splitext(osp.basename(args.config))[0]+'-'+run_name, group=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
                    entity="ai4arctic", config=train_options, id=id, resume="allow")
 
     # Define the metrics and make them such that they are not added to the summary
@@ -451,32 +449,61 @@ def main():
 
     dataloader_train, dataloader_val = create_dataloaders(train_options)
 
+    # Update Config
+    wandb.config = train_options
+
+
     print('Data setup complete.')
 
     # ## Example of model training and validation loop
     # A simple model training loop following by a simple validation loop. Validation is carried out on full scenes,
     #  i.e. no cropping or stitching. If there is not enough space on the GPU, then try to do it on the cpu.
     #  This can be done by using 'net = net.cpu()'.
+
+
+    print('-----------------------------------')
+    print('Starting Training')
+    print('-----------------------------------')
     if args.resume_from is not None:
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
                                 scheduler, epoch_start)
     else:
         checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer,
                                 scheduler)
+
+
+    print('-----------------------------------')
     print('Training Complete')
-    print('Testing...')
-    # todo
+    print('-----------------------------------')
+
+
+
+    print('-----------------------------------')
+    print('Staring Validation with best model')
+    print('-----------------------------------')
+
     # this is for valset 1 visualization along with gt
     test('val', net, checkpoint_path, device, cfg.deepcopy(), train_options['validate_list'], 'Cross Validation')
-    # todo
-    # # this is for valset 2 visualization along with gt
-    # test(False, net, checkpoint_path, device, cfg, train_options['test_path'])
+
+
+    print('-----------------------------------')
+    print('Completed validation')
+    print('-----------------------------------')
+
+
+
+
+    print('-----------------------------------')
+    print('Starting testing with best model')
+    print('-----------------------------------')
 
     # this is for test path along with gt after the gt has been released
     test('test', net, checkpoint_path, device, cfg.deepcopy(), train_options['test_list'], 'Test')
 
-    # test(True, net, checkpoint_path, device, cfg, train_options['test_challenge_path'])
-    print('Testing Complete')
+    print('-----------------------------------')
+    print('Completed testing')
+    print('-----------------------------------')
+
 
     # finish the wandb run
     wandb.finish()
