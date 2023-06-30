@@ -450,7 +450,7 @@ def main():
     dataloader_train, dataloader_val = create_dataloaders(train_options)
 
     # Update Config
-    wandb.config = train_options
+    wandb.config['validate_list'] = train_options['validate_list']
 
 
     print('Data setup complete.')
