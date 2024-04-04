@@ -59,7 +59,7 @@ class Up(nn.Module):
         # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
         # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
         x = torch.cat([x2, x1], dim=1)
-        
+
         return self.conv(x)
 
 class Mlp(nn.Module):
@@ -598,7 +598,7 @@ class SwinTransformer(nn.Module):
                                use_checkpoint=use_checkpoint)
             self.layers.append(layer)
 
- 
+
         # Decoder added for semantic segmentation
         self.up1 = Up(self.num_features*5//2 , self.num_features//2 , bilinear=True)
         self.up2 = Up(self.num_features*3//4 , self.num_features//4 , bilinear=True)
@@ -652,12 +652,12 @@ class SwinTransformer(nn.Module):
 
     def forward(self, x):
         x = self.forward_features(x)
-        
+
         for i in range(len(x)):
             x[i] = torch.transpose(x[i], 1, 2)
             x[i] = x[i].view(x[i].shape[0], -1, int(np.sqrt(x[i].shape[2])), int(np.sqrt(x[i].shape[2])))
 
-        
+
         # Decoder added for semantic segmentation
         out = self.up1(torch.cat([x[-1], x[-2]], dim=1), x[-3])
         out = self.up2(out, x[-4])
@@ -672,8 +672,8 @@ class SwinTransformer(nn.Module):
         if self.up6 is not None:
             out = self.up6.up(out)
             out = self.up6.conv(out)
-            
-        
+
+
 
         return {'SIC': self.out_SIC(out),
                 'SOD': self.out_SOD(out),
@@ -709,14 +709,14 @@ if __name__ == '__main__':
         'ape': False,#(bool): If True, add absolute position embedding to the patch embedding. Default: False
         'patch_norm': True,#(bool): If True, add normalization after patch embedding. Default: True
         'use_checkpoint': False,#(bool): Whether to use checkpointing to save memory. Default: False
-        }, 
+        },
         'n_classes': {'SIC':5, 'SOD':5, 'FLOE':5},
         'train_variables': [1,2,3,4],
         'patch_size': 256}
 
 
     model = SwinTransformer(options = options)
-    
+
     input = torch.rand((1, len(options['train_variables']), options['patch_size'], options['patch_size']))
 
     output = model(input)
