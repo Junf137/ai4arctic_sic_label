@@ -1,31 +1,65 @@
-module purge
-module load python/3.10
+#!/bin/bash
 
+# Usage: bash create_env_new.sh <env_name>
 
-cwd=$(pwd)
+# Ensure an environment name is provided
+if [ -z "$1" ]; then
+    echo "Error: No environment name provided."
+    echo "Usage: bash create_env_new.sh <env_name>"
+    exit 1
+fi
 
-echo "loading module done"
+export PATH="./utils:$PATH"
 
-echo "Creating new virtualenv"
+ENV_NAME=$1
+ENV_BASE_DIR=~/.venvs
+ENV_DIR=$ENV_BASE_DIR/$ENV_NAME
 
-virtualenv ~/$1
-source ~/$1/bin/activate
+# Create the base directory if it doesn't exist
+mkdir -p $ENV_BASE_DIR
 
-echo "Activating virtual env"
+# Check if the environment already exists
+if [ -d "$ENV_DIR" ]; then
+    echo "Warning: Virtual environment '$ENV_NAME' already exists in $ENV_DIR."
+    read -p "Do you want to overwrite it? (y/N): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Aborting."
+        exit 0
+    fi
+    rm -rf "$ENV_DIR"  # Remove existing environment if confirmed
+fi
 
-# pip install --no-index --upgrade pip
+# Purge all loaded modules
+_echo "Purging all loaded modules..."
+module --force purge
 
-cd ~
-echo "Downloading Pytorch 2 and Torch Vision"
-mkdir -p pip_downloads
-cd pip_downloads
-pip download torch==2.0.1 --index-url https://download.pytorch.org/whl/cu118
-pip download torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
+# Load necessary modules
+_echo "Loading required modules..."
+module load StdEnv/2020 gcc/9.3.0 opencv/4.8.0
+module load python/3.10.2
 
-echo "Installing Pytorch 2 and Torch Vision"
-pip install --no-index --find-links=. torch==2.0.1
-pip install --no-index --find-links=. torchvision==0.15.2
+# Create virtual environment
+_echo "Creating virtual environment: $ENV_NAME in $ENV_DIR"
+virtualenv "$ENV_DIR"
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create virtual environment."
+    exit 1
+fi
 
-echo "Installing Requirements"
-cd $cwd
-pip install -r requirements.txt
+# Activate the virtual environment
+source "$ENV_DIR/bin/activate"
+
+# Upgrade pip and install dependencies
+_echo "Upgrading pip and installing dependencies..."
+pip install --no-index --upgrade pip
+pip install numpy mmcv==1.7.1 wandb==0.16.0 h5netcdf Pillow \
+            tqdm scikit-learn jupyterlab ipywidgets icecream \
+            matplotlib xarray seaborn pandas\
+            torch torchvision torchmetrics torch-summary
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to install required Python packages."
+    exit 1
+fi
+
+_echo "Environment setup complete! Activate using: source $ENV_DIR/bin/activate"
