@@ -52,6 +52,17 @@ train_options.update(
         "num_workers_val": 4,  # Number of parallel processes during validation.
         "down_sample_scale": 10,
         "deterministic": False,
+        # -- SIC masking configuration -- #
+        "sic_label_mask": {
+            "train": True,
+            "val": True,
+            "test": False,
+            "ksize_ratio": 100,  # ratio of the (image size / kernel size)
+            "mask_threshold": 0,  # threshold for determining the mask after sobel filter
+            "visualization": False,
+            # Path to save visualization. Only works when visualization is True.
+            "visualization_save_path": "/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic_challenge_clean/output/visualization",
+        },
         # -- Training configuration -- #
         "epochs": 300,
         "epoch_len": 500,  # Number of batches for each epoch.

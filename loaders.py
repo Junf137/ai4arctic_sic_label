@@ -26,7 +26,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
-from functions import rand_bbox
+from functions import rand_bbox, mask_sic_label_edges
 
 class AI4ArcticChallengeDataset(Dataset):
     """Pytorch dataset for loading batches of patches of scenes from the ASID
@@ -139,6 +139,16 @@ class AI4ArcticChallengeDataset(Dataset):
                     self.aux.append(torch.cat(temp_aux, 1))
 
                 temp_scene = torch.squeeze(temp_scene)
+
+                # Apply SIC label mask after downsampling
+                sic_label_mask_opts = self.options["sic_label_mask"]
+                if sic_label_mask_opts["train"]:
+                    temp_scene[0] = mask_sic_label_edges(
+                        options=sic_label_mask_opts,
+                        SIC=temp_scene[0],
+                        sic_cfv=self.options["class_fill_values"]["SIC"],
+                        scene_id=scene.scene_id[:-3],
+                    )
 
                 self.scenes.append(temp_scene)
 
@@ -655,12 +665,22 @@ class AI4ArcticChallengeTestDataset(Dataset):
         if self.mode != 'test_no_gt':
             y_charts = torch.from_numpy(scene[self.options['charts']].isel().to_array().values).unsqueeze(0)
             y_charts = torch.nn.functional.interpolate(
-                y_charts, scale_factor=1/self.options['down_sample_scale'], mode='nearest')
+                y_charts, scale_factor=1 / self.options["down_sample_scale"], mode="nearest"
+            ).squeeze(0)
+
+            sic_label_mask_opts = self.options["sic_label_mask"]
+            if (self.mode == "train" and sic_label_mask_opts["val"]) or (self.mode == "test" and sic_label_mask_opts["test"]):
+                y_charts[0] = mask_sic_label_edges(
+                    options=sic_label_mask_opts,
+                    SIC=y_charts[0],
+                    sic_cfv=self.options["class_fill_values"]["SIC"],
+                    scene_id=scene.scene_id[:-3],
+                )
 
             y = {}
 
             for idx, chart in enumerate(self.options['charts']):
-                y[chart] = y_charts[:, idx].squeeze().numpy()
+                y[chart] = y_charts[idx].numpy()
 
             # y = {
             #     chart: scene[chart].values   for chart in self.options['charts']}
