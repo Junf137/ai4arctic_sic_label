@@ -52,10 +52,10 @@ source "$ENV_DIR/bin/activate"
 # Upgrade pip and install dependencies
 _echo "Upgrading pip and installing dependencies..."
 pip install --no-index --upgrade pip
-pip install numpy mmcv==1.7.1 wandb==0.16.0 h5netcdf Pillow \
+pip install numpy mmcv wandb==0.16.0 h5netcdf Pillow pandas\
             tqdm scikit-learn jupyterlab ipywidgets icecream \
-            matplotlib xarray seaborn pandas\
-            torch torchvision torchmetrics torch-summary
+            matplotlib xarray seaborn cmocean\
+            torch torchvision torchmetrics torch-summary segmentation_models_pytorch
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to install required Python packages."
