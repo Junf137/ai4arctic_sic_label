@@ -301,46 +301,46 @@ def main():
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
 
-    # Set the seed if not -1
-    if train_options['seed'] != -1 and args.seed == None:
-        # set seed for everything
-        if args.seed != None:
-            seed = int(args.seed)
-        else:
-            seed = train_options['seed']
+    # Seed handling: Prioritize CLI seed, then config seed if not -1
+    seed = None
+    if args.seed is not None:
+        seed = int(args.seed)
+    elif train_options.get('seed', -1) != -1:
+        seed = train_options['seed']
+
+    if seed is not None:
         random.seed(seed)
         os.environ['PYTHONHASHSEED'] = str(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
+        # Uncomment the following lines if deterministic behavior is required
         # torch.backends.cudnn.deterministic = True
         # torch.backends.cudnn.benchmark = False
         # torch.backends.cudnn.enabled = True
         print(f"Seed: {seed}")
     else:
         print("Random Seed Chosen")
+
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
-        # update configs according to CLI args if args.work_dir is not None
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
-        # use config filename as default work_dir if cfg.work_dir is None
-        if not train_options['cross_val_run']:
-            cfg.work_dir = osp.join('./work_dir',
-                                    osp.splitext(osp.basename(args.config))[0])
-        else:
-            # from utils import run_names
-            run_name = id
-            cfg.work_dir = osp.join('./work_dir',
-                                    osp.splitext(osp.basename(args.config))[0], run_name)
+        cfg.work_dir = osp.join('./work_dir', osp.splitext(osp.basename(args.config))[0])
 
-    ic(cfg.work_dir)
-    # create work_dir
+    # Append run ID for cross-validation runs
+    if train_options['cross_val_run']:
+        run_name = id
+        cfg.work_dir = osp.join(cfg.work_dir, run_name)
+
+    ic(osp.abspath(cfg.work_dir))
     mkdir_or_exist(osp.abspath(cfg.work_dir))
+
     # dump config
     shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
     # cfg_path = osp.join(cfg.work_dir, osp.basename(args.config))
+
     # ### CUDA / GPU Setup
     # Get GPU resources.
     if torch.cuda.is_available():
