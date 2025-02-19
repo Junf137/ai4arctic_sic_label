@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# shell function that echo message in green color
+echo -e "\e[31m\e[4m---* $1 \e[0m"
