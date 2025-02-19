@@ -19,7 +19,7 @@ import numpy as np
 import torch
 import xarray as xr
 from tqdm import tqdm
-from mmcv import mkdir_or_exist
+from mmengine import mkdir_or_exist
 import wandb
 # --Proprietary modules -- #
 from functions import chart_cbar, water_edge_plot_overlay, compute_metrics, water_edge_metric, class_decider
@@ -113,7 +113,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             # output storage as a flat tensor
             # if test is False:
             # for chart in train_options['charts']:
-            
+
             # if test:
             #     masks_int = masks.to(torch.uint8)
             #     masks_int = torch.nn.functional.interpolate(masks_int.unsqueeze(
@@ -179,7 +179,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             inf_ys_flat[chart] = torch.cat(
                         (inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True)))
 
-        for chart in train_options['charts']: 
+        for chart in train_options['charts']:
             inf_y[chart] = inf_y[chart].cpu().numpy()
             output_class[chart] = output_class[chart].squeeze().cpu().numpy()
 
@@ -309,7 +309,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         artifact.add(table, experiment_name+'_test')
     elif mode == 'val':
         artifact.add(table, experiment_name+'_val')
-    
+
     wandb.log_artifact(artifact)
 
     # # - Save upload_package with zlib compression.

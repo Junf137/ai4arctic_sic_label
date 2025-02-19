@@ -17,7 +17,7 @@ import pathlib
 
 import numpy as np
 import torch
-from mmcv import Config, mkdir_or_exist
+from mmengine import Config, mkdir_or_exist
 from tqdm import tqdm  # Progress bar
 
 import wandb

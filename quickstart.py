@@ -17,7 +17,7 @@ import warnings
 
 import numpy as np
 import torch
-from mmcv import Config, mkdir_or_exist
+from mmengine import Config, mkdir_or_exist
 from tqdm import tqdm  # Progress bar
 
 import wandb
@@ -347,14 +347,14 @@ def main():
         print(colour_str('GPU available!', 'green'))
         print('Total number of available devices: ',
               colour_str(torch.cuda.device_count(), 'orange'))
-        
+
         # Check if NVIDIA V100, A100, or H100 is available for torch compile speed up
         if train_options['compile_model']:
             gpu_ok = False
             device_cap = torch.cuda.get_device_capability()
             if device_cap in ((7, 0), (8, 0), (9, 0)):
                 gpu_ok = True
-            
+
             if not gpu_ok:
                 warnings.warn(
                     colour_str("GPU is not NVIDIA V100, A100, or H100. Speedup numbers may be lower than expected.", 'red')

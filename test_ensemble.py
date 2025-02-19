@@ -23,7 +23,7 @@ import torch
 import xarray as xr
 from tqdm import tqdm
 from icecream import ic
-from mmcv import Config, mkdir_or_exist
+from mmengine import Config, mkdir_or_exist
 
 # --Proprietary modules -- #
 from functions import chart_cbar
