@@ -1,34 +1,47 @@
 #!/bin/bash
 #SBATCH --nodes 1
-#SBATCH --gpus-per-node=1 # request a GPU
-#SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
+#SBATCH --ntasks-per-node=1
+#SBATCH --gpus-per-task=1
+#SBATCH --cpus-per-task=12
 #SBATCH --mem=128G
 #SBATCH --time=2:00:00
-#SBATCH --output=/home/fer96/projects/def-dclausi/AI4arctic/fer96/ai4arctic_challenge_clean/compute_canada_output/%j.out
-#SBATCH --account=def-ka3scott
-#SBATCH --mail-user=FernandoComputeCanada@gmail.com
+#SBATCH --output=/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic_challenge_clean/output/%u_%x_%j.log
+#SBATCH --account=rrg-dclausi
+#SBATCH --mail-user=junf137@outlook.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-type=REQUEUE
 
-module purge
-module load python/3.10
+export PATH="./utils:$PATH"
 
-echo "Loading module done"
+# Usage: sbatch train_infer.sh <config> <wandb_project> <seed> <venv_path>
+if [ "$#" -ne 4 ]; then
+    _error "Usage: sbatch ${0##*/} <config> <wandb_project> <seed> <venv_path>"
+    exit 1
+fi
 
-source ~/AI4Artic2/bin/activate
+# Purge all loaded modules
+_echo "Purging all loaded modules..."
+module --force purge
 
-echo "Activating virtual environment done"
+# Load necessary modules
+_echo "Loading required modules..."
+module load StdEnv gcc opencv
+module load python/3.10.13
 
-cd $HOME/projects/def-dclausi/AI4arctic/$USER/ai4arctic_challenge_clean/
 
+# Activate the virtual environment
+source $4/bin/activate
 
-echo "starting training..."
-# config=$1 
+_echo "Running the python script..."
+
+# Change to the repo directory
+cd $HOME/projects/rrg-dclausi/$USER/ai4arctic_challenge_clean
+
+# config=$1
 # # get the basename for the config file, basename is an inbuilt shell command
-# config_basename=$(basename $config .py) 
+# config_basename=$(basename $config .py)
 
 
 export WANDB_MODE=offline
