@@ -417,7 +417,7 @@ def main():
     wandb.init(
         name=wandb_name,
         project=args.wandb_project,
-        entity="ai4arctic",
+        entity="junf-default",
         config=train_options,
         id=wandb_id,
         group=wandb_group,
