@@ -23,6 +23,7 @@ import numpy as np
 import torch
 import xarray as xr
 from torch.utils.data import Dataset
+import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
@@ -30,134 +31,109 @@ from functions import rand_bbox
 
 
 class AI4ArcticChallengeDataset(Dataset):
-    """Pytorch dataset for loading batches of patches of scenes from the ASID
-    V2 data set."""
+    """PyTorch dataset for loading patches from ASID V2 with optimized preprocessing."""
 
     def __init__(self, options, files, do_transform=False):
         self.options = options
         self.files = files
         self.do_transform = do_transform
+        self.patch_c = len(options["train_variables"]) + len(options["charts"])
 
-        # If Downscaling, down sample data and put in on memory
-        if self.options["down_sample_scale"] == 1:
-            self.downsample = False
-        else:
-            self.downsample = True
+        # Initialize data containers
+        self.scenes = []
+        self.amsrs = []
+        self.aux = []
 
+        # Precompute common parameters
+        self.downsample = options["down_sample_scale"] != 1
+        self.patch_size = options["patch_size"]
+        self._down_sample_dataset()
+
+    def _down_sample_dataset(self):
+        """Initialize dataset with optimized preprocessing."""
+        if not self.downsample:
+            return
+
+        for file in tqdm(self.files, desc="Loading scenes"):
+            file_path = os.path.join(self.options["path_to_train_data"], file)
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Training file missing: {file_path}")
+
+            with xr.open_dataset(file_path, engine="h5netcdf") as scene:
+                self._process_scene(scene)
+
+    def _process_scene(self, scene):
+        """Process a single scene with optimized tensor operations."""
+        # Process main variables
+        scene_vars = self.options["full_variables"]
+        temp_scene = torch.from_numpy(scene[scene_vars].to_array().values)
+        temp_scene = self._downsample_and_pad(temp_scene)
+
+        # Process AMSR variables
+        if self.options["amsrenv_variables"]:
+            self.amsrs.append(torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values))
+
+        # Process auxiliary variables
+        if self.options["auxiliary_variables"]:
+            aux_data = self._process_auxiliary(scene, temp_scene.shape[-2:])
+            self.aux.append(aux_data)
+
+        self.scenes.append(temp_scene.squeeze())
+
+    def _downsample_and_pad(self, data):
+        """Handle downsampling and padding with optimized tensor ops."""
         if self.downsample:
-            self.scenes = []
-            self.amsrs = []
-            self.aux = []
-            # self.files = self.files[:30]
-            for file in tqdm(self.files):
-                scene = xr.open_dataset(os.path.join(self.options["path_to_train_data"], file), engine="h5netcdf")
+            data = F.interpolate(
+                data.unsqueeze(0), scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
+            )
 
-                temp_scene = scene[self.options["full_variables"]].to_array()
-                temp_scene = torch.from_numpy(np.expand_dims(temp_scene, 0))
-                temp_scene = torch.nn.functional.interpolate(
-                    temp_scene,
-                    size=(
-                        temp_scene.size(2) // self.options["down_sample_scale"],
-                        temp_scene.size(3) // self.options["down_sample_scale"],
-                    ),
-                    mode=self.options["loader_downsampling"],
-                )
+        # Calculate padding needs
+        h, w = data.shape[-2:]
+        pad_h = max(self.patch_size - h, 0)
+        pad_w = max(self.patch_size - w, 0)
 
-                scene_size_before_padding = temp_scene.shape
+        if pad_h or pad_w:
+            data = F.pad(
+                data,
+                (0, pad_w, 0, pad_h),
+                mode="constant",
+                value=(255 if data.dtype == torch.uint8 else 0),  # Handle y/x differently
+            )
 
-                if temp_scene.size(2) < self.options["patch_size"]:
-                    height_pad = self.options["patch_size"] - temp_scene.size(2) + 1
-                else:
-                    height_pad = 0
+        return data
 
-                if temp_scene.size(3) < self.options["patch_size"]:
-                    width_pad = self.options["patch_size"] - temp_scene.size(3) + 1
-                else:
-                    width_pad = 0
+    def _process_auxiliary(self, scene, target_shape):
+        """Process auxiliary variables with batched operations."""
+        aux_tensors = []
 
-                if height_pad > 0 or width_pad > 0:
-                    temp_scene_y = torch.nn.functional.pad(
-                        temp_scene[:, : len(self.options["charts"])], (0, width_pad, 0, height_pad), mode="constant", value=255
-                    )
-                    temp_scene_x = torch.nn.functional.pad(
-                        temp_scene[:, len(self.options["charts"]) :], (0, width_pad, 0, height_pad), mode="constant", value=0
-                    )
-                    temp_scene = torch.cat((temp_scene_y, temp_scene_x), dim=1)
+        # Create processing map for auxiliary variables
+        aux_processor = {
+            "aux_time": lambda: self._create_time_feature(scene, target_shape),
+            "aux_lat": lambda: self._create_geo_feature(scene, "latitude", target_shape),
+            "aux_long": lambda: self._create_geo_feature(scene, "longitude", target_shape),
+        }
 
-                if len(self.options["amsrenv_variables"]) > 0:
-                    temp_amsr = np.array(scene[self.options["amsrenv_variables"]].to_array())
-                    self.amsrs.append(temp_amsr)
+        for var in self.options["auxiliary_variables"]:
+            if var in aux_processor:
+                aux_tensors.append(aux_processor[var]())
 
-                if len(self.options["auxiliary_variables"]) > 0:
-                    temp_aux = []
+        return torch.cat(aux_tensors, dim=1) if aux_tensors else None
 
-                    if "aux_time" in self.options["auxiliary_variables"]:
-                        # Get Scene time
-                        scene_id = scene.attrs["scene_id"]
-                        # Convert Scene time to number data
-                        norm_time = get_norm_month(scene_id)
-                        time_array = (
-                            torch.from_numpy(np.full((scene_size_before_padding[2], scene_size_before_padding[3]), norm_time))
-                            .unsqueeze(0)
-                            .unsqueeze(0)
-                        )
+    def _create_time_feature(self, scene, target_shape):
+        """Create normalized time feature tensor."""
+        norm_time = get_norm_month(scene.attrs["scene_id"])
+        return torch.full((1, 1, *target_shape), norm_time)
 
-                        # time_array = torch.nn.functional.interpolate(time_array.unsqueeze(0).unsqueeze(0),
-                        #                                              size=(scene_size_before_padding.size(2),
-                        #                                                    scene_size_before_padding.size(3)),
-                        #                                              mode=self.options['loader_upsampling'])
-                        if height_pad > 0 or width_pad > 0:
-                            time_array = torch.nn.functional.pad(
-                                time_array, (0, width_pad, 0, height_pad), mode="constant", value=0
-                            )
+    def _create_geo_feature(self, scene, coord_type, target_shape):
+        """Create normalized geo feature tensor."""
+        coord_values = scene[f"sar_grid2d_{coord_type}"].values
+        coord_values = (coord_values - self.options[coord_type]["mean"]) / self.options[coord_type]["std"]
 
-                        temp_aux.append(time_array)
-
-                    if "aux_lat" in self.options["auxiliary_variables"]:
-                        # Get Latitude
-                        lat_array = scene["sar_grid2d_latitude"].values
-
-                        lat_array = (lat_array - self.options["latitude"]["mean"]) / self.options["latitude"]["std"]
-
-                        # Interpolate to size of original scene
-                        inter_lat_array = torch.nn.functional.interpolate(
-                            input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                            size=(scene_size_before_padding[2], scene_size_before_padding[3]),
-                            mode=self.options["loader_upsampling"],
-                        )
-                        if height_pad > 0 or width_pad > 0:
-                            inter_lat_array = torch.nn.functional.pad(
-                                inter_lat_array, (0, width_pad, 0, height_pad), mode="constant", value=0
-                            )
-
-                        temp_aux.append(inter_lat_array)
-
-                    if "aux_long" in self.options["auxiliary_variables"]:
-                        # Get Longuitude
-                        long_array = scene["sar_grid2d_longitude"].values
-
-                        long_array = (long_array - self.options["longitude"]["mean"]) / self.options["longitude"]["std"]
-
-                        # Interpolate to size of original scene
-                        inter_long_array = torch.nn.functional.interpolate(
-                            input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                            size=(scene_size_before_padding[2], scene_size_before_padding[3]),
-                            mode=self.options["loader_upsampling"],
-                        )
-                        if height_pad > 0 or width_pad > 0:
-                            inter_long_array = torch.nn.functional.pad(
-                                inter_long_array, (0, width_pad, 0, height_pad), mode="constant", value=0
-                            )
-                        temp_aux.append(inter_long_array)
-
-                    self.aux.append(torch.cat(temp_aux, 1))
-
-                temp_scene = torch.squeeze(temp_scene)
-
-                self.scenes.append(temp_scene)
-
-        # Channel numbers in patches, includes reference channel.
-        self.patch_c = len(self.options["train_variables"]) + len(self.options["charts"])
+        return F.interpolate(
+            torch.from_numpy(coord_values).view(1, 1, *coord_values.shape),
+            size=target_shape,
+            mode=self.options["loader_upsampling"],
+        )
 
     def __len__(self):
         """
@@ -299,7 +275,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     aux_feat_list.append(crop_inter_lat_array)
 
                 if "aux_long" in self.options["auxiliary_variables"]:
-                    # Get Longuitude
+                    # Get Longitude
                     long_array = scene["sar_grid2d_longitude"].values
 
                     long_array = (long_array - self.options["longitude"]["mean"]) / self.options["longitude"]["std"]
@@ -461,7 +437,7 @@ class AI4ArcticChallengeDataset(Dataset):
         x_patches : ndarray
             Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the trainable variables.
         y_patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] contrainng only the targets.
+            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the targets.
 
         Returns
         -------
