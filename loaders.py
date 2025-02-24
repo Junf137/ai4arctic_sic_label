@@ -68,7 +68,8 @@ class AI4ArcticChallengeDataset(Dataset):
         # Process main variables
         scene_vars = self.options["full_variables"]
         temp_scene = torch.from_numpy(scene[scene_vars].to_array().values)
-        temp_scene = self._downsample_and_pad(temp_scene)
+        temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
+        self.scenes.append(temp_scene)
 
         # Process AMSR variables
         if self.options["amsrenv_variables"]:
@@ -79,7 +80,6 @@ class AI4ArcticChallengeDataset(Dataset):
             aux_data = self._process_auxiliary(scene, temp_scene.shape[-2:]).squeeze(0)
             self.aux.append(aux_data)
 
-        self.scenes.append(temp_scene.squeeze())
 
     def _downsample_and_pad(self, data):
         """Handle downsampling and padding with optimized tensor ops."""
