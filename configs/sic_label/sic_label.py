@@ -21,7 +21,6 @@ train_options.update(
         "test_path": "datalists/dataset_test_gt_embedded.json",  # Test dataset list.
         # -- Experiment configuration -- #
         "cross_val_run": True,
-        # TODO: what does this means?
         "p-out": 12,  # number of scenes taken from the TRAIN SET. Must change the datalist to move validation scenes to train if using
         "compute_classwise_f1score": True,
         "plot_confusion_matrix": True,
