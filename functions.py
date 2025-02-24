@@ -570,38 +570,39 @@ def compute_classwise_f1score(true, pred, charts, num_classes):
 
 def create_train_validation_and_test_scene_list(train_options):
     """
-    Creates the a train and validation scene list. Adds these two list to the config file train_options
-
+    Creates train, validation, and test scene lists with optimized processing.
     """
 
-    # Train ------------
-    with open(train_options["path_to_env"] + train_options["train_list_path"]) as file:
-        train_options["train_list"] = json.loads(file.read())
+    def process_filename(file):
+        return f"{file[17:32]}_{file[77:80]}_prep.nc"
 
-    # Convert the original scene names to the preprocessed names.
-    train_options["train_list"] = [file[17:32] + "_" + file[77:80] + "_prep.nc" for file in train_options["train_list"]]
+    # Base directory setup
+    base_path = train_options["path_to_env"]
 
-    # Validation ---------
+    # Read and process training files
+    with open(os.path.join(base_path, train_options["train_list_path"])) as f:
+        train_options["train_list"] = [process_filename(f) for f in json.load(f)]
+
+    # Validation setup
     if train_options["cross_val_run"]:
         # Select a random number of validation scenes with the same seed. Feel free to change the seed.et
         train_options["validate_list"] = np.random.choice(
-            np.array(train_options["train_list"]), size=train_options["p-out"], replace=False
+            a=np.array(train_options["train_list"]), size=train_options["p-out"], replace=False
         )
     else:
-        # load validation list
-        with open(train_options["path_to_env"] + train_options["val_path"]) as file:
-            train_options["validate_list"] = json.loads(file.read())
-        # Convert the original scene names to the preprocessed names.
-        train_options["validate_list"] = [file[17:32] + "_" + file[77:80] + "_prep.nc" for file in train_options["validate_list"]]
+        with open(os.path.join(base_path, train_options["val_path"])) as f:
+            train_options["validate_list"] = [process_filename(f) for f in json.load(f)]
 
     # Remove the validation scenes from the train list.
     train_options["train_list"] = [scene for scene in train_options["train_list"] if scene not in train_options["validate_list"]]
 
-    # Test ----------
-    with open(train_options["path_to_env"] + train_options["test_path"]) as file:
-        train_options["test_list"] = json.loads(file.read())
-        train_options["test_list"] = [file[17:32] + "_" + file[77:80] + "_prep.nc" for file in train_options["test_list"]]
-    print("Options initialised")
+    # Test files processing
+    with open(os.path.join(base_path, train_options["test_path"])) as f:
+        train_options["test_list"] = [process_filename(f) for f in json.load(f)]
+
+    print("Options initialized")
+
+    return train_options
 
 
 def get_scheduler(train_options, optimizer):
