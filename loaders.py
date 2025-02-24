@@ -477,86 +477,73 @@ class AI4ArcticChallengeDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Get batch. Function required by Pytorch dataset.
-
-        Returns
-        -------
-        x :
-            4D torch tensor; ready training data.
-        y : Dict
-            Dictionary with 3D torch tensors for each chart; reference data for training data x.
+        Efficient batch generation.
+        Returns:
+            tuple: (x: 4D torch tensor, y: 4D torch tensor)
         """
-        # Placeholder to fill with data.
+        # Initialize batch containers as lists
+        x_list, y_list = [], []
+        max_attempts = self.options["batch_size"] * 5  # Prevent infinite loops
+        attempt_count = 0
 
-        x_patches = torch.zeros(
-            (
-                self.options["batch_size"],
-                len(self.options["train_variables"]),
-                self.options["patch_size"],
-                self.options["patch_size"],
-            )
-        )
-        y_patches = torch.zeros(
-            (self.options["batch_size"], len(self.options["charts"]), self.options["patch_size"], self.options["patch_size"])
-        )
-        sample_n = 0
+        while len(x_list) < self.options["batch_size"] and attempt_count < max_attempts:
+            attempt_count += 1
 
-        # Continue until batch is full.
-        while sample_n < self.options["batch_size"]:
-            # - Open memory location of scene. Uses 'Lazy Loading'.
-            scene_id = np.random.randint(low=0, high=len(self.files), size=1).item()
+            # Random scene selection using PyTorch
+            scene_id = torch.randint(0, len(self.files), (1,)).item()
 
-            # - Extract patches
             try:
                 if self.downsample:
                     x_patch, y_patch = self.random_crop_downsample(scene_id)
                 else:
-                    scene = xr.open_dataset(
+                    with xr.open_dataset(
                         os.path.join(self.options["path_to_train_data"], self.files[scene_id]), engine="h5netcdf"
-                    )
-                    x_patch, y_patch = self.random_crop(scene)
+                    ) as scene:
+                        x_patch, y_patch = self.random_crop(scene)
 
-            except Exception as e:
-                if self.downsample:
-                    print(f"Cropping in {self.files[scene_id]} failed.")
-                    print(
-                        f"Scene size: {self.scenes[scene_id][0].shape} for crop shape: \
-                        ({self.options['patch_size']}, {self.options['patch_size']})"
-                    )
-                    print("Skipping scene.")
-                    continue
-                else:
-                    print(f"Cropping in {self.files[scene_id]} failed.")
-                    print(
-                        f"Scene size: {scene['SIC'].values.shape} for crop shape: \
-                        ({self.options['patch_size']}, {self.options['patch_size']})"
-                    )
-                    print("Skipping scene.")
+                if x_patch is None:
                     continue
 
-            if x_patch is not None:
                 if self.do_transform:
                     x_patch, y_patch = self.transform(x_patch, y_patch)
 
-                # -- Stack the scene patches in patches
-                x_patches[sample_n, :, :, :] = x_patch
-                y_patches[sample_n, :, :, :] = y_patch
-                sample_n += 1  # Update the index.
+                x_list.append(x_patch.squeeze(0))
+                y_list.append(y_patch.squeeze(0))
 
-        if self.do_transform and torch.rand(1) < self.options["data_augmentations"]["Cutmix_prob"]:
-            lam = np.random.beta(
-                self.options["data_augmentations"]["Cutmix_beta"], self.options["data_augmentations"]["Cutmix_beta"]
+            except Exception as e:
+                self._handle_scene_error(scene_id, e, attempt_count)
+                continue
+
+        # Convert lists to tensors
+        x_patches = torch.stack(x_list)
+        y_patches = torch.stack(y_list)
+
+        # Apply CutMix augmentation if needed
+        if self.do_transform and torch.rand(1).item() < self.options["data_augmentations"]["Cutmix_prob"]:
+            x_patches, y_patches = self._apply_cutmix(x_patches, y_patches)
+
+        return self.prep_dataset(x_patches, y_patches)
+
+    def _handle_scene_error(self, scene_id, error, attempt_count):
+        print(f"Cropping failed in {self.files[scene_id]}: {str(error)}")
+        if self.downsample:
+            print(
+                f"Scene size: {self.scenes[scene_id][0].shape} for crop shape: \
+                ({self.options['patch_size']}, {self.options['patch_size']})"
             )
-            rand_index = torch.randperm(x_patches.size(0))
-            bbx1, bby1, bbx2, bby2 = rand_bbox(x_patches.size(), lam)
-            x_patches[:, :, bbx1:bbx2, bby1:bby2] = x_patches[rand_index, :, bbx1:bbx2, bby1:bby2]
-            y_patches[:, :, bbx1:bbx2, bby1:bby2] = y_patches[rand_index, :, bbx1:bbx2, bby1:bby2]
+        else:
+            print(f"Un-downsampled scene.")
+        print(f"Skipping scene (attempt {attempt_count})")
 
-        # Prepare training arrays
+    def _apply_cutmix(self, x_patches, y_patches):
+        lam = np.random.beta(self.options["data_augmentations"]["Cutmix_beta"], self.options["data_augmentations"]["Cutmix_beta"])
+        rand_index = torch.randperm(x_patches.size(0))
+        bbx1, bby1, bbx2, bby2 = rand_bbox(x_patches.size(), lam)
 
-        x, y = self.prep_dataset(x_patches, y_patches)
+        x_patches[:, :, bbx1:bbx2, bby1:bby2] = x_patches[rand_index, :, bbx1:bbx2, bby1:bby2]
+        y_patches[:, :, bbx1:bbx2, bby1:bby2] = y_patches[rand_index, :, bbx1:bbx2, bby1:bby2]
 
-        return x, y
+        return x_patches, y_patches
 
 
 class AI4ArcticChallengeTestDataset(Dataset):
