@@ -76,7 +76,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Process auxiliary variables
         if self.options["auxiliary_variables"]:
-            aux_data = self._process_auxiliary(scene, temp_scene.shape[-2:])
+            aux_data = self._process_auxiliary(scene, temp_scene.shape[-2:]).squeeze(0)
             self.aux.append(aux_data)
 
         self.scenes.append(temp_scene.squeeze())
@@ -350,7 +350,7 @@ class AI4ArcticChallengeDataset(Dataset):
         row_rand = np.random.randint(low=0, high=height - patch_size)
         col_rand = np.random.randint(low=0, high=width - patch_size)
 
-        # Check valid pixels using tensor operations
+        # Check valid pixels using tensor operations (get sic patch as idx=0)
         sic_patch = self.scenes[idx][0, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
 
         if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
@@ -405,7 +405,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # --- Auxiliary Variables ---
         if aux_vars:
-            aux_data = self.aux[idx][:, :, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size].squeeze(0)
+            aux_data = self.aux[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
             patch[len(full_vars) + len(amsrenv_vars) :] = aux_data
 
         # Split into inputs and targets
