@@ -16,6 +16,7 @@ import os
 import datetime
 from dateutil import relativedelta
 import re
+import math
 from tqdm import tqdm
 
 # -- Third-party modules -- #
@@ -326,105 +327,90 @@ class AI4ArcticChallengeDataset(Dataset):
 
         Parameters
         ----------
-        idx :
-            Index from self.files to parse
+        idx : int
+            Index of the scene to crop from
 
         Returns
         -------
-        patch :
-            Numpy array with shape (len(train_variables),
-            patch_height, patch_width). None if empty patch.
+        tuple (torch.Tensor, torch.Tensor)
+            x_patch (input features), y_patch (target labels)
         """
 
-        patch = np.zeros(
-            (
-                len(self.options["full_variables"])
-                + len(self.options["amsrenv_variables"])
-                + len(self.options["auxiliary_variables"]),
-                self.options["patch_size"],
-                self.options["patch_size"],
-            )
-        )
+        # Initialize constants
+        patch_size = self.options["patch_size"]
+        full_vars = self.options["full_variables"]
+        amsrenv_vars = self.options["amsrenv_variables"]
+        aux_vars = self.options["auxiliary_variables"]
+        delta = self.options["amsrenv_delta"]
 
-        # Get random index to crop from.
-        row_rand = np.random.randint(low=0, high=self.scenes[idx].size(1) - self.options["patch_size"])
-        col_rand = np.random.randint(low=0, high=self.scenes[idx].size(2) - self.options["patch_size"])
-        # Equivalent in amsr and env variable grid.
-        amsrenv_row = row_rand / self.options["amsrenv_delta"]
-        # Used in determining the location of the crop in between pixels.
-        amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))
-        amsrenv_row_index_crop = amsrenv_row_dec * self.options["amsrenv_delta"] * amsrenv_row_dec
-        amsrenv_col = col_rand / self.options["amsrenv_delta"]
-        amsrenv_col_dec = int(amsrenv_col - int(amsrenv_col))
-        amsrenv_col_index_crop = amsrenv_col_dec * self.options["amsrenv_delta"] * amsrenv_col_dec
+        # Get scene dimensions
+        _, height, width = self.scenes[idx].shape
 
-        # - Discard patches with too many meaningless pixels (optional).
-        if (
-            np.sum(
-                self.scenes[idx][
-                    0, row_rand : row_rand + self.options["patch_size"], col_rand : col_rand + self.options["patch_size"]
-                ].numpy()
-                != self.options["class_fill_values"]["SIC"]
-            )
-            > 1
-        ):
+        # Random crop coordinates
+        row_rand = np.random.randint(low=0, high=height - patch_size)
+        col_rand = np.random.randint(low=0, high=width - patch_size)
 
-            # Crop full resolution variables.
-            patch[0 : len(self.options["full_variables"]), :, :] = self.scenes[idx][
-                :, row_rand : row_rand + int(self.options["patch_size"]), col_rand : col_rand + int(self.options["patch_size"])
-            ].numpy()
-            if len(self.options["amsrenv_variables"]) > 0:
-                # Crop and upsample low resolution variables.
-                amsrenv = torch.from_numpy(
-                    self.amsrs[idx][
-                        :,
-                        int(amsrenv_row) : int(amsrenv_row + np.ceil(self.options["amsrenv_patch"])),
-                        int(amsrenv_col) : int(amsrenv_col + np.ceil(self.options["amsrenv_patch"])),
-                    ]
-                ).unsqueeze(0)
-                # Add padding in case the patch size return is smaller than the expected one.
-                if amsrenv.size(2) < self.options["amsrenv_patch"]:
-                    height_pad = int(np.ceil(self.options["amsrenv_patch"])) - amsrenv.size(2)
-                else:
-                    height_pad = 0
+        # Check valid pixels using tensor operations
+        sic_patch = self.scenes[idx][0, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
 
-                if amsrenv.size(3) < self.options["amsrenv_patch"]:
-                    width_pad = int(np.ceil(self.options["amsrenv_patch"])) - amsrenv.size(3)
-                else:
-                    width_pad = 0
+        if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
+            return None, None
 
-                if height_pad > 0 or width_pad > 0:
-                    amsrenv = torch.nn.functional.pad(amsrenv, (0, width_pad, 0, height_pad), mode="constant", value=0)
-                # TODO The square bracket part is redundant []. for Example if size=2560 then doing [0:2560] after interpolate is redundant
-                amsrenv = torch.nn.functional.interpolate(
-                    input=amsrenv, size=self.options["amsrenv_upsample_shape"], mode=self.options["loader_upsampling"]
-                ).squeeze(0)[
-                    :,
-                    int(np.around(amsrenv_row_index_crop)) : int(np.around(amsrenv_row_index_crop + self.options["patch_size"])),
-                    int(np.around(amsrenv_col_index_crop)) : int(np.around(amsrenv_col_index_crop + self.options["patch_size"])),
-                ]
+        # Initialize output patch using torch tensors
+        patch = torch.zeros(len(full_vars) + len(amsrenv_vars) + len(aux_vars), patch_size, patch_size)
 
-                patch[
-                    len(self.options["full_variables"]) : len(self.options["full_variables"])
-                    + len(self.options["amsrenv_variables"]) :,
-                    :,
-                    :,
-                ] = amsrenv.numpy()
+        # --- Full Resolution Variables ---
+        patch[: len(full_vars)] = self.scenes[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
 
-            # Only add auxiliary_variables if they are called
-            # No need to do the patch
-            if len(self.options["auxiliary_variables"]) > 0:
-                patch[len(self.options["full_variables"]) + len(self.options["amsrenv_variables"]) :, :, :] = self.aux[idx][
-                    0, :, row_rand : row_rand + self.options["patch_size"], col_rand : col_rand + self.options["patch_size"]
-                ]
+        # --- AMSR/Env Variables ---
+        if amsrenv_vars:
+            # Calculate AMSR grid coordinates
+            amsr_row = row_rand / delta
+            amsr_col = col_rand / delta
 
-            x_patch = torch.from_numpy(patch[len(self.options["charts"]) :, :]).type(torch.float).unsqueeze(0)
+            # Safety check for amsrs data size
+            required_lr_size = math.ceil(patch_size / delta) + 1
+            assert self.amsrs[idx].shape[-2:] >= (
+                required_lr_size,
+                required_lr_size,
+            ), f"AMSR data too small: {self.amsrs[idx].shape} < {required_lr_size}"
 
-            y_patch = torch.from_numpy(patch[: len(self.options["charts"]), :, :]).unsqueeze(0)
-        # In case patch does not contain any valid pixels - return None.
-        else:
-            x_patch = None
-            y_patch = None
+            # Calculate fractional offsets
+            row_frac = amsr_row - int(amsr_row)
+            col_frac = amsr_col - int(amsr_col)
+
+            # AMSR patch extraction with padding
+            amsr_patch = self.amsrs[idx][
+                :,
+                int(amsr_row) : int(amsr_row) + math.ceil(patch_size / delta),
+                int(amsr_col) : int(amsr_col) + math.ceil(patch_size / delta),
+            ]
+
+            # Upsample and align
+            amsr_patch = F.interpolate(
+                amsr_patch.unsqueeze(0), scale_factor=delta, mode=self.options["loader_upsampling"]
+            ).squeeze(0)
+
+            # Calculate crop positions
+            crop_row = round(row_frac * delta)
+            crop_col = round(col_frac * delta)
+
+            # Boundary checks (now handles upsampled dimensions)
+            crop_row = max(0, min(amsr_patch.shape[-2] - patch_size, crop_row))
+            crop_col = max(0, min(amsr_patch.shape[-1] - patch_size, crop_col))
+
+            patch[len(full_vars) : len(full_vars) + len(amsrenv_vars)] = amsr_patch[
+                :, crop_row : crop_row + patch_size, crop_col : crop_col + patch_size
+            ]
+
+        # --- Auxiliary Variables ---
+        if aux_vars:
+            aux_data = self.aux[idx][:, :, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size].squeeze(0)
+            patch[len(full_vars) + len(amsrenv_vars) :] = aux_data
+
+        # Split into inputs and targets
+        x_patch = patch[len(self.options["charts"]) :].unsqueeze(0).float()
+        y_patch = patch[: len(self.options["charts"])].unsqueeze(0)
 
         return x_patch, y_patch
 
