@@ -27,7 +27,7 @@ module --force purge
 
 # Load necessary modules
 _echo "Loading required modules..."
-module load StdEnv gcc opencv
+module load StdEnv gcc opencv/4.10.0
 module load python/3.10.13
 
 
