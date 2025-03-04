@@ -113,7 +113,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             batch_x = batch_x.to(device, non_blocking=True)
 
             # - Mixed precision training. (Saving memory)
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast(device_type=device.type):
                 # - Forward pass.
                 output = net(batch_x)
                 # breakpoint()
@@ -179,7 +179,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             val_edge_consistency_loss = torch.tensor([0.0]).to(device)
             val_cross_entropy_loss = torch.tensor([0.0]).to(device)
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
-            with torch.no_grad(), torch.cuda.amp.autocast():
+            with torch.no_grad(), torch.amp.autocast(device_type=device.type):
                 inf_x = inf_x.to(device, non_blocking=True)
                 if train_options["model_selection"] == "swin":
                     output = slide_inference(inf_x, net, train_options, "val")

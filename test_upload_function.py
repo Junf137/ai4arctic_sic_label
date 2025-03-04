@@ -103,7 +103,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         torch.cuda.empty_cache()
 
         inf_x = inf_x.to(device, non_blocking=True)
-        with torch.no_grad(), torch.cuda.amp.autocast():
+        with torch.no_grad(), torch.amp.autocast(device_type=device.type):
             if train_options['model_selection'] == 'swin':
                 output = slide_inference(inf_x, net, train_options, 'test')
                 # output = batched_slide_inference(inf_x, net, train_options, 'test')
