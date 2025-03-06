@@ -260,7 +260,7 @@ def load_model(net, checkpoint_path, optimizer=None, scheduler=None):
     :return: If optimizer and scheduler are provided, return the model, optimizer, and scheduler.
     """
 
-    checkpoint = torch.load(checkpoint_path)
+    checkpoint = torch.load(f=checkpoint_path, weights_only=False)
     net.load_state_dict(checkpoint["model_state_dict"])
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

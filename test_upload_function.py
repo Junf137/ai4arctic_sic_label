@@ -42,7 +42,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
 
     train_options = cfg.train_options
     train_options = get_variable_options(train_options)
-    weights = torch.load(checkpoint)["model_state_dict"]
+    weights = torch.load(f=checkpoint, weights_only=False)["model_state_dict"]
 
     net.load_state_dict(weights)
     print("Model successfully loaded.")
