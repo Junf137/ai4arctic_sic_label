@@ -437,6 +437,10 @@ def main():
     wandb.define_metric("FLOE f1_metric", summary="none")
     wandb.define_metric("Water Consistency Accuracy", summary="none")
     wandb.define_metric("Learning Rate", summary="none")
+    if train_options["compute_classwise_f1score"]:
+        for chart in train_options["charts"]:
+            for index in range(train_options["n_classes"][chart]):
+                wandb.define_metric(f"{chart}/Class: {index}", summary="none")
 
     wandb.save(str(args.config))
     print(colour_str("Save Config File", "green"))
