@@ -36,6 +36,7 @@ from functions import (
     get_optimizer,
     get_loss,
     get_model,
+    seed_worker,
 )
 
 # Load costume loss function
@@ -309,13 +310,24 @@ def create_dataloaders(train_options):
     # Custom dataset and dataloader.
     dataset = AI4ArcticChallengeDataset(options=train_options, files=train_options["train_list"], do_transform=True)
     dataloader_train = torch.utils.data.DataLoader(
-        dataset, batch_size=None, shuffle=True, num_workers=train_options["num_workers"], pin_memory=True
+        dataset,
+        batch_size=None,
+        shuffle=True,
+        num_workers=train_options["num_workers"],
+        pin_memory=True,
+        worker_init_fn=seed_worker,
+        generator=torch.Generator().manual_seed(torch.initial_seed()),
     )
 
     # Setup of the validation dataset/dataloader. The same is used for model testing in 'test_upload.ipynb'.
     dataset_val = AI4ArcticChallengeTestDataset(options=train_options, files=train_options["validate_list"], mode="train")
     dataloader_val = torch.utils.data.DataLoader(
-        dataset_val, batch_size=None, num_workers=train_options["num_workers_val"], shuffle=False
+        dataset_val,
+        batch_size=None,
+        num_workers=train_options["num_workers_val"],
+        shuffle=False,
+        worker_init_fn=seed_worker,
+        generator=torch.Generator().manual_seed(torch.initial_seed()),
     )
 
     return dataloader_train, dataloader_val

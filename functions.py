@@ -14,6 +14,7 @@ __date__ = "2024-04-05"
 # -- Built-in modules -- #
 import os
 import json
+import random
 
 # -- Third-party modules -- #
 import matplotlib as mpl
@@ -32,6 +33,12 @@ from tqdm import tqdm  # Progress bar
 from utils import ICE_STRINGS, GROUP_NAMES
 from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
 from swin_transformer import SwinTransformer  # Swin Transformer
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
 
 
 def chart_cbar(ax, n_classes, chart, cmap="vridis"):
@@ -475,7 +482,12 @@ def batched_slide_inference(img, net, options, mode):
     indexes = Slide_patches_index(h_img, w_img, h_crop, w_crop, h_stride, w_stride)
     samples = Take_crops(img.detach().cpu().numpy()[0], indexes.patches_list)
     samples_dataloader = data.DataLoader(
-        dataset=samples, batch_size=options["batch_size"] * 4, shuffle=False, num_workers=options["num_workers_val"]
+        dataset=samples,
+        batch_size=options["batch_size"] * 4,
+        shuffle=False,
+        num_workers=options["num_workers_val"],
+        worker_init_fn=seed_worker,
+        generator=torch.Generator().manual_seed(torch.initial_seed()),
     )
 
     n_batches = len(samples_dataloader)
