@@ -145,7 +145,7 @@ def f1_metric(true, pred, num_classes):
 
 def water_edge_metric(outputs, options):
 
-    # Convert ouput into water and not water
+    # Convert output into water and not water
     for chart in options["charts"]:
 
         outputs[chart] = torch.where(outputs[chart] > 0.0, 1.0, 0.0)
@@ -162,7 +162,7 @@ def water_edge_metric(outputs, options):
 
 
 def water_edge_plot_overlay(output, mask, options):
-    # Convert ouput into water and not water
+    # Convert output into water and not water
     charts = options["charts"]
     water_chart = {}
     for chart in charts:
