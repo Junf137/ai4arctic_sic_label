@@ -21,7 +21,7 @@ train_options.update(
         "test_path": "datalists/dataset_test_gt_embedded.json",  # Test dataset list.
         # -- Experiment configuration -- #
         "cross_val_run": True,
-        "p-out": 12,  # number of scenes taken from the TRAIN SET. Must change the datalist to move validation scenes to train if using
+        "p-out": 20,  # number of scenes taken from the TRAIN SET as the validation set.
         "compute_classwise_f1score": True,
         "plot_confusion_matrix": True,
         "num_workers": 4,  # Number of parallel processes to fetch data.
@@ -29,6 +29,8 @@ train_options.update(
         "down_sample_scale": 10,
         # -- Training configuration -- #
         "epochs": 300,
+        "epoch_len": 500,  # Number of batches for each epoch.
+        "patch_size": 256,
         "batch_size": 16,
         "model_selection": "unet_regression",  #'unet_feature_fusion', #'unet_regression',
         "unet_conv_filters": [32, 32, 64, 64],
