@@ -17,8 +17,8 @@ train_options.update(
         "path_to_train_data": "/home/j46lei/projects/rrg-dclausi/ai4arctic/dataset/dataset_ready_to_train/train",
         "path_to_test_data": "/home/j46lei/projects/rrg-dclausi/ai4arctic/dataset/dataset_ready_to_train/test",
         "train_list_path": "datalists/dataset.json",  # Training dataset list.
-        "val_path": "datalists/valset2.json",  # Validation dataset list.
-        "test_path": "datalists/dataset_test_gt_embedded.json",  # Test dataset list.
+        "val_path": "datalists/valset2.json",  # Validation dataset list. Disabled when cross_val_run is True.
+        "test_path": "datalists/testset.json",  # Test dataset list.
         # -- Experiment configuration -- #
         "cross_val_run": True,
         "p-out": 20,  # number of scenes taken from the TRAIN SET as the validation set.
