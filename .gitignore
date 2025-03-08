@@ -16,6 +16,8 @@ __pycache__/
 # tensorboard events
 events.*.*
 
+data/
+
 datalists_aux/
 
 *.nc
