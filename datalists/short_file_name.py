@@ -76,11 +76,35 @@ print(
 )
 
 
-# data files
-with open("./folders/train.json") as f:
+# public_dataset: data files
+# with open("./folders/train.json") as f:
+#     train = json.load(f)
+
+# with open("./folders/test.json") as f:
+#     test = json.load(f)
+
+
+# print("\n\n---* data files *---")
+# print("train len: ", len(train))
+# print("test len: ", len(test))
+
+# print(
+#     "test same as testset_processed: ", set(test).issubset(set(testset_processed)) and set(testset_processed).issubset(set(test))
+# )
+
+# print("testset_processed is subset of train: ", set(testset_processed).issubset(set(train)))
+# print("dataset_processed is subset of train: ", set(dataset_processed).issubset(set(train)))
+
+# print("testset_processed & dataset_processed: ", set(testset_processed).intersection(set(dataset_processed)))
+
+# print("train - dataset_processed - test: ", set(train).difference(set(dataset_processed)).difference(set(test)))
+
+
+# j46lei_dataset: data files
+with open("./j46lei_dataset/train.json") as f:
     train = json.load(f)
 
-with open("./folders/test.json") as f:
+with open("./j46lei_dataset/test.json") as f:
     test = json.load(f)
 
 
@@ -92,9 +116,9 @@ print(
     "test same as testset_processed: ", set(test).issubset(set(testset_processed)) and set(testset_processed).issubset(set(test))
 )
 
-print("testset_processed is subset of train: ", set(testset_processed).issubset(set(train)))
-print("dataset_processed is subset of train: ", set(dataset_processed).issubset(set(train)))
+print(
+    "train same as dataset_processed: ",
+    set(train).issubset(set(dataset_processed)) and set(dataset_processed).issubset(set(train)),
+)
 
-print("testset_processed & dataset_processed: ", set(testset_processed).intersection(set(dataset_processed)))
-
-print("train - dataset_processed - test: ", set(train).difference(set(dataset_processed)).difference(set(test)))
+print("train & test: ", set(train).intersection(set(test)))
