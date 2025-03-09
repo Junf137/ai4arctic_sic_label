@@ -388,10 +388,10 @@ def main():
 
     if not train_options['cross_val_run']:
         wandb.init(name=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
-                   entity="ai4arctic", config=train_options, id=id, resume="allow")
+                   entity="junf-default", config=train_options, id=id, resume="allow")
     else:
         wandb.init(name=osp.splitext(osp.basename(args.config))[0]+'-'+run_name, group=osp.splitext(osp.basename(args.config))[0], project=args.wandb_project,
-                   entity="ai4arctic", config=train_options, id=id, resume="allow")
+                   entity="junf-default", config=train_options, id=id, resume="allow")
 
     # Define the metrics and make them such that they are not added to the summary
     wandb.define_metric("Train Epoch Loss", summary="none")
