@@ -17,6 +17,8 @@ events.*.*
 
 datalists_aux/
 
+output/
+
 *.nc
 inference/
 *.zip
@@ -162,4 +164,3 @@ core.*
 __pycache__/functions.cpython-39.pyc
 best_model
 # filename.pickle
-
