@@ -48,12 +48,13 @@ class AI4ArcticChallengeDataset(Dataset):
         # Precompute common parameters
         self.downsample = options["down_sample_scale"] != 1
         self.patch_size = options["patch_size"]
-        self._down_sample_dataset()
+
+        # Downsample dataset
+        if self.downsample:
+            self._down_sample_dataset()
 
     def _down_sample_dataset(self):
         """Initialize dataset with optimized preprocessing."""
-        if not self.downsample:
-            return
 
         for file in tqdm(self.files, desc="Loading scenes"):
             file_path = os.path.join(self.options["path_to_train_data"], file)
@@ -66,27 +67,37 @@ class AI4ArcticChallengeDataset(Dataset):
     def _process_scene(self, scene):
         """Process a single scene with optimized tensor operations."""
         # Process main variables
-        scene_vars = self.options["full_variables"]
-        temp_scene = torch.from_numpy(scene[scene_vars].to_array().values)
-        temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
-        self.scenes.append(temp_scene)
+        sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values)
+        size = sar_data.shape[-2:]
+
+        sar_data = self._downsample_and_pad(sar_data).squeeze(0)
 
         # Process AMSR variables
         if self.options["amsrenv_variables"]:
-            self.amsrs.append(torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values))
+            amsrenv_data = torch.nn.functional.interpolate(
+                input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
+                size=size,
+                mode=self.options["loader_upsampling"],
+            ).squeeze(0)
+
+            amsrenv_data = self._downsample_and_pad(amsrenv_data).squeeze(0)
 
         # Process auxiliary variables
         if self.options["auxiliary_variables"]:
-            aux_data = self._process_auxiliary(scene, temp_scene.shape[-2:]).squeeze(0)
-            self.aux.append(aux_data)
+            aux_data = self._process_auxiliary(scene, size)
 
+            aux_data = self._downsample_and_pad(aux_data).squeeze(0)
+
+        self.scenes.append(sar_data)
+        self.amsrs.append(amsrenv_data)
+        self.aux.append(aux_data)
 
     def _downsample_and_pad(self, data):
         """Handle downsampling and padding with optimized tensor ops."""
-        if self.downsample:
-            data = F.interpolate(
-                data.unsqueeze(0), scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
-            )
+
+        data = F.interpolate(
+            input=data.unsqueeze(0), scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
+        )
 
         # Calculate padding needs
         h, w = data.shape[-2:]
@@ -118,12 +129,12 @@ class AI4ArcticChallengeDataset(Dataset):
             if var in aux_processor:
                 aux_tensors.append(aux_processor[var]())
 
-        return torch.cat(aux_tensors, dim=1) if aux_tensors else None
+        return torch.cat(aux_tensors, dim=0) if aux_tensors else None
 
     def _create_time_feature(self, scene, target_shape):
         """Create normalized time feature tensor."""
         norm_time = get_norm_month(scene.attrs["scene_id"])
-        return torch.full((1, 1, *target_shape), norm_time)
+        return torch.full((1, *target_shape), norm_time)
 
     def _create_geo_feature(self, scene, coord_type, target_shape):
         """Create normalized geo feature tensor."""
@@ -131,10 +142,10 @@ class AI4ArcticChallengeDataset(Dataset):
         coord_values = (coord_values - self.options[coord_type]["mean"]) / self.options[coord_type]["std"]
 
         return F.interpolate(
-            torch.from_numpy(coord_values).view(1, 1, *coord_values.shape),
+            input=torch.from_numpy(coord_values).view(1, 1, *coord_values.shape),
             size=target_shape,
             mode=self.options["loader_upsampling"],
-        )
+        ).squeeze(0)
 
     def __len__(self):
         """
