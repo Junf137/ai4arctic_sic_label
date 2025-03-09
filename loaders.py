@@ -357,12 +357,12 @@ class AI4ArcticChallengeDataset(Dataset):
         _, height, width = self.scenes[idx].shape
 
         # Random crop coordinates
-        row_rand = np.random.randint(low=0, high=height - patch_size)
-        col_rand = np.random.randint(low=0, high=width - patch_size)
+        assert height >= patch_size and width >= patch_size, "Scene too small for patch size"
+        row_rand = 0 if height == patch_size else np.random.randint(low=0, high=height - patch_size)
+        col_rand = 0 if width == patch_size else np.random.randint(low=0, high=width - patch_size)
 
-        # Check valid pixels using tensor operations (get sic patch as idx=0)
+        # Invalid patch if no valid sic label (get sic patch as idx=0)
         sic_patch = self.scenes[idx][0, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
-
         if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
             return None, None
 
