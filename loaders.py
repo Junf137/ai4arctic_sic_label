@@ -42,8 +42,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Initialize data containers
         self.scenes = []
-        self.amsrs = []
-        self.aux = []
 
         # Precompute common parameters
         self.downsample = options["down_sample_scale"] != 1
@@ -70,7 +68,7 @@ class AI4ArcticChallengeDataset(Dataset):
         sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values)
         size = sar_data.shape[-2:]
 
-        sar_data = self._downsample_and_pad(sar_data).squeeze(0)
+        temp_scene = sar_data
 
         # Process AMSR variables
         if self.options["amsrenv_variables"]:
@@ -80,17 +78,17 @@ class AI4ArcticChallengeDataset(Dataset):
                 mode=self.options["loader_upsampling"],
             ).squeeze(0)
 
-            amsrenv_data = self._downsample_and_pad(amsrenv_data).squeeze(0)
+            temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
 
         # Process auxiliary variables
         if self.options["auxiliary_variables"]:
             aux_data = self._process_auxiliary(scene, size)
 
-            aux_data = self._downsample_and_pad(aux_data).squeeze(0)
+            temp_scene = torch.cat([temp_scene, aux_data], dim=0)
 
-        self.scenes.append(sar_data)
-        self.amsrs.append(amsrenv_data)
-        self.aux.append(aux_data)
+        temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
+
+        self.scenes.append(temp_scene)
 
     def _downsample_and_pad(self, data):
         """Handle downsampling and padding with optimized tensor ops."""
@@ -349,9 +347,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Initialize constants
         patch_size = self.options["patch_size"]
-        full_vars = self.options["full_variables"]
-        amsrenv_vars = self.options["amsrenv_variables"]
-        aux_vars = self.options["auxiliary_variables"]
 
         # Get scene dimensions
         _, height, width = self.scenes[idx].shape
@@ -366,23 +361,7 @@ class AI4ArcticChallengeDataset(Dataset):
         if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
             return None, None
 
-        # Initialize output patch using torch tensors
-        patch = torch.zeros(len(full_vars) + len(amsrenv_vars) + len(aux_vars), patch_size, patch_size)
-
-        # --- Full Resolution Variables ---
-        patch[: len(full_vars)] = self.scenes[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
-
-        # --- AMSR/Env Variables ---
-        if amsrenv_vars:
-            patch[len(full_vars) : len(full_vars) + len(amsrenv_vars)] = self.amsrs[idx][
-                :, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size
-            ]
-
-        # --- Auxiliary Variables ---
-        if aux_vars:
-            patch[len(full_vars) + len(amsrenv_vars) :] = self.aux[idx][
-                :, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size
-            ]
+        patch = self.scenes[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
 
         # Split into inputs and targets
         x_patch = patch[len(self.options["charts"]) :].unsqueeze(0).float()
