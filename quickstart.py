@@ -88,9 +88,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     }
 
     loss_water_edge_consistency = WaterConsistencyLoss()
-    print("Training...")
     # -- Training Loop -- #
-    for epoch in tqdm(iterable=range(start_epoch, train_options["epochs"])):
+    for epoch in tqdm(iterable=range(start_epoch, train_options["epochs"]), desc="Training"):
         # gc.collect()  # Collect garbage to free memory.
         train_loss_sum = torch.tensor([0.0])  # To sum the training batch losses during the epoch.
         cross_entropy_loss_sum = torch.tensor([0.0])  # To sum the training cross entropy batch losses during the epoch.
@@ -100,12 +99,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         val_loss_sum = torch.tensor([0.0])  # To sum the validation batch losses during the epoch.
         # To sum the validation cross entropy batch losses during the epoch.
         val_cross_entropy_loss_sum = torch.tensor([0.0])
-        # To sum the validation cedge consistency batch losses during the epoch.
+        # To sum the validation edge consistency batch losses during the epoch.
         val_edge_consistency_loss_sum = torch.tensor([0.0])
         net.train()  # Set network to evaluation mode.
 
         # Loops though batches in queue.
-        for i, (batch_x, batch_y) in enumerate(tqdm(iterable=dataloader_train, total=train_options["epoch_len"], colour="red")):
+        for i, (batch_x, batch_y) in enumerate(
+            tqdm(iterable=dataloader_train, total=train_options["epoch_len"], colour="red", desc="Batch")
+        ):
             # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             train_loss_batch = torch.tensor([0.0]).to(device)  # Reset from previous batch.
             edge_consistency_loss = torch.tensor([0.0]).to(device)
@@ -167,10 +168,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         # Outputs mask by train fill values
         outputs_tfv_mask = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
         net.eval()  # Set network to evaluation mode.
-        print("Validating...")
         # - Loops though scenes in queue.
         for i, (inf_x, inf_y, cfv_masks, tfv_mask, name, original_size) in enumerate(
-            tqdm(iterable=dataloader_val, total=len(train_options["validate_list"]), colour="green")
+            tqdm(iterable=dataloader_val, total=len(train_options["validate_list"]), colour="green", desc="Validation")
         ):
             torch.cuda.empty_cache()
             # Reset from previous batch.
@@ -221,7 +221,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         val_edge_consistency_epoch = torch.true_divide(val_edge_consistency_loss_sum, i + 1).detach().item()
 
         # - Compute the relevant scores.
-        print("Computing Metrics on Val dataset")
         combined_score, scores = compute_metrics(
             true=inf_ys_flat,
             pred=outputs_flat,
@@ -409,7 +408,7 @@ def main():
         print(colour_str(f"\n[CPU Information]", "blue"))
         print(colour_str(f"Available Cores: {os.cpu_count()}", "blue"))
 
-    print(colour_str(f"\nDevice setup completed: {device}", "blue"))
+    print(colour_str(f"Device setup completed: {device}", "blue"))
 
     net = get_model(train_options, device)
     if train_options["compile_model"]:
