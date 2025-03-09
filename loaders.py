@@ -352,7 +352,6 @@ class AI4ArcticChallengeDataset(Dataset):
         full_vars = self.options["full_variables"]
         amsrenv_vars = self.options["amsrenv_variables"]
         aux_vars = self.options["auxiliary_variables"]
-        delta = self.options["amsrenv_delta"]
 
         # Get scene dimensions
         _, height, width = self.scenes[idx].shape
@@ -375,49 +374,15 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # --- AMSR/Env Variables ---
         if amsrenv_vars:
-            # Calculate AMSR grid coordinates
-            amsr_row = row_rand / delta
-            amsr_col = col_rand / delta
-
-            # Safety check for amsrs data size
-            required_lr_size = math.ceil(patch_size / delta) + 1
-            assert self.amsrs[idx].shape[-2:] >= (
-                required_lr_size,
-                required_lr_size,
-            ), f"AMSR data too small: {self.amsrs[idx].shape} < {required_lr_size}"
-
-            # Calculate fractional offsets
-            row_frac = amsr_row - int(amsr_row)
-            col_frac = amsr_col - int(amsr_col)
-
-            # AMSR patch extraction with padding
-            amsr_patch = self.amsrs[idx][
-                :,
-                int(amsr_row) : int(amsr_row) + math.ceil(patch_size / delta),
-                int(amsr_col) : int(amsr_col) + math.ceil(patch_size / delta),
-            ]
-
-            # Upsample and align
-            amsr_patch = F.interpolate(
-                amsr_patch.unsqueeze(0), scale_factor=delta, mode=self.options["loader_upsampling"]
-            ).squeeze(0)
-
-            # Calculate crop positions
-            crop_row = round(row_frac * delta)
-            crop_col = round(col_frac * delta)
-
-            # Boundary checks (now handles upsampled dimensions)
-            crop_row = max(0, min(amsr_patch.shape[-2] - patch_size, crop_row))
-            crop_col = max(0, min(amsr_patch.shape[-1] - patch_size, crop_col))
-
-            patch[len(full_vars) : len(full_vars) + len(amsrenv_vars)] = amsr_patch[
-                :, crop_row : crop_row + patch_size, crop_col : crop_col + patch_size
+            patch[len(full_vars) : len(full_vars) + len(amsrenv_vars)] = self.amsrs[idx][
+                :, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size
             ]
 
         # --- Auxiliary Variables ---
         if aux_vars:
-            aux_data = self.aux[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
-            patch[len(full_vars) + len(amsrenv_vars) :] = aux_data
+            patch[len(full_vars) + len(amsrenv_vars) :] = self.aux[idx][
+                :, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size
+            ]
 
         # Split into inputs and targets
         x_patch = patch[len(self.options["charts"]) :].unsqueeze(0).float()
