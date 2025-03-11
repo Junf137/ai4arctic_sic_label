@@ -754,6 +754,7 @@ def sic_visualization(options, sic_np, sic_cfv, scene_id, title="SIC Visualizati
     # sic_cfv_num = np.count_nonzero(sic_np == sic_cfv)
     # print(f"number of value {sic_cfv} in SIC: {sic_cfv_num}, {sic_cfv_num / sic_np.size}%")
 
+    # mask sic_np here will not change the original sic_np
     sic_np = np.ma.masked_where(sic_np == sic_cfv, sic_np)
 
     # Plot SIC
@@ -795,9 +796,8 @@ def mask_sic_label_edges(options, SIC, sic_cfv, scene_id):
         sic_visualization(options=options, sic_np=SIC.numpy(), sic_cfv=sic_cfv, scene_id=scene_id, title="Original SIC")
         sic_visualization(options=options, sic_np=mask, sic_cfv=sic_cfv, scene_id=scene_id, title="Edge Mask")
 
+    # update SIC with mask
     SIC[mask] = sic_cfv
 
     if options["visualization"]:
         sic_visualization(options=options, sic_np=SIC.numpy(), sic_cfv=sic_cfv, scene_id=scene_id, title="Masked SIC")
-
-    return SIC

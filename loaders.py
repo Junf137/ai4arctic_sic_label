@@ -143,7 +143,7 @@ class AI4ArcticChallengeDataset(Dataset):
                 # Apply SIC label mask after downsampling
                 sic_label_mask_opts = self.options["sic_label_mask"]
                 if sic_label_mask_opts["train"]:
-                    temp_scene[0] = mask_sic_label_edges(
+                    mask_sic_label_edges(
                         options=sic_label_mask_opts,
                         SIC=temp_scene[0],
                         sic_cfv=self.options["class_fill_values"]["SIC"],
@@ -670,7 +670,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
             sic_label_mask_opts = self.options["sic_label_mask"]
             if (self.mode == "train" and sic_label_mask_opts["val"]) or (self.mode == "test" and sic_label_mask_opts["test"]):
-                y_charts[0] = mask_sic_label_edges(
+                mask_sic_label_edges(
                     options=sic_label_mask_opts,
                     SIC=y_charts[0],
                     sic_cfv=self.options["class_fill_values"]["SIC"],
