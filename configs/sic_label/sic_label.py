@@ -20,6 +20,29 @@ train_options.update(
         "val_path": "datalists/valset2.json",  # Validation dataset list. Disabled when cross_val_run is True.
         "test_path": "datalists/testset.json",  # Test dataset list.
         # -- Experiment configuration -- #
+        "train_variables": [
+            # -- Sentinel-1 variables -- #
+            "nersc_sar_primary",
+            "nersc_sar_secondary",
+            "sar_incidenceangle",
+            # -- Geographical variables -- #
+            "distance_map",
+            # -- AMSR2 channels -- #
+            "btemp_18_7h",
+            "btemp_18_7v",
+            "btemp_36_5h",
+            "btemp_36_5v",
+            # -- Environmental variables -- #
+            "u10m_rotated",
+            "v10m_rotated",
+            "t2m",
+            "tcwv",
+            "tclw",
+            # -- Auxiliary Variables -- #
+            "aux_time",
+            "aux_lat",
+            "aux_long",
+        ],
         "cross_val_run": True,
         "p-out": 20,  # number of scenes taken from the TRAIN SET as the validation set.
         "compute_classwise_f1score": True,
@@ -27,17 +50,6 @@ train_options.update(
         "num_workers": 4,  # Number of parallel processes to fetch data.
         "num_workers_val": 4,  # Number of parallel processes during validation.
         "down_sample_scale": 10,
-        # -- SIC masking configuration -- #
-        "sic_label_mask": {
-            "train": True,
-            "val": True,
-            "test": False,
-            "ksize_ratio": 100,  # ratio of the (image size / kernel size)
-            "mask_threshold": 0,  # threshold for determining the mask after sobel filter
-            "visualization": False,
-            # Path to save visualization. Only works when visualization is True.
-            "visualization_save_path": "/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic_challenge_clean/output/visualization",
-        },
         # -- Training configuration -- #
         "epochs": 300,
         "epoch_len": 500,  # Number of batches for each epoch.
