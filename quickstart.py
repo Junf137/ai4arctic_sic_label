@@ -106,8 +106,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     if train_options['edge_consistency_loss'] != 0:
                         edge_consistency_loss = loss_water_edge_consistency(output)
 
-                    cross_entropy_loss += weight * loss_ce_functions[chart](
-                        output[chart], batch_y[chart].to(device))
+                    # only calculate loss when there is at least a valid target value
+                    if (batch_y[chart] != train_options["class_fill_values"][chart]).any():
+                        cross_entropy_loss += weight * loss_ce_functions[chart](
+                            output[chart], batch_y[chart].to(device))
 
             if train_options['edge_consistency_loss'] != 0:
                 a = train_options['edge_consistency_loss']
@@ -173,8 +175,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                 for chart, weight in zip(train_options['charts'], train_options['task_weights']):
 
-                    val_cross_entropy_loss += weight * loss_ce_functions[chart](output[chart],
-                                                                                inf_y[chart].unsqueeze(0).long().to(device))
+                    # only calculate loss when there is at least a valid target value
+                    if (inf_y[chart] != train_options["class_fill_values"][chart]).any():
+                        val_cross_entropy_loss += weight * loss_ce_functions[chart](output[chart],
+                                                                                    inf_y[chart].unsqueeze(0).long().to(device))
 
                 if train_options['edge_consistency_loss'] != 0:
                     a = train_options['edge_consistency_loss']
