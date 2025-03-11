@@ -301,25 +301,32 @@ def main():
     # generate wandb run id, to be used to link the run with test_upload
     id = wandb.util.generate_id()
 
-    # Set the seed if not -1
-    if train_options['seed'] != -1 and args.seed == None:
-        # set seed for everything
-        if args.seed != None:
-            seed = int(args.seed)
-        else:
-            seed = train_options['seed']
+    # Seed handling: Prioritize CLI seed, then config seed if not -1
+    seed = None
+    if args.seed is not None:
+        seed = int(args.seed)
+    elif train_options.get("seed", -1) != -1:
+        seed = train_options["seed"]
+
+    if seed is not None:
         random.seed(seed)
-        os.environ['PYTHONHASHSEED'] = str(seed)
+        os.environ["PYTHONHASHSEED"] = str(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
+
+        # Set deterministic algorithms for cudnn
         # torch.backends.cudnn.deterministic = True
         # torch.backends.cudnn.benchmark = False
         # torch.backends.cudnn.enabled = True
+
+        # Set deterministic algorithms for torch
+        # torch.use_deterministic_algorithms(True)
         print(f"Seed: {seed}")
     else:
         print("Random Seed Chosen")
+
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
