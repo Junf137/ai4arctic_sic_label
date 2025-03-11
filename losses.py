@@ -57,8 +57,8 @@ class MSELossFromLogits(nn.Module):
 
     def forward(self, output: torch.Tensor, target: torch.Tensor):
 
-        # replace ignore index value(for e.g 255) with a number 11. Becuz one hot encode requires
-        # continous numbers (you cant one hot encode 255)
+        # replace ignore index value(for e.g 255) with a number 11. Because one hot encode requires
+        # continuous numbers (you cant one hot encode 255)
         target = torch.where(
             target == self.ignore_index, torch.tensor(self.replace_value, dtype=target.dtype, device=target.device), target
         )
