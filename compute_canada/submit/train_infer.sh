@@ -13,9 +13,6 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-type=REQUEUE
 
-# Change to the repo directory
-cd $HOME/projects/rrg-dclausi/$USER/ai4arctic_challenge_clean
-
 # Usage: sbatch train_infer.sh <config> <wandb_project> <seed> <venv_path>
 if [ "$#" -ne 4 ]; then
     echo "---* Usage: sbatch ${0##*/} <config> <wandb_project> <seed> <venv_path>"
