@@ -50,6 +50,7 @@ train_options.update(
         "num_workers": 4,  # Number of parallel processes to fetch data.
         "num_workers_val": 4,  # Number of parallel processes during validation.
         "down_sample_scale": 10,
+        "deterministic": False,
         # -- Training configuration -- #
         "epochs": 300,
         "epoch_len": 500,  # Number of batches for each epoch.

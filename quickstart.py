@@ -320,13 +320,15 @@ def main():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
-        # Set deterministic algorithms for cudnn
-        # torch.backends.cudnn.deterministic = True
-        # torch.backends.cudnn.benchmark = False
-        # torch.backends.cudnn.enabled = True
+        if train_options["deterministic"]:
+            # Set deterministic algorithms for cudnn
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            torch.backends.cudnn.enabled = True
 
-        # Set deterministic algorithms for torch
-        # torch.use_deterministic_algorithms(True)
+            # Set deterministic algorithms for torch
+            torch.use_deterministic_algorithms(True)
+
         print(f"Seed: {seed}")
     else:
         print("Random Seed Chosen")
