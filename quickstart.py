@@ -371,7 +371,7 @@ def main():
             torch.backends.cudnn.enabled = True
 
             # Set deterministic algorithms for torch
-            torch.use_deterministic_algorithms(True)
+            torch.use_deterministic_algorithms(True, warn_only=True)
 
         print(f"Seed: {seed}")
     else:
