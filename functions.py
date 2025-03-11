@@ -14,6 +14,7 @@ __date__ = '2024-04-05'
 # -- Built-in modules -- #
 import os
 import json
+import random
 # -- Third-party modules -- #
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -29,6 +30,12 @@ from tqdm import tqdm  # Progress bar
 from utils import ICE_STRINGS, GROUP_NAMES
 from unet import UNet, Sep_feat_dif_stages  # Convolutional Neural Network model
 from swin_transformer import SwinTransformer  # Swin Transformer
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
 
 
 def chart_cbar(ax, n_classes, chart, cmap='vridis'):
@@ -101,7 +108,7 @@ def r2_metric(true, pred, num_classes=None):
         ndarray, 1d contains all predicted pixels. Must by numpy array.
     num_classes :
         Num of classes in the dataset, this value is not used in this function but used in f1_metric function
-        which requires num_classes argument. The reason it was included here was to keep the same structure.  
+        which requires num_classes argument. The reason it was included here was to keep the same structure.
 
 
     Returns
@@ -260,7 +267,7 @@ def load_model(net, checkpoint_path, optimizer=None, scheduler=None):
 
 def rand_bbox(size, lam):
     '''
-    Given the 4D dimensions of a batch (size), and the ratio 
+    Given the 4D dimensions of a batch (size), and the ratio
     of the spatial dimension (lam) to be cut, returns a bounding box coordinates
     used for cutmix
 
@@ -269,7 +276,7 @@ def rand_bbox(size, lam):
     size : 4D shape of the batch (N, C, H, W)
     lam : Ratio (portion) of the input to be cutmix'd
 
-    Returns 
+    Returns
     ----------
     Bounding box (x1, y1, x2, y2)
     '''
@@ -299,11 +306,11 @@ def slide_inference(img, net, options, mode):
     Parameters
     ----------
     img : 4D shape of the batch (N, C', H, W)
-    net : PyTorch model of nn.Module 
+    net : PyTorch model of nn.Module
     options: configuration dictionary
     mode: either 'val' or 'test'
 
-    Returns 
+    Returns
     ----------
     pred: Dictionary with SIC, SOD, and FLOE predictions of the batch  (N, C", H, W)
     """
@@ -434,11 +441,11 @@ def batched_slide_inference(img, net, options, mode):
     Parameters
     ----------
     img : 4D shape of the batch (N, C', H, W)
-    net : PyTorch model of nn.Module 
+    net : PyTorch model of nn.Module
     y_type: str, One of 'SIC', 'SOD', or 'FLOE'
     options: configuration dictionary
 
-    Returns 
+    Returns
     ----------
     pred: Dictionary with SIC, SOD, and FLOE predictions of the batch  (N, C", H, W)
     """
@@ -467,7 +474,9 @@ def batched_slide_inference(img, net, options, mode):
     indexes = Slide_patches_index(h_img, w_img, h_crop, w_crop, h_stride, w_stride)
     samples = Take_crops(img.detach().cpu().numpy()[0], indexes.patches_list)
     samples_dataloader = data.DataLoader(dataset=samples, batch_size=options['batch_size']*4,
-                                         shuffle=False, num_workers=options['num_workers_val'])
+                                         shuffle=False, num_workers=options['num_workers_val'],
+                                         worker_init_fn=seed_worker,
+                                         generator=torch.Generator().manual_seed(torch.initial_seed()))
 
     n_batches = len(samples_dataloader)
     data_iterator = iter(samples_dataloader)
@@ -591,7 +600,7 @@ def create_train_validation_and_test_scene_list(train_options):
     # Remove the validation scenes from the train list.
     train_options['train_list'] = [scene for scene in train_options['train_list']
                                    if scene not in train_options['validate_list']]
-    
+
     # Test ----------
     with open(train_options['path_to_env'] + train_options['test_path']) as file:
         train_options['test_list'] = json.loads(file.read())

@@ -24,7 +24,7 @@ import wandb
 # --Proprietary modules -- #
 from functions import chart_cbar, water_edge_plot_overlay, compute_metrics, water_edge_metric, class_decider
 from loaders import AI4ArcticChallengeTestDataset, get_variable_options
-from functions import slide_inference, batched_slide_inference
+from functions import slide_inference, batched_slide_inference, seed_worker
 
 
 
@@ -77,7 +77,9 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         dataset = AI4ArcticChallengeTestDataset(
             options=train_options, files=train_options['test_list'], mode='test')
         asid_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
+            dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False,
+            worker_init_fn=seed_worker,
+            generator=torch.Generator().manual_seed(torch.initial_seed()))
         print('Setup ready')
 
     elif mode == 'val':
@@ -87,7 +89,9 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         dataset = AI4ArcticChallengeTestDataset(
             options=train_options, files=train_options['test_list'], mode='train')
         asid_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False)
+            dataset, batch_size=None, num_workers=train_options['num_workers_val'], shuffle=False,
+            worker_init_fn=seed_worker,
+            generator=torch.Generator().manual_seed(torch.initial_seed()))
         print('Setup ready')
 
     if mode == 'val':
