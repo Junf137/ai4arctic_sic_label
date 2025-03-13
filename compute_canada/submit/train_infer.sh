@@ -4,8 +4,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=128G
-#SBATCH --time=6:59:00
-#SBATCH --output=/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic_challenge_clean/output/%u_%x_%j.log
+#SBATCH --time=5:59:00
+#SBATCH --output=/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic/output/%x_%j.log
 #SBATCH --account=rrg-dclausi
 #SBATCH --mail-user=junf137@outlook.com
 #SBATCH --mail-type=BEGIN
