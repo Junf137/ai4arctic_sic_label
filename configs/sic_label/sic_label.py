@@ -43,6 +43,7 @@ train_options.update(
             "aux_lat",
             "aux_long",
         ],
+        "patience": 10,  # Number of epochs to wait before early stopping.
         "cross_val_run": True,
         "p-out": 20,  # number of scenes taken from the TRAIN SET as the validation set.
         "compute_classwise_f1score": True,

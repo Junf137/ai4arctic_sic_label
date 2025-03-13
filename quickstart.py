@@ -81,6 +81,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     Trains the model.
     """
     best_combined_score = -np.Inf  # Best weighted model score.
+    patience = train_options["patience"]  # Number of epochs to wait before early stopping.
+    patience_counter = 0  # Counter for early stopping.
 
     loss_ce_functions = {
         chart: get_loss(train_options["chart_loss"][chart]["type"], chart=chart, **train_options["chart_loss"][chart])
@@ -300,6 +302,15 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
 
             wandb.save(model_path)
+
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        # Early stopping
+        if patience_counter >= patience:
+            print(f"Early stopping at epoch {epoch}")
+            break
 
     del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
