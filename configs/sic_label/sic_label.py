@@ -61,7 +61,7 @@ train_options.update(
             "mask_threshold": 0,  # threshold for determining the mask after sobel filter
             "visualization": False,
             # Path to save visualization. Only works when visualization is True.
-            "visualization_save_path": "/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic_challenge_clean/output/visualization",
+            "visualization_save_path": "output/visualization",
         },
         # -- Training configuration -- #
         "epochs": 300,
