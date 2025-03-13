@@ -57,7 +57,8 @@ train_options.update(
             "train": True,
             "val": True,
             "test": False,
-            "ksize_ratio": 100,  # ratio of the (image size / kernel size)
+            "ksize": 3,  # hard-coded kernel size
+            "ksize_ratio": 100,  # ratio of the (image size / kernel size), disabled when ksize is set.
             "mask_threshold": 0,  # threshold for determining the mask after sobel filter
             "visualization": False,
             # Path to save visualization. Only works when visualization is True.

@@ -777,19 +777,20 @@ def mask_sic_label_edges(options, SIC, sic_cfv, scene_id):
     """Mask SIC borders"""
     sic_np = SIC.numpy()
 
-    ksize_ratio = options["ksize_ratio"]
-    threshold = options["mask_threshold"]
-
-    # Calculate kernel size ensuring odd number
-    kernel_size = max(3, int(min(SIC.shape[-2:]) / ksize_ratio))
-    kernel_size = kernel_size + 1 if kernel_size % 2 == 0 else kernel_size
-    kernel_size = min(kernel_size, min(SIC.shape[-2:]) - 2)
+    if options["ksize"] is not None:
+        kernel_size = options["ksize"]
+    else:
+        ksize_ratio = options["ksize_ratio"]
+        # Calculate kernel size ensuring odd number
+        kernel_size = max(3, int(min(SIC.shape[-2:]) / ksize_ratio))
+        kernel_size = kernel_size + 1 if kernel_size % 2 == 0 else kernel_size
+        kernel_size = min(kernel_size, min(SIC.shape[-2:]) - 2)
 
     # Apply Sobel edge detection (to highlight boundaries)
     sobel_x = cv2.Sobel(sic_np, cv2.CV_64F, 1, 0, ksize=kernel_size)
     sobel_y = cv2.Sobel(sic_np, cv2.CV_64F, 0, 1, ksize=kernel_size)
     edges = np.hypot(sobel_x, sobel_y)  # Compute gradient magnitude
-    mask = edges > threshold
+    mask = edges > options["mask_threshold"]
 
     # Visualization only in debug mode
     if options["visualization"]:
