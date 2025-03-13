@@ -284,8 +284,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             step=epoch,
         )
 
-        # If the scores is better than the previous epoch, then save the model and rename the image to best_validation.
-
+        # If the scores is better than the previous epoch, then save the model
         if combined_score > best_combined_score:
             best_combined_score = combined_score
 
@@ -297,6 +296,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     chart
                 ]
             wandb.run.summary[f"While training/Train Epoch Loss"] = train_loss_epoch
+            wandb.run.summary[f"while training/Best Epoch"] = epoch
 
             # Save the best model in work_dirs
             model_path = save_best_model(cfg, train_options, net, optimizer, scheduler, epoch)
