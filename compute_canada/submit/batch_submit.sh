@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage: bash batch_submit.sh <submit_num> <wandb_project> <seed> <venv_path>
-if [ "$#" -ne 4 ]; then
+if [ "$#" -ne 5 ]; then
     echo "---* Usage: bash ${0##*/} <job_script> <submit_num> <wandb_project> <seed> <venv_path>"
     exit 1
 fi
@@ -23,6 +23,8 @@ config_array=(
 
 # loop submission
 for i in "${!config_array[@]}"; do
+    echo "sbatch $job_script ${config_array[i]} $wandb_project $seed $venv_path"
+
     for j in $(seq 1 $submit_num); do
         sbatch $job_script ${config_array[i]} $wandb_project $seed $venv_path
         sleep 10
