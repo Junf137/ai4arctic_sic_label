@@ -276,7 +276,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             patience_counter += 1
 
         # Early stopping
-        if patience_counter >= patience:
+        if (patience != 0) and patience_counter >= patience:
             print(f"Early stopping at epoch {epoch}")
             break
 
