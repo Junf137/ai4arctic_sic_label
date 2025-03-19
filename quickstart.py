@@ -92,7 +92,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     loss_water_edge_consistency = WaterConsistencyLoss()
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(start_epoch, train_options["epochs"]), desc="Training"):
-        # gc.collect()  # Collect garbage to free memory.
+
         train_loss_sum = torch.tensor([0.0])  # To sum the training batch losses during the epoch.
         cross_entropy_loss_sum = torch.tensor([0.0])  # To sum the training cross entropy batch losses during the epoch.
         # To sum the training edge consistency batch losses during the epoch.
@@ -109,7 +109,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for i, (batch_x, batch_y) in enumerate(
             tqdm(iterable=dataloader_train, total=train_options["epoch_len"], colour="red", desc="Batch")
         ):
-            # torch.cuda.empty_cache()  # Empties the GPU cache freeing up memory.
             train_loss_batch = torch.tensor([0.0]).to(device)  # Reset from previous batch.
             edge_consistency_loss = torch.tensor([0.0]).to(device)
             cross_entropy_loss = torch.tensor([0.0]).to(device)
@@ -120,7 +119,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             with torch.amp.autocast(device_type=device.type):
                 # - Forward pass.
                 output = net(batch_x)
-                # breakpoint()
+
                 # - Calculate loss.
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
@@ -160,26 +159,20 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         cross_entropy_epoch = torch.true_divide(cross_entropy_loss_sum, i + 1).detach().item()
         edge_consistency_epoch = torch.true_divide(edge_consistency_loss_sum, i + 1).detach().item()
 
-        # del output, batch_x, batch_y # Free memory.
-        # del loss_sum
-
         # -- Validation Loop -- #
-        # For printing after the validation loop.
-
         # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
         outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
         inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
         # Outputs mask by train fill values
         outputs_tfv_mask = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
         net.eval()  # Set network to evaluation mode.
+
         # - Loops though scenes in queue.
         for i, (inf_x, inf_y, cfv_masks, tfv_mask, name, original_size) in enumerate(
             tqdm(iterable=dataloader_val, total=len(train_options["validate_list"]), colour="green", desc="Validation")
         ):
             torch.cuda.empty_cache()
-            # Reset from previous batch.
-            # train fill value mask
-            # tfv_mask = (inf_x.squeeze()[0, :, :] == train_options['train_fill_value']).squeeze()
+
             val_loss_batch = torch.tensor([0.0]).to(device)
             val_edge_consistency_loss = torch.tensor([0.0]).to(device)
             val_cross_entropy_loss = torch.tensor([0.0]).to(device)
@@ -188,7 +181,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 inf_x = inf_x.to(device, non_blocking=True)
                 if train_options["model_selection"] == "swin":
                     output = slide_inference(inf_x, net, train_options, "val")
-                    # output = batched_slide_inference(inf_x, net, train_options, 'val')
                 else:
                     output = net(inf_x)
 
@@ -209,13 +201,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options["charts"]:
                 output[chart] = class_decider(output[chart], train_options, chart)
-                # output[chart] = torch.argmax(
-                #     output[chart], dim=1).squeeze()
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~cfv_masks[chart]]))
                 outputs_tfv_mask[chart] = torch.cat((outputs_tfv_mask[chart], output[chart][~tfv_mask]))
                 inf_ys_flat[chart] = torch.cat(
                     (inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True))
                 )
+
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
             val_cross_entropy_loss_sum += val_cross_entropy_loss.detach().item()

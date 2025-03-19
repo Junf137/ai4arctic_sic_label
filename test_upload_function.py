@@ -42,12 +42,14 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
 
     train_options = cfg.train_options
     train_options = get_variable_options(train_options)
-    weights = torch.load(f=checkpoint, weights_only=False)["model_state_dict"]
 
+    weights = torch.load(f=checkpoint, weights_only=False)["model_state_dict"]
     net.load_state_dict(weights)
     print("Model successfully loaded.")
+
     experiment_name = osp.splitext(osp.basename(cfg.work_dir))[0]
     artifact = wandb.Artifact(experiment_name, "dataset")
+
     table = wandb.Table(columns=["ID", "Image"])
 
     # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
@@ -58,37 +60,16 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     outputs_tfv_mask = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
 
     # ### Prepare the scene list, dataset and dataloaders
-
-    if mode == "test":
-
-        train_options["test_list"] = test_list
-        # The test data is stored in a separate folder inside the training data.
-        # upload_package = xr.Dataset()  # To store model outputs.
-        dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options["test_list"], mode="test")
-        asid_loader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=None,
-            num_workers=train_options["num_workers_val"],
-            shuffle=False,
-            worker_init_fn=seed_worker,
-            generator=torch.Generator().manual_seed(torch.initial_seed()),
-        )
-        print("Setup ready")
-
-    elif mode == "val":
-        train_options["test_list"] = test_list
-        # The test data is stored in a separate folder inside the training data.
-        # upload_package = xr.Dataset()  # To store model outputs.
-        dataset = AI4ArcticChallengeTestDataset(options=train_options, files=train_options["test_list"], mode="train")
-        asid_loader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=None,
-            num_workers=train_options["num_workers_val"],
-            shuffle=False,
-            worker_init_fn=seed_worker,
-            generator=torch.Generator().manual_seed(torch.initial_seed()),
-        )
-        print("Setup ready")
+    dataset = AI4ArcticChallengeTestDataset(options=train_options, files=test_list, mode="train" if mode == "val" else "test")
+    asid_loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=None,
+        num_workers=train_options["num_workers_val"],
+        shuffle=False,
+        worker_init_fn=seed_worker,
+        generator=torch.Generator().manual_seed(torch.initial_seed()),
+    )
+    print("Setup ready")
 
     if mode == "val":
         inference_name = "inference_val"
@@ -96,9 +77,10 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         inference_name = "inference_test"
 
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
+
     net.eval()
     for inf_x, inf_y, cfv_masks, tfv_mask, scene_name, original_size in tqdm(
-        iterable=asid_loader, total=len(train_options["test_list"]), colour="green", position=0
+        iterable=asid_loader, total=len(test_list), colour="green", position=0
     ):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
         torch.cuda.empty_cache()
@@ -107,7 +89,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         with torch.no_grad(), torch.amp.autocast(device_type=device.type):
             if train_options["model_selection"] == "swin":
                 output = slide_inference(inf_x, net, train_options, "test")
-                # output = batched_slide_inference(inf_x, net, train_options, 'test')
             else:
                 output = net(inf_x)
 
@@ -140,8 +121,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                     else:
                         output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode="nearest")
 
-                    # upscale the output
-                    # if not test:
                     inf_y[chart] = torch.nn.functional.interpolate(
                         inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0), size=original_size, mode="nearest"
                     ).squeeze()
@@ -182,10 +161,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
 
             ax = axs[idx + 3]
             output_class[chart] = output_class[chart].astype(float)
-            # if test is False:
             output_class[chart][cfv_masks[chart]] = np.nan
-            # else:
-            #     output[chart][masks.cpu().numpy()] = np.nan
             ax.imshow(
                 output_class[chart], vmin=0, vmax=train_options["n_classes"][chart] - 2, cmap="jet", interpolation="nearest"
             )
@@ -257,18 +233,20 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             plt.ylabel("Actual Labels")
             plt.title("Confusion Matrix")
             cbar = ax.collections[0].colorbar
-            # cbar.set_ticks([0, .2, .75, 1])
             cbar.set_ticklabels(["0%", "20%", "40%", "60%", "80%", "100%"])
             mkdir_or_exist(f"{osp.join(cfg.work_dir)}/{test_name}")
             plt.savefig(
                 f"{osp.join(cfg.work_dir)}/{test_name}/{chart}_confusion_matrix.png", format="png", dpi=128, bbox_inches="tight"
             )
 
+    # Save the results to the wandb
     wandb.run.summary[f"{test_name}/Best Combined Score"] = combined_score
     print(f"{test_name}/Best Combined Score = {combined_score}")
+
     for chart in train_options["charts"]:
         wandb.run.summary[f"{test_name}/{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
         print(f"{test_name}/{chart} {train_options['chart_metric'][chart]['func'].__name__} = {scores[chart]}")
+
         if train_options["compute_classwise_f1score"]:
             wandb.run.summary[f"{test_name}/{chart}: classwise score:"] = classwise_scores[chart]
             print(f"{test_name}/{chart}: classwise score: = {classwise_scores[chart]}")
