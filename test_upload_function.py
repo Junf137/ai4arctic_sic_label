@@ -56,8 +56,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     output_class = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
     outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
     inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
-    # Outputs mask by train fill values
-    outputs_tfv_mask = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
 
     # ### Prepare the scene list, dataset and dataloaders
     dataset = AI4ArcticChallengeTestDataset(options=train_options, files=test_list, mode="train" if mode == "val" else "test")
@@ -79,7 +77,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
 
     net.eval()
-    for inf_x, inf_y, cfv_masks, tfv_mask, scene_name, original_size in tqdm(
+    for inf_x, inf_y, cfv_masks, scene_name, original_size in tqdm(
         iterable=asid_loader, total=len(test_list), colour="green", position=0
     ):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
@@ -93,14 +91,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 output = net(inf_x)
 
             # Up sample the masks
-            tfv_mask = (
-                torch.nn.functional.interpolate(
-                    tfv_mask.type(torch.uint8).unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest"
-                )
-                .squeeze()
-                .squeeze()
-                .to(torch.bool)
-            )
             for chart in train_options["charts"]:
                 masks_int = cfv_masks[chart].to(torch.uint8)
                 masks_int = (
@@ -128,7 +118,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         for chart in train_options["charts"]:
             output_class[chart] = class_decider(output[chart], train_options, chart).detach()
             outputs_flat[chart] = torch.cat((outputs_flat[chart], output_class[chart][~cfv_masks[chart]]))
-            outputs_tfv_mask[chart] = torch.cat((outputs_tfv_mask[chart], output_class[chart][~tfv_mask].to(device)))
             inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True)))
 
         for chart in train_options["charts"]:
@@ -150,12 +139,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             ax.set_xticks([])
             ax.set_yticks([])
             ax.imshow(img, cmap="gray")
-
-        ax = axs[2]
-        ax.set_title("Water Edge SIC: Red, SOD: Green,Floe: Blue")
-        edge_water_output = water_edge_plot_overlay(output_class, tfv_mask.cpu().numpy(), train_options)
-
-        ax.imshow(edge_water_output, vmin=0, vmax=1, interpolation="nearest")
 
         for idx, chart in enumerate(train_options["charts"]):
 
@@ -195,8 +178,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         num_classes=train_options["n_classes"],
     )
 
-    # compute water edge metric
-    water_edge_accuracy = water_edge_metric(outputs_tfv_mask, train_options)
     if train_options["compute_classwise_f1score"]:
         from functions import compute_classwise_f1score
 
@@ -250,9 +231,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         if train_options["compute_classwise_f1score"]:
             wandb.run.summary[f"{test_name}/{chart}: classwise score:"] = classwise_scores[chart]
             print(f"{test_name}/{chart}: classwise score: = {classwise_scores[chart]}")
-
-    wandb.run.summary[f"{test_name}/Water Consistency Accuracy"] = water_edge_accuracy
-    print(f"{test_name}/Water Consistency Accuracy = {water_edge_accuracy}")
 
     if mode == "test":
         artifact.add(table, experiment_name + "_test")

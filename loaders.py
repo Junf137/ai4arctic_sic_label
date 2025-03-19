@@ -675,11 +675,9 @@ class AI4ArcticChallengeTestDataset(Dataset):
         else:
             cfv_masks = None
 
-        tfv_mask = (x.squeeze()[0, :, :] == self.options["train_fill_value"]).squeeze()
-
         original_size = scene["nersc_sar_primary"].values.shape
 
-        return x, y, cfv_masks, tfv_mask, name, original_size
+        return x, y, cfv_masks, name, original_size
 
 
 def get_variable_options(train_options: dict):
