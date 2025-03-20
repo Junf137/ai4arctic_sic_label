@@ -22,7 +22,15 @@ from mmengine import mkdir_or_exist
 import wandb
 
 # --Proprietary modules -- #
-from functions import chart_cbar, water_edge_plot_overlay, compute_metrics, water_edge_metric, class_decider
+from functions import (
+    chart_cbar,
+    water_edge_plot_overlay,
+    compute_metrics,
+    water_edge_metric,
+    class_decider,
+    r2_metric,
+    create_edge_cent_flat,
+)
 from loaders import AI4ArcticChallengeTestDataset, get_variable_options
 from functions import slide_inference, batched_slide_inference, seed_worker
 
@@ -57,6 +65,11 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
     inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
 
+    sic_cent_flat = torch.Tensor().to(device)
+    inf_y_sic_cent_flat = torch.Tensor().to(device)
+    sic_edge_flat = torch.Tensor().to(device)
+    inf_y_sic_edge_flat = torch.Tensor().to(device)
+
     # ### Prepare the scene list, dataset and dataloaders
     dataset = AI4ArcticChallengeTestDataset(options=train_options, files=test_list, mode="train" if mode == "val" else "test")
     asid_loader = torch.utils.data.DataLoader(
@@ -77,7 +90,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
 
     net.eval()
-    for inf_x, inf_y, cfv_masks, scene_name, original_size in tqdm(
+    for inf_x, inf_y, sic_weight_map, cfv_masks, scene_name, original_size in tqdm(
         iterable=asid_loader, total=len(test_list), colour="green", position=0
     ):
         scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
@@ -114,10 +127,28 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                     inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0), size=original_size, mode="nearest"
                 ).squeeze()
 
+            # Upsample the weight map
+            sic_weight_map = torch.nn.functional.interpolate(
+                sic_weight_map.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest"
+            ).squeeze()
+
         for chart in train_options["charts"]:
             output_class[chart] = class_decider(output[chart], train_options, chart).detach()
             outputs_flat[chart] = torch.cat((outputs_flat[chart], output_class[chart][~cfv_masks[chart]]))
             inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True)))
+
+        # - Store SIC center and edge pixels for r2_metric
+        _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
+            edge_weights=train_options["sic_label_mask"]["edge_weights"],
+            sic_weight_map=sic_weight_map,
+            output=output,
+            inf_y=inf_y,
+            chart="SIC",
+        )
+        sic_cent_flat = torch.cat((sic_cent_flat, _sic_cent_flat.to(device, non_blocking=True)))
+        inf_y_sic_cent_flat = torch.cat((inf_y_sic_cent_flat, _inf_y_sic_cent_flat.to(device, non_blocking=True)))
+        sic_edge_flat = torch.cat((sic_edge_flat, _sic_edge_flat.to(device, non_blocking=True)))
+        inf_y_sic_edge_flat = torch.cat((inf_y_sic_edge_flat, _inf_y_sic_edge_flat.to(device, non_blocking=True)))
 
         for chart in train_options["charts"]:
             inf_y[chart] = inf_y[chart].cpu().numpy()
@@ -177,6 +208,17 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         num_classes=train_options["n_classes"],
     )
 
+    sic_cent_r2 = (
+        torch.round(r2_metric(inf_y_sic_cent_flat, sic_cent_flat) * 100, decimals=3)
+        if sic_cent_flat.numel() > 0
+        else torch.tensor(0.0, device=device)
+    )
+    sic_edge_r2 = (
+        torch.round(r2_metric(inf_y_sic_edge_flat, sic_edge_flat) * 100, decimals=3)
+        if sic_edge_flat.numel() > 0
+        else torch.tensor(0.0, device=device)
+    )
+
     if train_options["compute_classwise_f1score"]:
         from functions import compute_classwise_f1score
 
@@ -233,6 +275,12 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     # Save the results to the wandb
     wandb.run.summary[f"{test_name}/Best Combined Score"] = combined_score
     print(f"{test_name}/Best Combined Score = {combined_score}")
+
+    wandb.run.summary[f"{test_name}/SIC Center R2"] = sic_cent_r2
+    print(f"{test_name}/SIC Center R2 = {sic_cent_r2}")
+
+    wandb.run.summary[f"{test_name}/SIC Edge R2"] = sic_edge_r2
+    print(f"{test_name}/SIC Edge R2 = {sic_edge_r2}")
 
     for chart in train_options["charts"]:
         wandb.run.summary[f"{test_name}/{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]

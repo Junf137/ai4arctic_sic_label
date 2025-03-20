@@ -37,6 +37,8 @@ from functions import (
     get_loss,
     get_model,
     seed_worker,
+    r2_metric,
+    create_edge_cent_flat,
 )
 
 # Load costume loss function
@@ -149,6 +151,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
         inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
 
+        sic_cent_flat = torch.Tensor().to(device)
+        inf_y_sic_cent_flat = torch.Tensor().to(device)
+        sic_edge_flat = torch.Tensor().to(device)
+        inf_y_sic_edge_flat = torch.Tensor().to(device)
+
         net.eval()  # Set network to evaluation mode.
 
         # - Loops though scenes in queue.
@@ -189,6 +196,19 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     (inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True))
                 )
 
+            # - Store SIC center and edge pixels for r2_metric
+            _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
+                edge_weights=train_options["sic_label_mask"]["edge_weights"],
+                sic_weight_map=sic_weight_map,
+                output=output,
+                inf_y=inf_y,
+                chart="SIC",
+            )
+            sic_cent_flat = torch.cat((sic_cent_flat, _sic_cent_flat.to(device, non_blocking=True)))
+            inf_y_sic_cent_flat = torch.cat((inf_y_sic_cent_flat, _inf_y_sic_cent_flat.to(device, non_blocking=True)))
+            sic_edge_flat = torch.cat((sic_edge_flat, _sic_edge_flat.to(device, non_blocking=True)))
+            inf_y_sic_edge_flat = torch.cat((inf_y_sic_edge_flat, _inf_y_sic_edge_flat.to(device, non_blocking=True)))
+
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
 
@@ -202,6 +222,17 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             charts=train_options["charts"],
             metrics=train_options["chart_metric"],
             num_classes=train_options["n_classes"],
+        )
+
+        sic_cent_r2 = (
+            torch.round(r2_metric(inf_y_sic_cent_flat, sic_cent_flat) * 100, decimals=3)
+            if sic_cent_flat.numel() > 0
+            else torch.tensor(0.0, device=device)
+        )
+        sic_edge_r2 = (
+            torch.round(r2_metric(inf_y_sic_edge_flat, sic_edge_flat) * 100, decimals=3)
+            if sic_edge_flat.numel() > 0
+            else torch.tensor(0.0, device=device)
         )
 
         if train_options["compute_classwise_f1score"]:
@@ -229,6 +260,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         print(f"Combined score: {combined_score}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
         print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
+        print(f"SIC Center R2: {sic_cent_r2}%")
+        print(f"SIC Edge R2: {sic_edge_r2}%")
 
         # Log combine score and epoch loss to wandb
         wandb.log(
@@ -236,6 +269,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 "Combined score": combined_score,
                 "Train Epoch Loss": train_loss_epoch,
                 "Validation Epoch Loss": val_loss_epoch,
+                "SIC Center R2": sic_cent_r2,
+                "SIC Edge R2": sic_edge_r2,
                 "Learning Rate": optimizer.param_groups[0]["lr"],
             },
             step=epoch,
@@ -252,6 +287,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     chart
                 ]
             wandb.run.summary[f"While training/Train Epoch Loss"] = train_loss_epoch
+            wandb.run.summary[f"While training/SIC Center R2"] = sic_cent_r2
+            wandb.run.summary[f"While training/SIC Edge R2"] = sic_edge_r2
             wandb.run.summary[f"while training/Best Epoch"] = epoch
 
             # Save the best model in work_dirs
@@ -420,6 +457,8 @@ def main():
     wandb.define_metric("Validation Water Consistency Epoch Loss", summary="none")
     wandb.define_metric("Combined score", summary="none")
     wandb.define_metric("SIC r2_metric", summary="none")
+    wandb.define_metric("SIC Center R2", summary="none")
+    wandb.define_metric("SIC Edge R2", summary="none")
     wandb.define_metric("SOD f1_metric", summary="none")
     wandb.define_metric("FLOE f1_metric", summary="none")
     wandb.define_metric("Water Consistency Accuracy", summary="none")
