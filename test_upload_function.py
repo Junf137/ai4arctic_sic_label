@@ -90,19 +90,18 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             else:
                 output = net(inf_x)
 
-        # Up sample the masks
-        for chart in train_options["charts"]:
-            masks_int = cfv_masks[chart].to(torch.uint8)
-            masks_int = (
-                torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest")
-                .squeeze()
-                .squeeze()
-            )
-            cfv_masks[chart] = torch.gt(masks_int, 0)
-
-        # Upsample data
         if train_options["down_sample_scale"] != 1:
             for chart in train_options["charts"]:
+                # Up sample the masks
+                masks_int = cfv_masks[chart].to(torch.uint8)
+                masks_int = (
+                    torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest")
+                    .squeeze()
+                    .squeeze()
+                )
+                cfv_masks[chart] = torch.gt(masks_int, 0)
+
+                # Upsample data
                 # check if the output is regression output, if yes, permute the dimension
                 if output[chart].size(3) == 1:
                     output[chart] = output[chart].permute(0, 3, 1, 2)
