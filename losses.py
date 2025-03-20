@@ -107,3 +107,18 @@ class MSELossWithIgnoreIndex(nn.MSELoss):
         diff = diff * mask
         loss = torch.sum(diff**2) / mask.sum()
         return loss
+
+
+class WeightedMSELoss(torch.nn.Module):
+    def __init__(self):
+        super(WeightedMSELoss, self).__init__()
+
+    def forward(self, input, target, weight_map):
+
+        weight_map, target = weight_map.type_as(input), target.type_as(input)
+
+        squared_errors = F.mse_loss(input, target, reduction="none")
+        weighted_squared_errors = squared_errors * weight_map
+
+        valid_errors = weighted_squared_errors[weight_map > 0]
+        return torch.mean(valid_errors) if valid_errors.numel() > 0 else torch.tensor(0.0, device=input.device)

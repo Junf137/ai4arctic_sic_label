@@ -40,7 +40,7 @@ from functions import (
 )
 
 # Load costume loss function
-from losses import WaterConsistencyLoss
+from losses import WaterConsistencyLoss, WeightedMSELoss
 
 # Custom dataloaders for regular training and validation.
 from loaders import get_variable_options, AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset
@@ -88,6 +88,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         chart: get_loss(train_options["chart_loss"][chart]["type"], chart=chart, **train_options["chart_loss"][chart])
         for chart in train_options["charts"]
     }
+    weighted_mse_loss = WeightedMSELoss()
 
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(start_epoch, train_options["epochs"]), desc="Training"):
@@ -117,7 +118,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     # only calculate loss when there is at least a valid target value
                     if (batch_y[chart] != train_options["class_fill_values"][chart]).any():
-                        train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart].to(device))
+
+                        if chart == "SIC" and train_options["sic_label_mask"]["train"]:
+                            train_loss_batch += weight * weighted_mse_loss(
+                                output[chart].squeeze(), batch_y[chart].to(device), sic_weight_map.to(device)
+                            )
+                        else:
+                            train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart].to(device))
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -164,9 +171,15 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     # only calculate loss when there is at least a valid target value
                     if (inf_y[chart] != train_options["class_fill_values"][chart]).any():
-                        val_loss_batch += weight * loss_ce_functions[chart](
-                            output[chart], inf_y[chart].unsqueeze(0).long().to(device)
-                        )
+
+                        if chart == "SIC" and train_options["sic_label_mask"]["val"]:
+                            val_loss_batch += weight * weighted_mse_loss(
+                                output[chart].squeeze(), inf_y[chart].to(device), sic_weight_map.to(device)
+                            )
+                        else:
+                            val_loss_batch += weight * loss_ce_functions[chart](
+                                output[chart], inf_y[chart].unsqueeze(0).long().to(device)
+                            )
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options["charts"]:
