@@ -90,30 +90,30 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             else:
                 output = net(inf_x)
 
-            # Up sample the masks
+        # Up sample the masks
+        for chart in train_options["charts"]:
+            masks_int = cfv_masks[chart].to(torch.uint8)
+            masks_int = (
+                torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest")
+                .squeeze()
+                .squeeze()
+            )
+            cfv_masks[chart] = torch.gt(masks_int, 0)
+
+        # Upsample data
+        if train_options["down_sample_scale"] != 1:
             for chart in train_options["charts"]:
-                masks_int = cfv_masks[chart].to(torch.uint8)
-                masks_int = (
-                    torch.nn.functional.interpolate(masks_int.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest")
-                    .squeeze()
-                    .squeeze()
-                )
-                cfv_masks[chart] = torch.gt(masks_int, 0)
+                # check if the output is regression output, if yes, permute the dimension
+                if output[chart].size(3) == 1:
+                    output[chart] = output[chart].permute(0, 3, 1, 2)
+                    output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode="nearest")
+                    output[chart] = output[chart].permute(0, 2, 3, 1)
+                else:
+                    output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode="nearest")
 
-            # Upsample data
-            if train_options["down_sample_scale"] != 1:
-                for chart in train_options["charts"]:
-                    # check if the output is regression output, if yes, permute the dimension
-                    if output[chart].size(3) == 1:
-                        output[chart] = output[chart].permute(0, 3, 1, 2)
-                        output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode="nearest")
-                        output[chart] = output[chart].permute(0, 2, 3, 1)
-                    else:
-                        output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode="nearest")
-
-                    inf_y[chart] = torch.nn.functional.interpolate(
-                        inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0), size=original_size, mode="nearest"
-                    ).squeeze()
+                inf_y[chart] = torch.nn.functional.interpolate(
+                    inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0), size=original_size, mode="nearest"
+                ).squeeze()
 
         for chart in train_options["charts"]:
             output_class[chart] = class_decider(output[chart], train_options, chart).detach()
