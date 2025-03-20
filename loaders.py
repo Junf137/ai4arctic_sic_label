@@ -633,7 +633,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
             )
 
         if self.mode != "test_no_gt":
-            y_charts = torch.from_numpy(scene[self.options["charts"]].isel().to_array().values).unsqueeze(0)
+            y_charts = torch.from_numpy(scene[self.options["charts"]].to_array().values).to(torch.float32).unsqueeze(0)
             y_charts = torch.nn.functional.interpolate(
                 y_charts, scale_factor=1 / self.options["down_sample_scale"], mode="nearest"
             ).squeeze(0)
