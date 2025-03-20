@@ -61,6 +61,13 @@ train_options.update(
             "ksize": 5,  # hard-coded kernel size
             "ksize_ratio": 100,  # ratio of the (image size / kernel size), disabled when ksize is set.
             "edge_threshold": 0,  # threshold for determining the mask after sobel filter
+            "edge_weights": {
+                "invalid": 0,
+                "inner_edges": 0.5,
+                "ice_cfv_edges": 0.5,
+                "ice_water_edges": 1,
+                "center": 1,
+            },
             "visualization": False,
             # Path to save visualization. Only works when visualization is True.
             "visualization_save_path": "output/visualization",

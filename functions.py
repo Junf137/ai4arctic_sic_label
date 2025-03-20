@@ -837,3 +837,98 @@ def mask_sic_label_edges(options, SIC, sic_cfv, scene_id):
 
     if options["visualization"]:
         sic_visualization(options=options, sic_np=SIC.numpy(), sic_cfv=sic_cfv, scene_id=scene_id, title="Masked SIC")
+
+
+def create_sic_weight_map(options, SIC, sic_cfv, scene_id):
+    """Mask SIC borders"""
+    sic_np = SIC.numpy()
+
+    # set ksize
+    if options["ksize"] is not None:
+        ksize = options["ksize"]
+    else:
+        ksize_ratio = options["ksize_ratio"]
+        # Calculate kernel size ensuring odd number
+        ksize = max(3, int(min(SIC.shape[-2:]) / ksize_ratio))
+        ksize = ksize + 1 if ksize % 2 == 0 else ksize
+        ksize = min(ksize, min(SIC.shape[-2:]) - 2)
+
+    # set threshold
+    threshold = options["edge_threshold"]
+
+    # set edge weights
+    edge_weights = options["edge_weights"]
+
+    # set all non-zero values to 1 in sic_np and get ice_water
+    ice_water = np.where(sic_np == 0, 1, 0).astype(sic_np.dtype)
+
+    # set all non-sic_cfv values to 1 in sic_np and get ice_cfv
+    ice_cfv = np.where(sic_np == sic_cfv, 1, 0).astype(sic_np.dtype)
+
+    edges = get_edges(sic_np, ksize, threshold)
+    ice_water_edge = get_edges(ice_water, ksize, threshold)
+    ice_cfv_edge = get_edges(ice_cfv, ksize, threshold)
+
+    # inner_edges = edges - ice_water_edge - ice_cfv_edge
+    inner_edges = np.where(ice_water_edge == True, False, edges)
+    inner_edges = np.where(ice_cfv_edge == True, False, inner_edges)
+
+    # create weight map
+    weight_map = np.ones_like(sic_np, dtype=sic_np.dtype) * edge_weights["center"]
+
+    # first applying ice_cfv_edges, then ice_water_edges, thus the intersection will be ice_water_edges
+    weight_map[inner_edges] = edge_weights["inner_edges"]
+    weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
+    weight_map[ice_water_edge] = edge_weights["ice_water_edges"]
+
+    # set all sic_cfv values to 0 in weight_map
+    weight_map = np.where(sic_np == sic_cfv, edge_weights["invalid"], weight_map).astype(sic_np.dtype)
+
+    if options["visualization"]:
+        plt.figure(figsize=(10, 8))
+
+        plt.subplot(231)
+        plt.imshow(edges, cmap="gray")
+        plt.title("SIC Edges")
+        plt.axis("off")
+
+        plt.subplot(232)
+        plt.imshow(ice_water_edge, cmap="gray")
+        plt.title("Ice Water Edges")
+        plt.axis("off")
+
+        plt.subplot(233)
+        plt.imshow(ice_cfv_edge, cmap="gray")
+        plt.title("Ice CFV Edges")
+        plt.axis("off")
+
+        plt.subplot(234)
+        plt.imshow(inner_edges, cmap="gray")
+        plt.title("Inner Edges")
+        plt.axis("off")
+
+        plt.subplot(235)
+        plt.imshow(weight_map, cmap="gray")
+        plt.title("Weight Map")
+        plt.axis("off")
+
+        plt.subplot(236)
+        plt.imshow(np.ma.masked_where(sic_np == sic_cfv, sic_np), cmap=cmocean.cm.ice)
+        plt.title("SIC")
+        plt.axis("off")
+
+        plt.tight_layout()
+
+        visualization_save_path = options["visualization_save_path"]
+        if visualization_save_path:
+            # Create the directory if it does not exist
+            os.makedirs(os.path.abspath(visualization_save_path), mode=0o777, exist_ok=True)
+
+            save_path = os.path.join(visualization_save_path, f"{scene_id}_sic_weight_map.png")
+            plt.savefig(save_path)
+            plt.close()
+
+        # Interactively show the plot
+        # plt.show()
+
+    return torch.tensor(weight_map)

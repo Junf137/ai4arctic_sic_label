@@ -29,7 +29,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
-from functions import rand_bbox, mask_sic_label_edges
+from functions import rand_bbox, create_sic_weight_map
 
 
 class AI4ArcticChallengeDataset(Dataset):
@@ -82,15 +82,16 @@ class AI4ArcticChallengeDataset(Dataset):
 
             temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
 
-        # Apply SIC label mask after downsampling
-        sic_label_mask_opts = self.options["sic_label_mask"]
-        if sic_label_mask_opts["train"]:
-            mask_sic_label_edges(
-                options=sic_label_mask_opts,
+            # Create SIC weight map after downsampling
+            sic_weight_map = create_sic_weight_map(
+                options=self.options["sic_label_mask"],
                 SIC=temp_scene[0],
                 sic_cfv=self.options["class_fill_values"]["SIC"],
                 scene_id=scene.scene_id[:-3],
             )
+
+            # Append weight map to scene as the first channel
+            temp_scene = torch.cat([sic_weight_map.unsqueeze(0), temp_scene], dim=0)
 
             return temp_scene
 
@@ -383,9 +384,9 @@ class AI4ArcticChallengeDataset(Dataset):
 
         patch = self.scenes[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
 
-        # Split into inputs and targets
-        x_patch = patch[len(self.options["charts"]) :].unsqueeze(0).float()
-        y_patch = patch[: len(self.options["charts"])].unsqueeze(0)
+        # Split into inputs and targets (add one for sic weight map)
+        x_patch = patch[len(self.options["charts"]) + 1 :].unsqueeze(0).float()
+        y_patch = patch[: len(self.options["charts"]) + 1].unsqueeze(0)
 
         return x_patch, y_patch
 
@@ -411,13 +412,17 @@ class AI4ArcticChallengeDataset(Dataset):
         # Convert training data to tensor float.
         x = x_patches.type(torch.float)
 
+        # Split sic weight map from y_patches
+        sic_weight_map = y_patches[:, 0]
+        y_patches = y_patches[:, 1:]
+
         # Store charts in y dictionary.
 
         y = {}
         for idx, chart in enumerate(self.options["charts"]):
             y[chart] = y_patches[:, idx].type(torch.long)
 
-        return x, y
+        return x, y, sic_weight_map
 
     def transform(self, x_patch, y_patch):
         data_aug_options = self.options["data_augmentations"]
@@ -446,7 +451,10 @@ class AI4ArcticChallengeDataset(Dataset):
             random_scale = data_aug_options["Random_scale"][1]
 
         x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
-        y_patch = TF.affine(y_patch, angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
+
+        # Apply the same affine transformation but fill different new value for sic_weight_map and other charts
+        y_patch[:, 1:] = TF.affine(y_patch[:, 1:], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
+        y_patch[:, 0] = TF.affine(y_patch[:, 0], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
 
         return x_patch, y_patch
 
@@ -541,10 +549,9 @@ class AI4ArcticChallengeTestDataset(Dataset):
             else:  # train mode
                 scene = xr.open_dataset(os.path.join(self.options["path_to_train_data"], file), engine="h5netcdf")
 
-            x, y = self.prep_scene(scene)
-            self.scenes.append((x, y))
+            x, y, sic_weight_map = self.prep_scene(scene)
+            self.scenes.append((x, y, sic_weight_map))
             self.original_sizes.append(scene["nersc_sar_primary"].values.shape)
-
             scene.close()
 
     def __len__(self):
@@ -631,22 +638,21 @@ class AI4ArcticChallengeTestDataset(Dataset):
                 y_charts, scale_factor=1 / self.options["down_sample_scale"], mode="nearest"
             ).squeeze(0)
 
-            sic_label_mask_opts = self.options["sic_label_mask"]
-            if (self.mode == "train" and sic_label_mask_opts["val"]) or (self.mode == "test" and sic_label_mask_opts["test"]):
-                mask_sic_label_edges(
-                    options=sic_label_mask_opts,
-                    SIC=y_charts[0],
-                    sic_cfv=self.options["class_fill_values"]["SIC"],
-                    scene_id=scene.scene_id[:-3],
-                )
-
             y = {}
             for idx, chart in enumerate(self.options["charts"]):
                 y[chart] = y_charts[idx].numpy()
+
+            sic_weight_map = create_sic_weight_map(
+                options=self.options["sic_label_mask"],
+                SIC=y_charts[0],
+                sic_cfv=self.options["class_fill_values"]["SIC"],
+                scene_id=scene.scene_id[:-3],
+            )
         else:
             y = None
+            sic_weight_map = None
 
-        return x.float(), y
+        return x.float(), y, sic_weight_map
 
     def __getitem__(self, idx):
         """
@@ -663,7 +669,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         name : str
             Name of scene.
         """
-        x, y = self.scenes[idx]
+        x, y, sic_weight_map = self.scenes[idx]
         name = self.files[idx]
 
         if self.mode != "test_no_gt":
@@ -675,7 +681,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
         original_size = self.original_sizes[idx]
 
-        return x, y, cfv_masks, name, original_size
+        return x, y, sic_weight_map, cfv_masks, name, original_size
 
 
 def get_variable_options(train_options: dict):
