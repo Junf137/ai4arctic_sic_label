@@ -53,8 +53,8 @@ train_options.update(
         "num_workers_val": 6,  # Number of parallel processes during validation.
         "down_sample_scale": 10,
         "deterministic": False,
-        # -- SIC masking configuration -- #
-        "sic_label_mask": {
+        # -- SIC weight map configuration -- #
+        "sic_weight_map": {
             "train": True,
             "val": True,
             "test": False,

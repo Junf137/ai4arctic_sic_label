@@ -121,7 +121,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     # only calculate loss when there is at least a valid target value
                     if (batch_y[chart] != train_options["class_fill_values"][chart]).any():
 
-                        if chart == "SIC" and train_options["sic_label_mask"]["train"]:
+                        if chart == "SIC" and train_options["sic_weight_map"]["train"]:
                             train_loss_batch += weight * weighted_mse_loss(
                                 output[chart].squeeze(), batch_y[chart].to(device), sic_weight_map.to(device)
                             )
@@ -179,7 +179,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                     # only calculate loss when there is at least a valid target value
                     if (inf_y[chart] != train_options["class_fill_values"][chart]).any():
 
-                        if chart == "SIC" and train_options["sic_label_mask"]["val"]:
+                        if chart == "SIC" and train_options["sic_weight_map"]["val"]:
                             val_loss_batch += weight * weighted_mse_loss(
                                 output[chart].squeeze(), inf_y[chart].to(device), sic_weight_map.to(device)
                             )
@@ -198,7 +198,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Store SIC center and edge pixels for r2_metric
             _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
-                edge_weights=train_options["sic_label_mask"]["edge_weights"],
+                edge_weights=train_options["sic_weight_map"]["edge_weights"],
                 sic_weight_map=sic_weight_map,
                 output=output,
                 inf_y=inf_y,

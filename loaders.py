@@ -84,7 +84,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
             # Create SIC weight map after downsampling
             sic_weight_map = create_sic_weight_map(
-                options=self.options["sic_label_mask"],
+                options=self.options["sic_weight_map"],
                 SIC=temp_scene[0],
                 sic_cfv=self.options["class_fill_values"]["SIC"],
                 scene_id=scene.scene_id[:-3],
@@ -643,7 +643,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
                 y[chart] = y_charts[idx].numpy()
 
             sic_weight_map = create_sic_weight_map(
-                options=self.options["sic_label_mask"],
+                options=self.options["sic_weight_map"],
                 SIC=y_charts[0],
                 sic_cfv=self.options["class_fill_values"]["SIC"],
                 scene_id=scene.scene_id[:-3],

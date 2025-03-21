@@ -13,7 +13,7 @@ with read_base():
 
 train_options.update(
     {
-        "sic_label_mask": {
+        "sic_weight_map": {
             "train": False,
             "val": False,
             "test": False,
