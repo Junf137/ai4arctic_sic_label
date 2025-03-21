@@ -195,10 +195,17 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             )
             # Calculate percentages
             cm = cm.cpu().numpy()
-            cm_percent = np.round(cm / cm.sum(axis=1)[:, np.newaxis] * 100, 2)
+            row_sums = cm.sum(axis=1)
+            # Handle rows with zero sum to avoid division by zero
+            with np.errstate(divide="ignore", invalid="ignore"):
+                cm_percent = np.round(cm / row_sums[:, np.newaxis] * 100, 2)
+            # Replace NaN values with zeros
+            cm_percent = np.nan_to_num(cm_percent, nan=0.0)
+
             # Plot the confusion matrix
             plt.figure(figsize=(10, 8))
             ax = sns.heatmap(cm_percent, annot=True, cmap="Blues")
+
             # Customize the plot
             class_names = list(GROUP_NAMES[chart].values())
             class_names.append("255")
@@ -211,9 +218,13 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
 
             plt.xlabel("Predicted Labels")
             plt.ylabel("Actual Labels")
-            plt.title("Confusion Matrix")
+            plt.title(f"{chart} Confusion Matrix (%)")
+
             cbar = ax.collections[0].colorbar
+            tick_positions = np.linspace(0, 100, 6)  # 6 positions from 0% to 100%
+            cbar.set_ticks(tick_positions)
             cbar.set_ticklabels(["0%", "20%", "40%", "60%", "80%", "100%"])
+
             mkdir_or_exist(f"{osp.join(cfg.work_dir)}/{test_name}")
             plt.savefig(
                 f"{osp.join(cfg.work_dir)}/{test_name}/{chart}_confusion_matrix.png", format="png", dpi=128, bbox_inches="tight"
