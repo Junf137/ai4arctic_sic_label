@@ -255,7 +255,6 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             print(f"Early stopping at epoch {epoch}")
             break
 
-    del inf_ys_flat, outputs_flat  # Free memory.
     return model_path
 
 
