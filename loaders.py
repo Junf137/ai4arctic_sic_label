@@ -518,10 +518,24 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.options = options
         self.files = files
 
-        # if mode not in ["train_val", "test_val", "test"]:
         if mode not in ["train", "test", "test_no_gt"]:
             raise ValueError("String variable must be one of 'train', 'test', or 'test_no_gt'")
         self.mode = mode
+
+        self.scenes = []
+        self.original_sizes = []
+
+        for file in tqdm(files, desc="Loading scenes"):
+            if self.mode == "test" or self.mode == "test_no_gt":
+                scene = xr.open_dataset(os.path.join(self.options["path_to_test_data"], file), engine="h5netcdf")
+            else:  # train mode
+                scene = xr.open_dataset(os.path.join(self.options["path_to_train_data"], file), engine="h5netcdf")
+
+            x, y = self.prep_scene(scene)
+            self.scenes.append((x, y))
+            self.original_sizes.append(scene["nersc_sar_primary"].values.shape)
+
+            scene.close()
 
     def __len__(self):
         """
@@ -541,6 +555,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         Parameters
         ----------
         scene :
+            xarray dataset containing the scene data
 
         Returns
         -------
@@ -549,92 +564,57 @@ class AI4ArcticChallengeTestDataset(Dataset):
         y :
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
         """
-
         x_feat_list = []
 
         sar_var_x = torch.from_numpy(scene[self.options["sar_variables"]].to_array().values).unsqueeze(0)
-
         x_feat_list.append(sar_var_x)
 
         size = scene["nersc_sar_primary"].values.shape
 
         if len(self.options["amsrenv_variables"]) > 0:
-            # from icecream import ic
-            # print(1, scene['SIC'].values.shape)
-            # print(2, scene['nersc_sar_primary'].values.shape)
             asmr_env__var_x = torch.nn.functional.interpolate(
                 input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
                 size=size,
                 mode=self.options["loader_upsampling"],
             )
-
             x_feat_list.append(asmr_env__var_x)
 
-        # Only add auxiliary_variables if they are called
-
         if len(self.options["auxiliary_variables"]) > 0:
-
             if "aux_time" in self.options["auxiliary_variables"]:
-                # Get Scene time
                 scene_id = scene.attrs["scene_id"]
-                # Convert Scene time to number data
                 norm_time = get_norm_month(scene_id)
-
-                #
                 time_array = torch.from_numpy(np.full(scene["nersc_sar_primary"].values.shape, norm_time)).view(
                     1, 1, size[0], size[1]
                 )
-
-                x_feat_list.append(
-                    time_array,
-                )
+                x_feat_list.append(time_array)
 
             if "aux_lat" in self.options["auxiliary_variables"]:
-                # Get Latitude
                 lat_array = scene["sar_grid2d_latitude"].values
-
                 lat_array = (lat_array - self.options["latitude"]["mean"]) / self.options["latitude"]["std"]
-
-                # Interpolate to size of original scene
                 inter_lat_array = torch.nn.functional.interpolate(
                     input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
                     size=size,
                     mode=self.options["loader_upsampling"],
                 )
-
-                # Append to array
                 x_feat_list.append(inter_lat_array)
 
             if "aux_long" in self.options["auxiliary_variables"]:
-                # Get Longitude
                 long_array = scene["sar_grid2d_longitude"].values
-
                 long_array = (long_array - self.options["longitude"]["mean"]) / self.options["longitude"]["std"]
-
-                # Interpolate to size of original scene
                 inter_long_array = torch.nn.functional.interpolate(
                     input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
                     size=size,
                     mode=self.options["loader_upsampling"],
                 )
-
-                # Append to array
                 x_feat_list.append(inter_long_array)
 
-            # x_feat_list.append(aux_var_x)
-
         x = torch.cat(x_feat_list, axis=1)
-        # else:
-        #     x = torch.from_numpy(
-        #         scene[self.options['sar_variables']].to_array().values).unsqueeze(0)
 
-        # Downscale if needed
         if self.options["down_sample_scale"] != 1:
             x = torch.nn.functional.interpolate(
                 x, scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
             )
 
-        # TODO:
         if self.mode != "test_no_gt":
             y_charts = torch.from_numpy(scene[self.options["charts"]].isel().to_array().values).unsqueeze(0)
             y_charts = torch.nn.functional.interpolate(
@@ -642,13 +622,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
             )
 
             y = {}
-
             for idx, chart in enumerate(self.options["charts"]):
                 y[chart] = y_charts[:, idx].squeeze().numpy()
-
-            # y = {
-            #     chart: scene[chart].values   for chart in self.options['charts']}
-
         else:
             y = None
 
@@ -656,7 +631,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Get scene. Function required by Pytorch dataset.
+        Get scene from memory. Function required by Pytorch dataset.
 
         Returns
         -------
@@ -668,14 +643,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
             Dict with 2D torch tensors; mask for each chart for loss calculation. Contain only SAR mask if test is true.
         name : str
             Name of scene.
-
         """
-        if self.mode == "test" or self.mode == "test_no_gt":
-            scene = xr.open_dataset(os.path.join(self.options["path_to_test_data"], self.files[idx]), engine="h5netcdf")
-        elif self.mode == "train":
-            scene = xr.open_dataset(os.path.join(self.options["path_to_train_data"], self.files[idx]), engine="h5netcdf")
-
-        x, y = self.prep_scene(scene)
+        x, y = self.scenes[idx]
         name = self.files[idx]
 
         if self.mode != "test_no_gt":
@@ -685,7 +654,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         else:
             cfv_masks = None
 
-        original_size = scene["nersc_sar_primary"].values.shape
+        original_size = self.original_sizes[idx]
 
         return x, y, cfv_masks, name, original_size
 
