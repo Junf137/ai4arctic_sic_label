@@ -39,7 +39,6 @@ class AI4ArcticChallengeDataset(Dataset):
         self.options = options
         self.files = files
         self.do_transform = do_transform
-        self.patch_c = len(options["train_variables"]) + len(options["charts"])
 
         # Initialize data containers
         self.scenes = []
