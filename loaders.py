@@ -18,6 +18,7 @@ from dateutil import relativedelta
 import re
 import math
 from tqdm import tqdm
+import multiprocessing
 
 # -- Third-party modules -- #
 import numpy as np
@@ -51,44 +52,53 @@ class AI4ArcticChallengeDataset(Dataset):
         if self.downsample:
             self._down_sample_dataset()
 
+    def _process_single_file(self, file):
+        """Process a single file and return the processed scene."""
+        file_path = os.path.join(self.options["path_to_train_data"], file)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Training file missing: {file_path}")
+
+        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
+            # Process main variables
+            sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values)
+            size = sar_data.shape[-2:]
+
+            temp_scene = sar_data
+
+            # Process AMSR variables
+            if self.options["amsrenv_variables"]:
+                amsrenv_data = torch.nn.functional.interpolate(
+                    input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
+                    size=size,
+                    mode=self.options["loader_upsampling"],
+                ).squeeze(0)
+
+                temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
+
+            # Process auxiliary variables
+            if self.options["auxiliary_variables"]:
+                aux_data = self._process_auxiliary(scene, size)
+
+                temp_scene = torch.cat([temp_scene, aux_data], dim=0)
+
+            temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
+
+            return temp_scene
+
     def _down_sample_dataset(self):
-        """Initialize dataset with optimized preprocessing."""
+        """Initialize dataset with optimized parallel preprocessing."""
+        # Determine number of processes to use (use all available cores by default)
+        num_processes = min(self.options["load_proc"], len(self.files))
 
-        for file in tqdm(self.files, desc="Loading scenes"):
-            file_path = os.path.join(self.options["path_to_train_data"], file)
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(f"Training file missing: {file_path}")
+        # Create a multiprocessing pool
+        with multiprocessing.Pool(processes=num_processes) as pool:
+            # Process files in parallel with progress bar
+            processed_scenes = list(
+                tqdm(pool.imap(self._process_single_file, self.files), total=len(self.files), desc="Loading scenes in parallel")
+            )
 
-            with xr.open_dataset(file_path, engine="h5netcdf") as scene:
-                self._process_scene(scene)
-
-    def _process_scene(self, scene):
-        """Process a single scene with optimized tensor operations."""
-        # Process main variables
-        sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values)
-        size = sar_data.shape[-2:]
-
-        temp_scene = sar_data
-
-        # Process AMSR variables
-        if self.options["amsrenv_variables"]:
-            amsrenv_data = torch.nn.functional.interpolate(
-                input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
-                size=size,
-                mode=self.options["loader_upsampling"],
-            ).squeeze(0)
-
-            temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
-
-        # Process auxiliary variables
-        if self.options["auxiliary_variables"]:
-            aux_data = self._process_auxiliary(scene, size)
-
-            temp_scene = torch.cat([temp_scene, aux_data], dim=0)
-
-        temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
-
-        self.scenes.append(temp_scene)
+        # Store processed scenes
+        self.scenes = processed_scenes
 
     def _downsample_and_pad(self, data):
         """Handle downsampling and padding with optimized tensor ops."""
