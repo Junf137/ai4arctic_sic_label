@@ -258,9 +258,10 @@ class AI4ArcticChallengeDataset(Dataset):
         # Convert training data to tensor float.
         x = x_patches.type(torch.float)
 
-        # Split sic weight map from y_patches
-        sic_weight_map = y_patches[:, 0]
-        y_patches = y_patches[:, 1:]
+        # Extract target charts and weight map
+        # Last channel of y_patches is the SIC weight map
+        sic_weight_map = y_patches[:, -1]
+        y_patches = y_patches[:, :-1]
 
         # Store charts in y dictionary.
 
