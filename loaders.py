@@ -59,7 +59,13 @@ class AI4ArcticChallengeDataset(Dataset):
         torch.cuda.empty_cache()
 
     def _process_single_file(self, file):
-        """Process a single file and return the processed scene."""
+        """Process a single file and return the processed scene.
+
+        The scene tensor has the following channel order:
+        - Channels 0:N: Target charts (SIC, SOD, FLOE)
+        - Channel N: SIC weight map
+        - Channels N+: Input features
+        """
         file_path = os.path.join(self.options["path_to_train_data"], file)
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Training file missing: {file_path}")
@@ -89,7 +95,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
             temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
 
-            # Create SIC weight map after downsampling
+            # Create SIC weight map after downsampling using the SIC channel (first channel)
             sic_weight_map = create_sic_weight_map(
                 options=self.options["sic_weight_map"],
                 SIC=temp_scene[0],
@@ -97,8 +103,15 @@ class AI4ArcticChallengeDataset(Dataset):
                 scene_id=scene.scene_id[:-3],
             )
 
-            # Append weight map to scene as the first channel
-            temp_scene = torch.cat([sic_weight_map.unsqueeze(0), temp_scene], dim=0)
+            # Append weight map after target charts
+            temp_scene = torch.cat(
+                [
+                    temp_scene[: len(self.options["charts"])],
+                    sic_weight_map.unsqueeze(0),
+                    temp_scene[len(self.options["charts"]) :],
+                ],
+                dim=0,
+            )
 
             return temp_scene
 
@@ -116,7 +129,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Store processed scenes
         self.scenes = processed_scenes
-
 
     def _downsample_and_pad(self, data):
         """Handle downsampling and padding with optimized tensor ops."""
@@ -186,10 +198,15 @@ class AI4ArcticChallengeDataset(Dataset):
     def random_crop_downsample(self, idx):
         """Perform random cropping in scene.
 
+        The scene tensor has the following channel order:
+        - Channels 0:N: Target charts (SIC, SOD, FLOE)
+        - Channel N: SIC weight map
+        - Channels N+: Input features
+
         Returns:
             tuple: (x_patch, y_patch) where:
                 - x_patch: Input features tensor
-                - y_patch: Target charts tensor
+                - y_patch: Target charts and weight map tensor
         """
 
         patch_size = self.options["patch_size"]
@@ -254,6 +271,12 @@ class AI4ArcticChallengeDataset(Dataset):
         return x, y, sic_weight_map
 
     def transform(self, x_patch, y_patch):
+        """Apply data augmentation to patches.
+
+        The y_patch tensor has the following channel order:
+        - Channels 0:N: Target charts (SIC, SOD, FLOE)
+        - Channel N: SIC weight map
+        """
         data_aug_options = self.options["data_augmentations"]
         if torch.rand(1) < data_aug_options["Random_h_flip"]:
             x_patch = TF.hflip(x_patch)
@@ -281,9 +304,11 @@ class AI4ArcticChallengeDataset(Dataset):
 
         x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
 
-        # Apply the same affine transformation but fill different new value for sic_weight_map and other charts
-        y_patch[:, 1:] = TF.affine(y_patch[:, 1:], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
-        y_patch[:, 0] = TF.affine(y_patch[:, 0], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
+        # Apply the same affine transformation but fill different new value for charts and weight_map
+        # First transform target charts with fill value 255
+        y_patch[:, :-1] = TF.affine(y_patch[:, :-1], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
+        # Then transform weight map with fill value 0
+        y_patch[:, -1:] = TF.affine(y_patch[:, -1:], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
 
         return x_patch, y_patch
 
