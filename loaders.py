@@ -172,40 +172,37 @@ class AI4ArcticChallengeDataset(Dataset):
         return self.options["epoch_len"]
 
     def random_crop_downsample(self, idx):
-        """
-        Perform random cropping in scene.
+        """Perform random cropping in scene.
 
-        Parameters
-        ----------
-        idx : int
-            Index of the scene to crop from
-
-        Returns
-        -------
-        tuple (torch.Tensor, torch.Tensor)
-            x_patch (input features), y_patch (target labels)
+        Returns:
+            tuple: (x_patch, y_patch) where:
+                - x_patch: Input features tensor
+                - y_patch: Target charts tensor
         """
 
-        # Initialize constants
         patch_size = self.options["patch_size"]
+        scene = self.scenes[idx]
+        _, height, width = scene.shape
 
-        # Get scene dimensions
-        _, height, width = self.scenes[idx].shape
+        # Validation check
+        if height < patch_size or width < patch_size:
+            return None, None
 
         # Random crop coordinates
-        assert height >= patch_size and width >= patch_size, "Scene too small for patch size"
-        row_rand = 0 if height == patch_size else np.random.randint(low=0, high=height - patch_size)
-        col_rand = 0 if width == patch_size else np.random.randint(low=0, high=width - patch_size)
+        row_rand = 0 if height == patch_size else torch.randint(0, height - patch_size, (1,)).item()
+        col_rand = 0 if width == patch_size else torch.randint(0, width - patch_size, (1,)).item()
 
-        # Invalid patch if no valid sic label (get sic patch as idx=0)
-        sic_patch = self.scenes[idx][0, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
+        patch = scene[:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
+
+        # Invalid patch if no valid sic label (check SIC channel which is first channel)
+        sic_patch = patch[0]
         if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
             return None, None
 
-        patch = self.scenes[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
-
         # Split into inputs and targets
+        # x_patch includes all input features after target charts
         x_patch = patch[len(self.options["charts"]) :].unsqueeze(0).float()
+        # y_patch includes target charts
         y_patch = patch[: len(self.options["charts"])].unsqueeze(0)
 
         return x_patch, y_patch
