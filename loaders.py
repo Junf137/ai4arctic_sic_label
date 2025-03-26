@@ -44,12 +44,19 @@ class AI4ArcticChallengeDataset(Dataset):
         self.scenes = []
 
         # Precompute common parameters
-        self.downsample = options["down_sample_scale"] != 1
         self.patch_size = options["patch_size"]
 
+        if self.options["down_sample_scale"] == 1:
+            raise ValueError("Downsample has to be enabled")
+
         # Downsample dataset
-        if self.downsample:
-            self._down_sample_dataset()
+        self._down_sample_dataset()
+
+    def __del__(self):
+        """Cleanup resources when object is destroyed."""
+        # Clear cached data
+        self.scenes.clear()
+        torch.cuda.empty_cache()
 
     def _process_single_file(self, file):
         """Process a single file and return the processed scene."""
@@ -176,216 +183,38 @@ class AI4ArcticChallengeDataset(Dataset):
         """
         return self.options["epoch_len"]
 
-    def random_crop(self, scene):
-        """
-        Perform random cropping in scene.
-
-        Parameters
-        ----------
-        scene :
-            Xarray dataset; a scene from ASID3 ready-to-train challenge
-            dataset.
-
-        Returns
-        -------
-        x_patch :
-            torch array with shape (len(train_variables),
-            patch_height, patch_width). None if empty patch.
-        y_patch :
-            torch array with shape (len(charts),
-            patch_height, patch_width). None if empty patch.
-        """
-        patch = np.zeros(
-            (
-                len(self.options["full_variables"])
-                + len(self.options["amsrenv_variables"])
-                + len(self.options["auxiliary_variables"]),
-                self.options["patch_size"],
-                self.options["patch_size"],
-            )
-        )
-
-        # Get random index to crop from.
-        row_rand = np.random.randint(low=0, high=scene["SIC"].values.shape[0] - self.options["patch_size"])
-        col_rand = np.random.randint(low=0, high=scene["SIC"].values.shape[1] - self.options["patch_size"])
-        # Equivalent in amsr and env variable grid.
-        amsrenv_row = row_rand / self.options["amsrenv_delta"]
-        # Used in determining the location of the crop in between pixels.
-        amsrenv_row_dec = int(amsrenv_row - int(amsrenv_row))
-        amsrenv_row_index_crop = amsrenv_row_dec * self.options["amsrenv_delta"] * amsrenv_row_dec
-        amsrenv_col = col_rand / self.options["amsrenv_delta"]
-        amsrenv_col_dec = int(amsrenv_col - int(amsrenv_col))
-        amsrenv_col_index_crop = amsrenv_col_dec * self.options["amsrenv_delta"] * amsrenv_col_dec
-
-        # - Discard patches with too many meaningless pixels (optional).
-        if (
-            np.sum(
-                scene["SIC"].values[
-                    row_rand : row_rand + self.options["patch_size"], col_rand : col_rand + self.options["patch_size"]
-                ]
-                != self.options["class_fill_values"]["SIC"]
-            )
-            > 1
-        ):
-
-            # Crop full resolution variables.
-            patch[0 : len(self.options["full_variables"]), :, :] = (
-                scene[self.options["full_variables"]]
-                .isel(
-                    sar_lines=range(row_rand, row_rand + self.options["patch_size"]),
-                    sar_samples=range(col_rand, col_rand + self.options["patch_size"]),
-                )
-                .to_array()
-                .values
-            )
-            if len(self.options["amsrenv_variables"]) > 0:
-                # Crop and upsample low resolution variables.
-                patch[
-                    len(self.options["full_variables"]) : len(self.options["full_variables"])
-                    + len(self.options["amsrenv_variables"]) :,
-                    :,
-                    :,
-                ] = (
-                    torch.nn.functional.interpolate(
-                        input=torch.from_numpy(
-                            scene[self.options["amsrenv_variables"]]
-                            .to_array()
-                            .values[
-                                :,
-                                int(amsrenv_row) : int(amsrenv_row + np.ceil(self.options["amsrenv_patch"])),
-                                int(amsrenv_col) : int(amsrenv_col + np.ceil(self.options["amsrenv_patch"])),
-                            ]
-                        ).unsqueeze(0),
-                        size=self.options["amsrenv_upsample_shape"],
-                        mode=self.options["loader_upsampling"],
-                    )
-                    .squeeze(0)[
-                        :,
-                        int(np.around(amsrenv_row_index_crop)) : int(
-                            np.around(amsrenv_row_index_crop + self.options["patch_size"])
-                        ),
-                        int(np.around(amsrenv_col_index_crop)) : int(
-                            np.around(amsrenv_col_index_crop + self.options["patch_size"])
-                        ),
-                    ]
-                    .numpy()
-                )
-            # Only add auxiliary_variables if they are called
-            if len(self.options["auxiliary_variables"]) > 0:
-
-                aux_feat_list = []
-
-                if "aux_time" in self.options["auxiliary_variables"]:
-                    # Get Scene time
-                    scene_id = scene.attrs["scene_id"]
-                    # Convert Scene time to number data
-                    norm_time = get_norm_month(scene_id)
-
-                    #
-                    time_array = np.full((self.options["patch_size"], self.options["patch_size"]), norm_time)
-
-                    aux_feat_list.append(time_array)
-
-                if "aux_lat" in self.options["auxiliary_variables"]:
-                    # Get Latitude
-                    lat_array = scene["sar_grid2d_latitude"].values
-
-                    lat_array = (lat_array - self.options["latitude"]["mean"]) / self.options["latitude"]["std"]
-
-                    # Interpolate to size of original scene
-                    inter_lat_array = torch.nn.functional.interpolate(
-                        input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                        size=scene["nersc_sar_primary"].values.shape,
-                        mode=self.options["loader_upsampling"],
-                    ).numpy()
-                    # Crop to correct patch size
-                    crop_inter_lat_array = inter_lat_array[
-                        0, 0, row_rand : row_rand + self.options["patch_size"], col_rand : col_rand + self.options["patch_size"]
-                    ]
-                    # Append to array
-                    aux_feat_list.append(crop_inter_lat_array)
-
-                if "aux_long" in self.options["auxiliary_variables"]:
-                    # Get Longitude
-                    long_array = scene["sar_grid2d_longitude"].values
-
-                    long_array = (long_array - self.options["longitude"]["mean"]) / self.options["longitude"]["std"]
-
-                    # Interpolate to size of original scene
-                    inter_long_array = torch.nn.functional.interpolate(
-                        input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                        size=scene["nersc_sar_primary"].values.shape,
-                        mode=self.options["loader_upsampling"],
-                    ).numpy()
-                    # Crop to correct patch size
-                    crop_inter_long_array = inter_long_array[
-                        0, 0, row_rand : row_rand + self.options["patch_size"], col_rand : col_rand + self.options["patch_size"]
-                    ]
-                    # Append to array
-                    aux_feat_list.append(crop_inter_long_array)
-
-                aux_np_array = np.stack(aux_feat_list, axis=0)
-
-                patch[len(self.options["full_variables"]) + len(self.options["amsrenv_variables"]) :, :, :] = aux_np_array
-
-            # Separate in to x (train variables) and y (targets) and downscale if needed
-
-            x_patch = torch.from_numpy(patch[len(self.options["charts"]) :, :]).type(torch.float).unsqueeze(0)
-
-            # The following code was commented because down_scale no longer happens here
-            # if (self.options['down_sample_scale'] != 1):
-            #     x_patch = torch.nn.functional.interpolate(
-            #         x, scale_factor=1/self.options['down_sample_scale'], mode=self.options['loader_downsampling'])
-
-            y_patch = torch.from_numpy(patch[: len(self.options["charts"]), :, :]).unsqueeze(0)
-
-            # The following code was commented because down_scale no longer happens here
-            # if (self.options['down_sample_scale'] != 1):
-            #     y_patch = torch.nn.functional.interpolate(
-            #         y, scale_factor=1/self.options['down_sample_scale'], mode='nearest')
-
-        # In case patch does not contain any valid pixels - return None.
-        else:
-            x_patch = None
-            y_patch = None
-
-        return x_patch, y_patch
-
     def random_crop_downsample(self, idx):
-        """
-        Perform random cropping in scene.
+        """Perform random cropping in scene.
 
-        Parameters
-        ----------
-        idx : int
-            Index of the scene to crop from
-
-        Returns
-        -------
-        tuple (torch.Tensor, torch.Tensor)
-            x_patch (input features), y_patch (target labels)
+        Returns:
+            tuple: (x_patch, y_patch) where:
+                - x_patch: Input features tensor
+                - y_patch: Target charts tensor
         """
 
-        # Initialize constants
         patch_size = self.options["patch_size"]
+        scene = self.scenes[idx]
+        _, height, width = scene.shape
 
-        # Get scene dimensions
-        _, height, width = self.scenes[idx].shape
+        # Validation check
+        if height < patch_size or width < patch_size:
+            return None, None
 
         # Random crop coordinates
-        assert height >= patch_size and width >= patch_size, "Scene too small for patch size"
-        row_rand = 0 if height == patch_size else np.random.randint(low=0, high=height - patch_size)
-        col_rand = 0 if width == patch_size else np.random.randint(low=0, high=width - patch_size)
+        row_rand = 0 if height == patch_size else torch.randint(0, height - patch_size, (1,)).item()
+        col_rand = 0 if width == patch_size else torch.randint(0, width - patch_size, (1,)).item()
 
-        # Invalid patch if no valid sic label (get sic patch as idx=0)
-        sic_patch = self.scenes[idx][0, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
+        patch = scene[:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
+
+        # Invalid patch if no valid sic label (check SIC channel which is first channel)
+        sic_patch = patch[0]
         if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
             return None, None
 
-        patch = self.scenes[idx][:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
-
         # Split into inputs and targets (add one for sic weight map)
+        # x_patch includes all input features after target charts
         x_patch = patch[len(self.options["charts"]) + 1 :].unsqueeze(0).float()
+        # y_patch includes target charts
         y_patch = patch[: len(self.options["charts"]) + 1].unsqueeze(0)
 
         return x_patch, y_patch
@@ -476,13 +305,7 @@ class AI4ArcticChallengeDataset(Dataset):
             scene_id = torch.randint(0, len(self.files), (1,)).item()
 
             try:
-                if self.downsample:
-                    x_patch, y_patch = self.random_crop_downsample(scene_id)
-                else:
-                    with xr.open_dataset(
-                        os.path.join(self.options["path_to_train_data"], self.files[scene_id]), engine="h5netcdf"
-                    ) as scene:
-                        x_patch, y_patch = self.random_crop(scene)
+                x_patch, y_patch = self.random_crop_downsample(scene_id)
 
                 if x_patch is None:
                     continue
@@ -509,13 +332,10 @@ class AI4ArcticChallengeDataset(Dataset):
 
     def _handle_scene_error(self, scene_id, error, attempt_count):
         print(f"Cropping failed in {self.files[scene_id]}: {str(error)}")
-        if self.downsample:
-            print(
-                f"Scene size: {self.scenes[scene_id][0].shape} for crop shape: \
-                ({self.options['patch_size']}, {self.options['patch_size']})"
-            )
-        else:
-            print(f"Un-downsampled scene.")
+        print(
+            f"Scene size: {self.scenes[scene_id][0].shape} for crop shape: \
+            ({self.options['patch_size']}, {self.options['patch_size']})"
+        )
         print(f"Skipping scene (attempt {attempt_count})")
 
     def _apply_cutmix(self, x_patches, y_patches):
