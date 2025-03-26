@@ -65,6 +65,9 @@ class AI4ArcticChallengeDataset(Dataset):
         - Channels 0:N: Target charts (SIC, SOD, FLOE)
         - Channel N: SIC weight map
         - Channels N+: Input features
+
+        Returns:
+            torch.Tensor: Processed scene with all channels properly ordered
         """
         file_path = os.path.join(self.options["path_to_train_data"], file)
         if not os.path.exists(file_path):
@@ -228,10 +231,10 @@ class AI4ArcticChallengeDataset(Dataset):
         if (sic_patch != self.options["class_fill_values"]["SIC"]).sum() <= 1:
             return None, None
 
-        # Split into inputs and targets (add one for sic weight map)
-        # x_patch includes all input features after target charts
+        # Split into inputs and targets
+        # x_patch includes all input features after target charts and weight map
         x_patch = patch[len(self.options["charts"]) + 1 :].unsqueeze(0).float()
-        # y_patch includes target charts
+        # y_patch includes target charts and weight map (with weight map as the last channel)
         y_patch = patch[: len(self.options["charts"]) + 1].unsqueeze(0)
 
         return x_patch, y_patch
@@ -245,7 +248,7 @@ class AI4ArcticChallengeDataset(Dataset):
         x_patches : ndarray
             Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the trainable variables.
         y_patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the targets.
+            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing target charts and weight map.
 
         Returns
         -------
@@ -253,6 +256,8 @@ class AI4ArcticChallengeDataset(Dataset):
             4D torch tensor; ready training data.
         y : Dict
             Dictionary with 3D torch tensors for each chart; reference data for training data x.
+        sic_weight_map :
+            2D torch tensor; weight map for SIC loss calculation.
         """
 
         # Convert training data to tensor float.
@@ -264,7 +269,6 @@ class AI4ArcticChallengeDataset(Dataset):
         y_patches = y_patches[:, :-1]
 
         # Store charts in y dictionary.
-
         y = {}
         for idx, chart in enumerate(self.options["charts"]):
             y[chart] = y_patches[:, idx].type(torch.long)
@@ -305,10 +309,10 @@ class AI4ArcticChallengeDataset(Dataset):
 
         x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
 
-        # Apply the same affine transformation but fill different new value for charts and weight_map
-        # First transform target charts with fill value 255
+        # Apply the same affine transformation but with different fill values
+        # First transform target charts with fill value 255 (all channels except the last one)
         y_patch[:, :-1] = TF.affine(y_patch[:, :-1], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
-        # Then transform weight map with fill value 0
+        # Then transform weight map with fill value 0 (last channel only)
         y_patch[:, -1:] = TF.affine(y_patch[:, -1:], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
 
         return x_patch, y_patch
