@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:a100_2g.10gb:1
-#SBATCH --cpus-per-task=6
+#SBATCH --gres=gpu:a100_1g.5gb:1
+#SBATCH --cpus-per-task=3
 #SBATCH --mem=80G
-#SBATCH --time=5:59:00
+#SBATCH --time=8:59:00
 #SBATCH --output=/home/j46lei/projects/rrg-dclausi/j46lei/ai4arctic/output/%x_%j.log
 #SBATCH --account=rrg-dclausi
 #SBATCH --mail-user=junf137@outlook.com
