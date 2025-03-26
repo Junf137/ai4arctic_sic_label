@@ -29,7 +29,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
-from functions import rand_bbox
+from functions import rand_bbox, mask_sic_label_edges
 
 
 class AI4ArcticChallengeDataset(Dataset):
@@ -82,6 +82,16 @@ class AI4ArcticChallengeDataset(Dataset):
 
             temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
 
+        # Apply SIC label mask after downsampling
+        sic_label_mask_opts = self.options["sic_label_mask"]
+        if sic_label_mask_opts["train"]:
+            mask_sic_label_edges(
+                options=sic_label_mask_opts,
+                SIC=temp_scene[0],
+                sic_cfv=self.options["class_fill_values"]["SIC"],
+                scene_id=scene.scene_id[:-3],
+            )
+
             return temp_scene
 
     def _down_sample_dataset(self):
@@ -98,6 +108,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Store processed scenes
         self.scenes = processed_scenes
+
 
     def _downsample_and_pad(self, data):
         """Handle downsampling and padding with optimized tensor ops."""
@@ -618,11 +629,20 @@ class AI4ArcticChallengeTestDataset(Dataset):
             y_charts = torch.from_numpy(scene[self.options["charts"]].isel().to_array().values).unsqueeze(0)
             y_charts = torch.nn.functional.interpolate(
                 y_charts, scale_factor=1 / self.options["down_sample_scale"], mode="nearest"
-            )
+            ).squeeze(0)
+
+            sic_label_mask_opts = self.options["sic_label_mask"]
+            if (self.mode == "train" and sic_label_mask_opts["val"]) or (self.mode == "test" and sic_label_mask_opts["test"]):
+                mask_sic_label_edges(
+                    options=sic_label_mask_opts,
+                    SIC=y_charts[0],
+                    sic_cfv=self.options["class_fill_values"]["SIC"],
+                    scene_id=scene.scene_id[:-3],
+                )
 
             y = {}
             for idx, chart in enumerate(self.options["charts"]):
-                y[chart] = y_charts[:, idx].squeeze().numpy()
+                y[chart] = y_charts[idx].numpy()
         else:
             y = None
 

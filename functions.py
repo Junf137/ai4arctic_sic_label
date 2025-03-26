@@ -17,6 +17,8 @@ import json
 import random
 
 # -- Third-party modules -- #
+import cv2
+import cmocean
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -768,3 +770,70 @@ def get_model(train_options, device):
     else:
         raise "Unknown model selected"
     return net
+
+
+def sic_visualization(options, sic_np, sic_cfv, scene_id, title="SIC Visualization"):
+    """Visualize SIC with a color map"""
+
+    # Get unique values in sic_np
+    # unique_values = np.unique(sic_np)
+    # print("unique values: ", unique_values)
+
+    # Count number of sic_cfv values in sic_np
+    # sic_cfv_num = np.count_nonzero(sic_np == sic_cfv)
+    # print(f"number of value {sic_cfv} in SIC: {sic_cfv_num}, {sic_cfv_num / sic_np.size}%")
+
+    # mask sic_np here will not change the original sic_np
+    sic_np = np.ma.masked_where(sic_np == sic_cfv, sic_np)
+
+    # Plot SIC
+    plt.figure(figsize=(15, 10))
+    plt.imshow(sic_np, cmap=cmocean.cm.ice)
+    plt.colorbar()
+    plt.title(title)
+
+    visualization_save_path = options["visualization_save_path"]
+    if visualization_save_path:
+        save_path = os.path.join(visualization_save_path, f"{scene_id}_{title}.png")
+        plt.savefig(save_path)
+        plt.close()
+
+    # Interactively show the plot
+    # plt.show()
+
+
+def get_edges(arr_np, ksize, threshold):
+    """Get edges using Sobel filter"""
+    sobel_x = cv2.Sobel(arr_np, cv2.CV_64F, 1, 0, ksize=ksize)
+    sobel_y = cv2.Sobel(arr_np, cv2.CV_64F, 0, 1, ksize=ksize)
+    edges = np.hypot(sobel_x, sobel_y)  # Compute gradient magnitude
+    edges = edges > threshold
+
+    return edges
+
+
+def mask_sic_label_edges(options, SIC, sic_cfv, scene_id):
+    """Mask SIC borders"""
+    sic_np = SIC.numpy()
+
+    if options["ksize"] is not None:
+        ksize = options["ksize"]
+    else:
+        ksize_ratio = options["ksize_ratio"]
+        # Calculate kernel size ensuring odd number
+        ksize = max(3, int(min(SIC.shape[-2:]) / ksize_ratio))
+        ksize = ksize + 1 if ksize % 2 == 0 else ksize
+        ksize = min(ksize, min(SIC.shape[-2:]) - 2)
+
+    mask = get_edges(sic_np, ksize=ksize, threshold=options["edge_threshold"])
+
+    # Visualization only in debug mode
+    if options["visualization"]:
+        sic_visualization(options=options, sic_np=SIC.numpy(), sic_cfv=sic_cfv, scene_id=scene_id, title="Original SIC")
+        sic_visualization(options=options, sic_np=mask, sic_cfv=sic_cfv, scene_id=scene_id, title="Edge Mask")
+
+    # update SIC with mask
+    SIC[mask] = sic_cfv
+
+    if options["visualization"]:
+        sic_visualization(options=options, sic_np=SIC.numpy(), sic_cfv=sic_cfv, scene_id=scene_id, title="Masked SIC")
