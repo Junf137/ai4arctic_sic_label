@@ -52,6 +52,12 @@ class AI4ArcticChallengeDataset(Dataset):
         # Downsample dataset
         self._down_sample_dataset()
 
+    def __del__(self):
+        """Cleanup resources when object is destroyed."""
+        # Clear cached data
+        self.scenes.clear()
+        torch.cuda.empty_cache()
+
     def _process_single_file(self, file):
         """Process a single file and return the processed scene."""
         file_path = os.path.join(self.options["path_to_train_data"], file)
