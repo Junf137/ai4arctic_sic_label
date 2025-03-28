@@ -131,7 +131,7 @@ class AI4ArcticChallengeDataset(Dataset):
             raise ValueError("Downsample has to be enabled")
 
         # Downsample dataset
-        self._down_sample_dataset()
+        self._load_scenes()
 
     def __del__(self):
         """Cleanup resources when object is destroyed."""
@@ -139,7 +139,7 @@ class AI4ArcticChallengeDataset(Dataset):
         self.scenes.clear()
         torch.cuda.empty_cache()
 
-    def _down_sample_dataset(self):
+    def _load_scenes(self):
         """Initialize dataset with optimized parallel preprocessing."""
         # Determine number of processes to use (use all available cores by default)
         num_processes = min(self.options["load_proc"], len(self.files))
@@ -214,34 +214,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
         return x_patch, y_patch
 
-    def prep_dataset(self, x_patches, y_patches):
-        """
-        Convert patches from 4D numpy array to 4D torch tensor.
-
-        Parameters
-        ----------
-        x_patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the trainable variables.
-        y_patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the targets.
-
-        Returns
-        -------
-        x :
-            4D torch tensor; ready training data.
-        y : Dict
-            Dictionary with 3D torch tensors for each chart; reference data for training data x.
-        """
-        x = x_patches
-
-        # Store charts in y dictionary.
-
-        y = {}
-        for idx, chart in enumerate(self.options["charts"]):
-            y[chart] = y_patches[:, idx]
-
-        return x, y
-
     def transform(self, x_patch, y_patch):
         data_aug_options = self.options["data_augmentations"]
         if torch.rand(1) < data_aug_options["Random_h_flip"]:
@@ -314,7 +286,14 @@ class AI4ArcticChallengeDataset(Dataset):
         if self.do_transform and torch.rand(1).item() < self.options["data_augmentations"]["Cutmix_prob"]:
             x_patches, y_patches = self._apply_cutmix(x_patches, y_patches)
 
-        return self.prep_dataset(x_patches, y_patches)
+        # prepare dataset for training
+        x = x_patches
+
+        y = {}
+        for idx, chart in enumerate(self.options["charts"]):
+            y[chart] = y_patches[:, idx]
+
+        return x, y
 
     def _handle_scene_error(self, scene_id, error, attempt_count):
         print(f"Cropping failed in {self.files[scene_id]}: {str(error)}")
