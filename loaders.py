@@ -82,6 +82,37 @@ def downsample_and_pad(data, down_sample_scale, loader_downsampling, patch_size)
     return data
 
 
+def process_single_scene(options, scene):
+    # Process main variables
+    sar_data = torch.from_numpy(scene[options["full_variables"]].to_array().values).to(torch.float32)
+    size = sar_data.shape[-2:]
+
+    temp_scene = sar_data
+
+    # Process AMSR variables
+    if options["amsrenv_variables"]:
+        amsrenv_data = torch.from_numpy(scene[options["amsrenv_variables"]].to_array().values).to(torch.float32)
+        amsrenv_data = F.interpolate(
+            input=amsrenv_data.unsqueeze(0),
+            size=size,
+            mode=options["loader_upsampling"],
+        ).squeeze(0)
+
+        temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
+
+    # Process auxiliary variables
+    if options["auxiliary_variables"]:
+        aux_data = process_auxiliary_features(scene, options, size)
+        if aux_data is not None:
+            temp_scene = torch.cat([temp_scene, aux_data], dim=0)
+
+    temp_scene = downsample_and_pad(
+        temp_scene, options["down_sample_scale"], options["loader_downsampling"], options["patch_size"]
+    ).squeeze(0)
+
+    return temp_scene
+
+
 class AI4ArcticChallengeDataset(Dataset):
     """PyTorch dataset for loading patches from ASID V2 with optimized preprocessing."""
 
@@ -108,42 +139,6 @@ class AI4ArcticChallengeDataset(Dataset):
         self.scenes.clear()
         torch.cuda.empty_cache()
 
-    def _process_single_file(self, file):
-        """Process a single file and return the processed scene."""
-        file_path = os.path.join(self.options["path_to_train_data"], file)
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Training file missing: {file_path}")
-
-        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
-            # Process main variables
-            sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values).to(torch.float32)
-            size = sar_data.shape[-2:]
-
-            temp_scene = sar_data
-
-            # Process AMSR variables
-            if self.options["amsrenv_variables"]:
-                amsrenv_data = torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).to(torch.float32)
-                amsrenv_data = F.interpolate(
-                    input=amsrenv_data.unsqueeze(0),
-                    size=size,
-                    mode=self.options["loader_upsampling"],
-                ).squeeze(0)
-
-                temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
-
-            # Process auxiliary variables
-            if self.options["auxiliary_variables"]:
-                aux_data = process_auxiliary_features(scene, self.options, size)
-                if aux_data is not None:
-                    temp_scene = torch.cat([temp_scene, aux_data], dim=0)
-
-            temp_scene = downsample_and_pad(
-                temp_scene, self.options["down_sample_scale"], self.options["loader_downsampling"], self.patch_size
-            ).squeeze(0)
-
-            return temp_scene
-
     def _down_sample_dataset(self):
         """Initialize dataset with optimized parallel preprocessing."""
         # Determine number of processes to use (use all available cores by default)
@@ -158,6 +153,20 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Store processed scenes
         self.scenes = processed_scenes
+
+    def _process_single_file(self, file):
+        """Process a single file and return the processed scene."""
+        file_path = os.path.join(self.options["path_to_train_data"], file)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Training file missing: {file_path}")
+
+        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
+            # Process the scene
+            processed_scene = process_single_scene(self.options, scene)
+
+            scene.close()
+
+        return processed_scene
 
     def __len__(self):
         """
