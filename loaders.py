@@ -61,6 +61,27 @@ def process_auxiliary_features(scene, options, target_shape):
     return torch.cat(aux_tensors, dim=0) if aux_tensors else None
 
 
+def downsample_and_pad(data, down_sample_scale, loader_downsampling, patch_size):
+    """Handle downsampling and padding with optimized tensor ops."""
+
+    data = F.interpolate(input=data.unsqueeze(0), scale_factor=1 / down_sample_scale, mode=loader_downsampling)
+
+    # Calculate padding needs
+    h, w = data.shape[-2:]
+    pad_h = max(patch_size - h, 0)
+    pad_w = max(patch_size - w, 0)
+
+    if pad_h or pad_w:
+        data = F.pad(
+            data,
+            (0, pad_w, 0, pad_h),
+            mode="constant",
+            value=(255 if data.dtype == torch.uint8 else 0),  # Handle y/x differently
+        )
+
+    return data
+
+
 class AI4ArcticChallengeDataset(Dataset):
     """PyTorch dataset for loading patches from ASID V2 with optimized preprocessing."""
 
@@ -117,7 +138,9 @@ class AI4ArcticChallengeDataset(Dataset):
                 if aux_data is not None:
                     temp_scene = torch.cat([temp_scene, aux_data], dim=0)
 
-            temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
+            temp_scene = downsample_and_pad(
+                temp_scene, self.options["down_sample_scale"], self.options["loader_downsampling"], self.patch_size
+            ).squeeze(0)
 
             return temp_scene
 
@@ -135,28 +158,6 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Store processed scenes
         self.scenes = processed_scenes
-
-    def _downsample_and_pad(self, data):
-        """Handle downsampling and padding with optimized tensor ops."""
-
-        data = F.interpolate(
-            input=data.unsqueeze(0), scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
-        )
-
-        # Calculate padding needs
-        h, w = data.shape[-2:]
-        pad_h = max(self.patch_size - h, 0)
-        pad_w = max(self.patch_size - w, 0)
-
-        if pad_h or pad_w:
-            data = F.pad(
-                data,
-                (0, pad_w, 0, pad_h),
-                mode="constant",
-                value=(255 if data.dtype == torch.uint8 else 0),  # Handle y/x differently
-            )
-
-        return data
 
     def __len__(self):
         """
