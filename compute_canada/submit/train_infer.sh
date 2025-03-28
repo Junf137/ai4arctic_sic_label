@@ -19,14 +19,11 @@ if [ "$#" -ne 4 ]; then
     exit 1
 fi
 
-# Purge all loaded modules
-echo "---* Purging all loaded modules..."
-module --force purge
-
 # Load necessary modules
 echo "---* Loading required modules..."
-module load StdEnv gcc opencv/4.10.0
-module load python/3.10.13
+module --force purge
+module load StdEnv gcc opencv/4.10.0 python/3.10.13
+# module --force purge && module load StdEnv gcc opencv/4.10.0 python/3.10.13 && source ~/.venvs/ai4arctic/bin/activate
 
 # Activate the virtual environment
 source $4/bin/activate
