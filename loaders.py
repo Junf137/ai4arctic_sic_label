@@ -32,6 +32,35 @@ import torchvision.transforms.functional as TF
 from functions import rand_bbox
 
 
+def process_auxiliary_features(scene, options, target_shape):
+    def create_time_feature():
+        norm_time = get_norm_month(scene.attrs["scene_id"])
+        return torch.full((1, *target_shape), norm_time, dtype=torch.float32)
+
+    def create_geo_feature(coord_type):
+        coord_values = scene[f"sar_grid2d_{coord_type}"].values
+        coord_values = (coord_values - options[coord_type]["mean"]) / options[coord_type]["std"]
+        coord_values = torch.from_numpy(coord_values).to(torch.float32)
+        return F.interpolate(
+            input=coord_values.unsqueeze(0).unsqueeze(0),
+            size=target_shape,
+            mode=options["loader_upsampling"],
+        ).squeeze(0)
+
+    aux_processor = {
+        "aux_time": create_time_feature,
+        "aux_lat": lambda: create_geo_feature("latitude"),
+        "aux_long": lambda: create_geo_feature("longitude"),
+    }
+
+    aux_tensors = []
+    for var in options["auxiliary_variables"]:
+        if var in aux_processor:
+            aux_tensors.append(aux_processor[var]())
+
+    return torch.cat(aux_tensors, dim=0) if aux_tensors else None
+
+
 class AI4ArcticChallengeDataset(Dataset):
     """PyTorch dataset for loading patches from ASID V2 with optimized preprocessing."""
 
@@ -84,7 +113,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
             # Process auxiliary variables
             if self.options["auxiliary_variables"]:
-                aux_data = self._process_auxiliary(scene, size)
+                aux_data = process_auxiliary_features(scene, self.options, size)
                 if aux_data is not None:
                     temp_scene = torch.cat([temp_scene, aux_data], dim=0)
 
@@ -128,40 +157,6 @@ class AI4ArcticChallengeDataset(Dataset):
             )
 
         return data
-
-    def _process_auxiliary(self, scene, target_shape):
-        """Process auxiliary variables with batched operations."""
-        aux_tensors = []
-
-        # Create processing map for auxiliary variables
-        aux_processor = {
-            "aux_time": lambda: self._create_time_feature(scene, target_shape),
-            "aux_lat": lambda: self._create_geo_feature(scene, "latitude", target_shape),
-            "aux_long": lambda: self._create_geo_feature(scene, "longitude", target_shape),
-        }
-
-        for var in self.options["auxiliary_variables"]:
-            if var in aux_processor:
-                aux_tensors.append(aux_processor[var]())
-
-        return torch.cat(aux_tensors, dim=0) if aux_tensors else None
-
-    def _create_time_feature(self, scene, target_shape):
-        """Create normalized time feature tensor."""
-        norm_time = get_norm_month(scene.attrs["scene_id"])
-        return torch.full((1, *target_shape), norm_time, dtype=torch.float32)
-
-    def _create_geo_feature(self, scene, coord_type, target_shape):
-        """Create normalized geo feature tensor."""
-        coord_values = scene[f"sar_grid2d_{coord_type}"].values
-        coord_values = (coord_values - self.options[coord_type]["mean"]) / self.options[coord_type]["std"]
-
-        coord_values = torch.from_numpy(coord_values).to(torch.float32)
-        return F.interpolate(
-            input=coord_values.unsqueeze(0).unsqueeze(0),
-            size=target_shape,
-            mode=self.options["loader_upsampling"],
-        ).squeeze(0)
 
     def __len__(self):
         """
