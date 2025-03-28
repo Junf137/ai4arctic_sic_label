@@ -321,24 +321,59 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.options = options
         self.files = files
 
-        if mode not in ["train", "test", "test_no_gt"]:
-            raise ValueError("String variable must be one of 'train', 'test', or 'test_no_gt'")
+        if mode not in ["train", "test"]:
+            raise ValueError("String variable must be one of 'train', 'test'")
         self.mode = mode
 
         self.scenes = []
         self.original_sizes = []
 
-        for file in tqdm(files, desc="Loading scenes"):
-            if self.mode == "test" or self.mode == "test_no_gt":
-                scene = xr.open_dataset(os.path.join(self.options["path_to_test_data"], file), engine="h5netcdf")
-            else:  # train mode
-                scene = xr.open_dataset(os.path.join(self.options["path_to_train_data"], file), engine="h5netcdf")
+        self._load_scenes()
 
-            x, y = self.prep_scene(scene)
-            self.scenes.append((x, y))
-            self.original_sizes.append(scene["nersc_sar_primary"].values.shape)
+    def __del__(self):
+        """Cleanup resources when object is destroyed."""
+        # Clear cached data
+        self.scenes.clear()
+        torch.cuda.empty_cache()
+
+    def _load_scenes(self):
+        """Initialize dataset with optimized parallel preprocessing."""
+        # Determine number of processes to use (use all available cores by default)
+        num_processes = min(self.options["load_proc"], len(self.files))
+
+        # Create a multiprocessing pool
+        with multiprocessing.Pool(processes=num_processes) as pool:
+            # Process files in parallel with progress bar
+            processed_data = list(
+                tqdm(pool.imap(self._process_single_file, self.files), total=len(self.files), desc="Loading scenes in parallel")
+            )
+
+        # Unpack the tuples and store in respective lists
+        self.scenes = []
+        self.original_sizes = []
+        for processed_scene, original_size in processed_data:
+            self.scenes.append(processed_scene)
+            self.original_sizes.append(original_size)
+
+    def _process_single_file(self, file):
+        """Process a single file and return the processed scene."""
+        if self.mode == "test":
+            file_path = os.path.join(self.options["path_to_test_data"], file)
+        else:  # train mode
+            file_path = os.path.join(self.options["path_to_train_data"], file)
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Training file missing: {file_path}")
+
+        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
+            # Process the scene
+            processed_scene = process_single_scene(self.options, scene)
+
+            original_size = scene["nersc_sar_primary"].values.shape
 
             scene.close()
+
+        return processed_scene, original_size
 
     def __len__(self):
         """
@@ -349,88 +384,6 @@ class AI4ArcticChallengeTestDataset(Dataset):
         Number of scenes per validation.
         """
         return len(self.files)
-
-    def prep_scene(self, scene):
-        """
-        Upsample low resolution to match charts and SAR resolution. Convert patches
-        from 4D numpy array to 4D torch tensor.
-
-        Parameters
-        ----------
-        scene :
-            xarray dataset containing the scene data
-
-        Returns
-        -------
-        x :
-            4D torch tensor, ready training data.
-        y :
-            Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
-        """
-        x_feat_list = []
-
-        sar_var_x = torch.from_numpy(scene[self.options["sar_variables"]].to_array().values).unsqueeze(0)
-        x_feat_list.append(sar_var_x)
-
-        size = scene["nersc_sar_primary"].values.shape
-
-        if len(self.options["amsrenv_variables"]) > 0:
-            asmr_env__var_x = torch.nn.functional.interpolate(
-                input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
-                size=size,
-                mode=self.options["loader_upsampling"],
-            )
-            x_feat_list.append(asmr_env__var_x)
-
-        if len(self.options["auxiliary_variables"]) > 0:
-            if "aux_time" in self.options["auxiliary_variables"]:
-                scene_id = scene.attrs["scene_id"]
-                norm_time = get_norm_month(scene_id)
-                time_array = torch.from_numpy(np.full(scene["nersc_sar_primary"].values.shape, norm_time)).view(
-                    1, 1, size[0], size[1]
-                )
-                x_feat_list.append(time_array)
-
-            if "aux_lat" in self.options["auxiliary_variables"]:
-                lat_array = scene["sar_grid2d_latitude"].values
-                lat_array = (lat_array - self.options["latitude"]["mean"]) / self.options["latitude"]["std"]
-                inter_lat_array = torch.nn.functional.interpolate(
-                    input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                    size=size,
-                    mode=self.options["loader_upsampling"],
-                )
-                x_feat_list.append(inter_lat_array)
-
-            if "aux_long" in self.options["auxiliary_variables"]:
-                long_array = scene["sar_grid2d_longitude"].values
-                long_array = (long_array - self.options["longitude"]["mean"]) / self.options["longitude"]["std"]
-                inter_long_array = torch.nn.functional.interpolate(
-                    input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                    size=size,
-                    mode=self.options["loader_upsampling"],
-                )
-                x_feat_list.append(inter_long_array)
-
-        x = torch.cat(x_feat_list, axis=1)
-
-        if self.options["down_sample_scale"] != 1:
-            x = torch.nn.functional.interpolate(
-                x, scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
-            )
-
-        if self.mode != "test_no_gt":
-            y_charts = torch.from_numpy(scene[self.options["charts"]].isel().to_array().values).unsqueeze(0)
-            y_charts = torch.nn.functional.interpolate(
-                y_charts, scale_factor=1 / self.options["down_sample_scale"], mode="nearest"
-            )
-
-            y = {}
-            for idx, chart in enumerate(self.options["charts"]):
-                y[chart] = y_charts[:, idx].squeeze().numpy()
-        else:
-            y = None
-
-        return x.float(), y
 
     def __getitem__(self, idx):
         """
@@ -447,16 +400,21 @@ class AI4ArcticChallengeTestDataset(Dataset):
         name : str
             Name of scene.
         """
-        x, y = self.scenes[idx]
+
+        scene = self.scenes[idx].clone()
+
+        x = scene[len(self.options["charts"]) :].unsqueeze(0)
+
+        y_charts = scene[: len(self.options["charts"])]
+        y = {}
+        for i, chart in enumerate(self.options["charts"]):
+            y[chart] = y_charts[i]
+
+        cfv_masks = {}
+        for chart in self.options["charts"]:
+            cfv_masks[chart] = (y[chart] == self.options["class_fill_values"][chart]).squeeze()
+
         name = self.files[idx]
-
-        if self.mode != "test_no_gt":
-            cfv_masks = {}
-            for chart in self.options["charts"]:
-                cfv_masks[chart] = (y[chart] == self.options["class_fill_values"][chart]).squeeze()
-        else:
-            cfv_masks = None
-
         original_size = self.original_sizes[idx]
 
         return x, y, cfv_masks, name, original_size
