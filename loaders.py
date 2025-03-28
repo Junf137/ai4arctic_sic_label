@@ -66,15 +66,16 @@ class AI4ArcticChallengeDataset(Dataset):
 
         with xr.open_dataset(file_path, engine="h5netcdf") as scene:
             # Process main variables
-            sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values)
+            sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values).to(torch.float32)
             size = sar_data.shape[-2:]
 
             temp_scene = sar_data
 
             # Process AMSR variables
             if self.options["amsrenv_variables"]:
-                amsrenv_data = torch.nn.functional.interpolate(
-                    input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
+                amsrenv_data = torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).to(torch.float32)
+                amsrenv_data = F.interpolate(
+                    input=amsrenv_data.unsqueeze(0),
                     size=size,
                     mode=self.options["loader_upsampling"],
                 ).squeeze(0)
@@ -84,8 +85,8 @@ class AI4ArcticChallengeDataset(Dataset):
             # Process auxiliary variables
             if self.options["auxiliary_variables"]:
                 aux_data = self._process_auxiliary(scene, size)
-
-                temp_scene = torch.cat([temp_scene, aux_data], dim=0)
+                if aux_data is not None:
+                    temp_scene = torch.cat([temp_scene, aux_data], dim=0)
 
             temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
 
@@ -148,15 +149,16 @@ class AI4ArcticChallengeDataset(Dataset):
     def _create_time_feature(self, scene, target_shape):
         """Create normalized time feature tensor."""
         norm_time = get_norm_month(scene.attrs["scene_id"])
-        return torch.full((1, *target_shape), norm_time)
+        return torch.full((1, *target_shape), norm_time, dtype=torch.float32)
 
     def _create_geo_feature(self, scene, coord_type, target_shape):
         """Create normalized geo feature tensor."""
         coord_values = scene[f"sar_grid2d_{coord_type}"].values
         coord_values = (coord_values - self.options[coord_type]["mean"]) / self.options[coord_type]["std"]
 
+        coord_values = torch.from_numpy(coord_values).to(torch.float32)
         return F.interpolate(
-            input=torch.from_numpy(coord_values).view(1, 1, *coord_values.shape),
+            input=coord_values.unsqueeze(0).unsqueeze(0),
             size=target_shape,
             mode=self.options["loader_upsampling"],
         ).squeeze(0)
@@ -201,7 +203,7 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Split into inputs and targets
         # x_patch includes all input features after target charts
-        x_patch = patch[len(self.options["charts"]) :].unsqueeze(0).float()
+        x_patch = patch[len(self.options["charts"]) :].unsqueeze(0)
         # y_patch includes target charts
         y_patch = patch[: len(self.options["charts"])].unsqueeze(0)
 
@@ -225,15 +227,13 @@ class AI4ArcticChallengeDataset(Dataset):
         y : Dict
             Dictionary with 3D torch tensors for each chart; reference data for training data x.
         """
-
-        # Convert training data to tensor float.
-        x = x_patches.type(torch.float)
+        x = x_patches
 
         # Store charts in y dictionary.
 
         y = {}
         for idx, chart in enumerate(self.options["charts"]):
-            y[chart] = y_patches[:, idx].type(torch.long)
+            y[chart] = y_patches[:, idx]
 
         return x, y
 
