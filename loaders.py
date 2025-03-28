@@ -101,7 +101,7 @@ class AI4ArcticChallengeDataset(Dataset):
             # Create SIC weight map after downsampling using the SIC channel (first channel)
             sic_weight_map = create_sic_weight_map(
                 options=self.options["sic_weight_map"],
-                SIC=temp_scene[0],
+                SIC=temp_scene[0].clone(),
                 sic_cfv=self.options["class_fill_values"]["SIC"],
                 scene_id=scene.scene_id[:-3],
             )
@@ -494,7 +494,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
             sic_weight_map = create_sic_weight_map(
                 options=self.options["sic_weight_map"],
-                SIC=y_charts[0],
+                SIC=y_charts[0].clone(),
                 sic_cfv=self.options["class_fill_values"]["SIC"],
                 scene_id=scene.scene_id[:-3],
             )
