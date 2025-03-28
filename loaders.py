@@ -224,7 +224,7 @@ class AI4ArcticChallengeDataset(Dataset):
         row_rand = 0 if height == patch_size else torch.randint(0, height - patch_size, (1,)).item()
         col_rand = 0 if width == patch_size else torch.randint(0, width - patch_size, (1,)).item()
 
-        patch = scene[:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size]
+        patch = scene[:, row_rand : row_rand + patch_size, col_rand : col_rand + patch_size].clone()
 
         # Invalid patch if no valid sic label (check SIC channel which is first channel)
         sic_patch = patch[0]
