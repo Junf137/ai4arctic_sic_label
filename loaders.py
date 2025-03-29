@@ -32,6 +32,105 @@ import torchvision.transforms.functional as TF
 from functions import rand_bbox, create_sic_weight_map
 
 
+def process_auxiliary_features(scene, options, target_shape):
+    def create_time_feature():
+        norm_time = get_norm_month(scene.attrs["scene_id"])
+        return torch.full((1, *target_shape), norm_time, dtype=torch.float32)
+
+    def create_geo_feature(coord_type):
+        coord_values = scene[f"sar_grid2d_{coord_type}"].values
+        coord_values = (coord_values - options[coord_type]["mean"]) / options[coord_type]["std"]
+        coord_values = torch.from_numpy(coord_values).to(torch.float32)
+        return F.interpolate(
+            input=coord_values.unsqueeze(0).unsqueeze(0),
+            size=target_shape,
+            mode=options["loader_upsampling"],
+        ).squeeze(0)
+
+    aux_processor = {
+        "aux_time": create_time_feature,
+        "aux_lat": lambda: create_geo_feature("latitude"),
+        "aux_long": lambda: create_geo_feature("longitude"),
+    }
+
+    aux_tensors = []
+    for var in options["auxiliary_variables"]:
+        if var in aux_processor:
+            aux_tensors.append(aux_processor[var]())
+
+    return torch.cat(aux_tensors, dim=0) if aux_tensors else None
+
+
+def downsample_and_pad(data, down_sample_scale, loader_downsampling, patch_size):
+    """Handle downsampling and padding with optimized tensor ops."""
+
+    data = F.interpolate(input=data.unsqueeze(0), scale_factor=1 / down_sample_scale, mode=loader_downsampling)
+
+    # Calculate padding needs
+    h, w = data.shape[-2:]
+    pad_h = max(patch_size - h, 0)
+    pad_w = max(patch_size - w, 0)
+
+    if pad_h or pad_w:
+        data = F.pad(
+            data,
+            (0, pad_w, 0, pad_h),
+            mode="constant",
+            value=(255 if data.dtype == torch.uint8 else 0),  # Handle y/x differently
+        )
+
+    return data
+
+
+def process_single_scene(options, scene):
+    # Process main variables
+    sar_data = torch.from_numpy(scene[options["full_variables"]].to_array().values).to(torch.float32)
+    size = sar_data.shape[-2:]
+
+    temp_scene = sar_data
+
+    # Process AMSR variables
+    if options["amsrenv_variables"]:
+        amsrenv_data = torch.from_numpy(scene[options["amsrenv_variables"]].to_array().values).to(torch.float32)
+        amsrenv_data = F.interpolate(
+            input=amsrenv_data.unsqueeze(0),
+            size=size,
+            mode=options["loader_upsampling"],
+        ).squeeze(0)
+
+        temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
+
+    # Process auxiliary variables
+    if options["auxiliary_variables"]:
+        aux_data = process_auxiliary_features(scene, options, size)
+        if aux_data is not None:
+            temp_scene = torch.cat([temp_scene, aux_data], dim=0)
+
+    temp_scene = downsample_and_pad(
+        temp_scene, options["down_sample_scale"], options["loader_downsampling"], options["patch_size"]
+    ).squeeze(0)
+
+    # Create SIC weight map after downsampling using the SIC channel (first channel)
+    sic_weight_map = create_sic_weight_map(
+        options=options["sic_weight_map"],
+        SIC=temp_scene[0].clone(),
+        sic_cfv=options["class_fill_values"]["SIC"],
+        scene_id=scene.scene_id[:-3],
+    )
+
+    # Append weight map after target charts
+    temp_scene = torch.cat(
+        [
+            temp_scene[: len(options["charts"])],
+            sic_weight_map.unsqueeze(0),
+            temp_scene[len(options["charts"]) :],
+        ],
+        dim=0,
+    )
+
+    return temp_scene
+
+
 class AI4ArcticChallengeDataset(Dataset):
     """PyTorch dataset for loading patches from ASID V2 with optimized preprocessing."""
 
@@ -50,75 +149,9 @@ class AI4ArcticChallengeDataset(Dataset):
             raise ValueError("Downsample has to be enabled")
 
         # Downsample dataset
-        self._down_sample_dataset()
+        self._load_scenes()
 
-    def __del__(self):
-        """Cleanup resources when object is destroyed."""
-        # Clear cached data
-        self.scenes.clear()
-        torch.cuda.empty_cache()
-
-    def _process_single_file(self, file):
-        """Process a single file and return the processed scene.
-
-        The scene tensor has the following channel order:
-        - Channels 0:N: Target charts (SIC, SOD, FLOE)
-        - Channel N: SIC weight map
-        - Channels N+: Input features
-
-        Returns:
-            torch.Tensor: Processed scene with all channels properly ordered
-        """
-        file_path = os.path.join(self.options["path_to_train_data"], file)
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Training file missing: {file_path}")
-
-        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
-            # Process main variables
-            sar_data = torch.from_numpy(scene[self.options["full_variables"]].to_array().values)
-            size = sar_data.shape[-2:]
-
-            temp_scene = sar_data
-
-            # Process AMSR variables
-            if self.options["amsrenv_variables"]:
-                amsrenv_data = torch.nn.functional.interpolate(
-                    input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
-                    size=size,
-                    mode=self.options["loader_upsampling"],
-                ).squeeze(0)
-
-                temp_scene = torch.cat([temp_scene, amsrenv_data], dim=0)
-
-            # Process auxiliary variables
-            if self.options["auxiliary_variables"]:
-                aux_data = self._process_auxiliary(scene, size)
-
-                temp_scene = torch.cat([temp_scene, aux_data], dim=0)
-
-            temp_scene = self._downsample_and_pad(temp_scene).squeeze(0)
-
-            # Create SIC weight map after downsampling using the SIC channel (first channel)
-            sic_weight_map = create_sic_weight_map(
-                options=self.options["sic_weight_map"],
-                SIC=temp_scene[0].clone(),
-                sic_cfv=self.options["class_fill_values"]["SIC"],
-                scene_id=scene.scene_id[:-3],
-            )
-
-            # Append weight map after target charts
-            temp_scene = torch.cat(
-                [
-                    temp_scene[: len(self.options["charts"])],
-                    sic_weight_map.unsqueeze(0),
-                    temp_scene[len(self.options["charts"]) :],
-                ],
-                dim=0,
-            )
-
-            return temp_scene
-
-    def _down_sample_dataset(self):
+    def _load_scenes(self):
         """Initialize dataset with optimized parallel preprocessing."""
         # Determine number of processes to use (use all available cores by default)
         num_processes = min(self.options["load_proc"], len(self.files))
@@ -133,60 +166,19 @@ class AI4ArcticChallengeDataset(Dataset):
         # Store processed scenes
         self.scenes = processed_scenes
 
-    def _downsample_and_pad(self, data):
-        """Handle downsampling and padding with optimized tensor ops."""
+    def _process_single_file(self, file):
+        """Process a single file and return the processed scene."""
+        file_path = os.path.join(self.options["path_to_train_data"], file)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Training file missing: {file_path}")
 
-        data = F.interpolate(
-            input=data.unsqueeze(0), scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
-        )
+        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
+            # Process the scene
+            processed_scene = process_single_scene(self.options, scene)
 
-        # Calculate padding needs
-        h, w = data.shape[-2:]
-        pad_h = max(self.patch_size - h, 0)
-        pad_w = max(self.patch_size - w, 0)
+            scene.close()
 
-        if pad_h or pad_w:
-            data = F.pad(
-                data,
-                (0, pad_w, 0, pad_h),
-                mode="constant",
-                value=(255 if data.dtype == torch.uint8 else 0),  # Handle y/x differently
-            )
-
-        return data
-
-    def _process_auxiliary(self, scene, target_shape):
-        """Process auxiliary variables with batched operations."""
-        aux_tensors = []
-
-        # Create processing map for auxiliary variables
-        aux_processor = {
-            "aux_time": lambda: self._create_time_feature(scene, target_shape),
-            "aux_lat": lambda: self._create_geo_feature(scene, "latitude", target_shape),
-            "aux_long": lambda: self._create_geo_feature(scene, "longitude", target_shape),
-        }
-
-        for var in self.options["auxiliary_variables"]:
-            if var in aux_processor:
-                aux_tensors.append(aux_processor[var]())
-
-        return torch.cat(aux_tensors, dim=0) if aux_tensors else None
-
-    def _create_time_feature(self, scene, target_shape):
-        """Create normalized time feature tensor."""
-        norm_time = get_norm_month(scene.attrs["scene_id"])
-        return torch.full((1, *target_shape), norm_time)
-
-    def _create_geo_feature(self, scene, coord_type, target_shape):
-        """Create normalized geo feature tensor."""
-        coord_values = scene[f"sar_grid2d_{coord_type}"].values
-        coord_values = (coord_values - self.options[coord_type]["mean"]) / self.options[coord_type]["std"]
-
-        return F.interpolate(
-            input=torch.from_numpy(coord_values).view(1, 1, *coord_values.shape),
-            size=target_shape,
-            mode=self.options["loader_upsampling"],
-        ).squeeze(0)
+        return processed_scene
 
     def __len__(self):
         """
@@ -233,47 +225,11 @@ class AI4ArcticChallengeDataset(Dataset):
 
         # Split into inputs and targets
         # x_patch includes all input features after target charts and weight map
-        x_patch = patch[len(self.options["charts"]) + 1 :].unsqueeze(0).float()
+        x_patch = patch[len(self.options["charts"]) + 1 :].unsqueeze(0)
         # y_patch includes target charts and weight map (with weight map as the last channel)
         y_patch = patch[: len(self.options["charts"]) + 1].unsqueeze(0)
 
         return x_patch, y_patch
-
-    def prep_dataset(self, x_patches, y_patches):
-        """
-        Convert patches from 4D numpy array to 4D torch tensor.
-
-        Parameters
-        ----------
-        x_patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing only the trainable variables.
-        y_patches : ndarray
-            Patches sampled from ASID3 ready-to-train challenge dataset scenes [PATCH, CHANNEL, H, W] containing target charts and weight map.
-
-        Returns
-        -------
-        x :
-            4D torch tensor; ready training data.
-        y : Dict
-            Dictionary with 3D torch tensors for each chart; reference data for training data x.
-        sic_weight_map :
-            2D torch tensor; weight map for SIC loss calculation.
-        """
-
-        # Convert training data to tensor float.
-        x = x_patches.type(torch.float)
-
-        # Extract target charts and weight map
-        # Last channel of y_patches is the SIC weight map
-        sic_weight_map = y_patches[:, -1]
-        y_patches = y_patches[:, :-1]
-
-        # Store charts in y dictionary.
-        y = {}
-        for idx, chart in enumerate(self.options["charts"]):
-            y[chart] = y_patches[:, idx].type(torch.long)
-
-        return x, y, sic_weight_map
 
     def transform(self, x_patch, y_patch):
         """Apply data augmentation to patches.
@@ -358,7 +314,18 @@ class AI4ArcticChallengeDataset(Dataset):
         if self.do_transform and torch.rand(1).item() < self.options["data_augmentations"]["Cutmix_prob"]:
             x_patches, y_patches = self._apply_cutmix(x_patches, y_patches)
 
-        return self.prep_dataset(x_patches, y_patches)
+        # prepare dataset for training
+        x = x_patches
+
+        # Extract target charts and weight map. Last channel of y_patches is the SIC weight map
+        sic_weight_map = y_patches[:, -1]
+        y_patches = y_patches[:, :-1]
+
+        y = {}
+        for idx, chart in enumerate(self.options["charts"]):
+            y[chart] = y_patches[:, idx]
+
+        return x, y, sic_weight_map
 
     def _handle_scene_error(self, scene_id, error, attempt_count):
         print(f"Cropping failed in {self.files[scene_id]}: {str(error)}")
@@ -386,23 +353,53 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.options = options
         self.files = files
 
-        if mode not in ["train", "test", "test_no_gt"]:
-            raise ValueError("String variable must be one of 'train', 'test', or 'test_no_gt'")
+        if mode not in ["train", "test"]:
+            raise ValueError("String variable must be one of 'train', 'test'")
         self.mode = mode
 
         self.scenes = []
         self.original_sizes = []
 
-        for file in tqdm(files, desc="Loading scenes"):
-            if self.mode == "test" or self.mode == "test_no_gt":
-                scene = xr.open_dataset(os.path.join(self.options["path_to_test_data"], file), engine="h5netcdf")
-            else:  # train mode
-                scene = xr.open_dataset(os.path.join(self.options["path_to_train_data"], file), engine="h5netcdf")
+        self._load_scenes()
 
-            x, y, sic_weight_map = self.prep_scene(scene)
-            self.scenes.append((x, y, sic_weight_map))
-            self.original_sizes.append(scene["nersc_sar_primary"].values.shape)
+    def _load_scenes(self):
+        """Initialize dataset with optimized parallel preprocessing."""
+        # Determine number of processes to use (use all available cores by default)
+        num_processes = min(self.options["load_proc"], len(self.files))
+
+        # Create a multiprocessing pool
+        with multiprocessing.Pool(processes=num_processes) as pool:
+            # Process files in parallel with progress bar
+            processed_data = list(
+                tqdm(pool.imap(self._process_single_file, self.files), total=len(self.files), desc="Loading scenes in parallel")
+            )
+
+        # Unpack the tuples and store in respective lists
+        self.scenes = []
+        self.original_sizes = []
+        for processed_scene, original_size in processed_data:
+            self.scenes.append(processed_scene)
+            self.original_sizes.append(original_size)
+
+    def _process_single_file(self, file):
+        """Process a single file and return the processed scene."""
+        if self.mode == "test":
+            file_path = os.path.join(self.options["path_to_test_data"], file)
+        else:  # train mode
+            file_path = os.path.join(self.options["path_to_train_data"], file)
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Training file missing: {file_path}")
+
+        with xr.open_dataset(file_path, engine="h5netcdf") as scene:
+            # Process the scene
+            processed_scene = process_single_scene(self.options, scene)
+
+            original_size = scene["nersc_sar_primary"].values.shape
+
             scene.close()
+
+        return processed_scene, original_size
 
     def __len__(self):
         """
@@ -413,96 +410,6 @@ class AI4ArcticChallengeTestDataset(Dataset):
         Number of scenes per validation.
         """
         return len(self.files)
-
-    def prep_scene(self, scene):
-        """
-        Upsample low resolution to match charts and SAR resolution. Convert patches
-        from 4D numpy array to 4D torch tensor.
-
-        Parameters
-        ----------
-        scene :
-            xarray dataset containing the scene data
-
-        Returns
-        -------
-        x :
-            4D torch tensor, ready training data.
-        y :
-            Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
-        """
-        x_feat_list = []
-
-        sar_var_x = torch.from_numpy(scene[self.options["sar_variables"]].to_array().values).unsqueeze(0)
-        x_feat_list.append(sar_var_x)
-
-        size = scene["nersc_sar_primary"].values.shape
-
-        if len(self.options["amsrenv_variables"]) > 0:
-            asmr_env__var_x = torch.nn.functional.interpolate(
-                input=torch.from_numpy(scene[self.options["amsrenv_variables"]].to_array().values).unsqueeze(0),
-                size=size,
-                mode=self.options["loader_upsampling"],
-            )
-            x_feat_list.append(asmr_env__var_x)
-
-        if len(self.options["auxiliary_variables"]) > 0:
-            if "aux_time" in self.options["auxiliary_variables"]:
-                scene_id = scene.attrs["scene_id"]
-                norm_time = get_norm_month(scene_id)
-                time_array = torch.from_numpy(np.full(scene["nersc_sar_primary"].values.shape, norm_time)).view(
-                    1, 1, size[0], size[1]
-                )
-                x_feat_list.append(time_array)
-
-            if "aux_lat" in self.options["auxiliary_variables"]:
-                lat_array = scene["sar_grid2d_latitude"].values
-                lat_array = (lat_array - self.options["latitude"]["mean"]) / self.options["latitude"]["std"]
-                inter_lat_array = torch.nn.functional.interpolate(
-                    input=torch.from_numpy(lat_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                    size=size,
-                    mode=self.options["loader_upsampling"],
-                )
-                x_feat_list.append(inter_lat_array)
-
-            if "aux_long" in self.options["auxiliary_variables"]:
-                long_array = scene["sar_grid2d_longitude"].values
-                long_array = (long_array - self.options["longitude"]["mean"]) / self.options["longitude"]["std"]
-                inter_long_array = torch.nn.functional.interpolate(
-                    input=torch.from_numpy(long_array).view((1, 1, lat_array.shape[0], lat_array.shape[1])),
-                    size=size,
-                    mode=self.options["loader_upsampling"],
-                )
-                x_feat_list.append(inter_long_array)
-
-        x = torch.cat(x_feat_list, axis=1)
-
-        if self.options["down_sample_scale"] != 1:
-            x = torch.nn.functional.interpolate(
-                x, scale_factor=1 / self.options["down_sample_scale"], mode=self.options["loader_downsampling"]
-            )
-
-        if self.mode != "test_no_gt":
-            y_charts = torch.from_numpy(scene[self.options["charts"]].to_array().values).to(torch.float32).unsqueeze(0)
-            y_charts = torch.nn.functional.interpolate(
-                y_charts, scale_factor=1 / self.options["down_sample_scale"], mode="nearest"
-            ).squeeze(0)
-
-            y = {}
-            for idx, chart in enumerate(self.options["charts"]):
-                y[chart] = y_charts[idx].numpy()
-
-            sic_weight_map = create_sic_weight_map(
-                options=self.options["sic_weight_map"],
-                SIC=y_charts[0].clone(),
-                sic_cfv=self.options["class_fill_values"]["SIC"],
-                scene_id=scene.scene_id[:-3],
-            )
-        else:
-            y = None
-            sic_weight_map = None
-
-        return x.float(), y, sic_weight_map
 
     def __getitem__(self, idx):
         """
@@ -519,16 +426,23 @@ class AI4ArcticChallengeTestDataset(Dataset):
         name : str
             Name of scene.
         """
-        x, y, sic_weight_map = self.scenes[idx]
+
+        scene = self.scenes[idx].clone()
+
+        x = scene[len(self.options["charts"]) + 1:].unsqueeze(0)
+
+        sic_weight_map = scene[len(self.options["charts"])]
+
+        y_charts = scene[: len(self.options["charts"])]
+        y = {}
+        for i, chart in enumerate(self.options["charts"]):
+            y[chart] = y_charts[i]
+
+        cfv_masks = {}
+        for chart in self.options["charts"]:
+            cfv_masks[chart] = (y[chart] == self.options["class_fill_values"][chart]).squeeze()
+
         name = self.files[idx]
-
-        if self.mode != "test_no_gt":
-            cfv_masks = {}
-            for chart in self.options["charts"]:
-                cfv_masks[chart] = (y[chart] == self.options["class_fill_values"][chart]).squeeze()
-        else:
-            cfv_masks = None
-
         original_size = self.original_sizes[idx]
 
         return x, y, sic_weight_map, cfv_masks, name, original_size
