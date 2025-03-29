@@ -106,6 +106,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
+            batch_y = {chart: batch_y[chart].to(device, torch.long, non_blocking=True) for chart in train_options["charts"]}
 
             # - Mixed precision training. (Saving memory)
             with torch.amp.autocast(device_type=device.type):
@@ -117,7 +118,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     # only calculate loss when there is at least a valid target value
                     if (batch_y[chart] != train_options["class_fill_values"][chart]).any():
-                        train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart].to(device))
+                        train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -152,9 +153,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             val_loss_batch = torch.tensor([0.0]).to(device)
 
+            # - Transfer to device.
+            inf_x = inf_x.to(device, non_blocking=True)
+            inf_y = {chart: inf_y[chart].to(device, torch.long, non_blocking=True) for chart in train_options["charts"]}
+
             # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
             with torch.no_grad(), torch.amp.autocast(device_type=device.type):
-                inf_x = inf_x.to(device, non_blocking=True)
                 if train_options["model_selection"] == "swin":
                     output = slide_inference(inf_x, net, train_options, "val")
                 else:
@@ -164,17 +168,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     # only calculate loss when there is at least a valid target value
                     if (inf_y[chart] != train_options["class_fill_values"][chart]).any():
-                        val_loss_batch += weight * loss_ce_functions[chart](
-                            output[chart], inf_y[chart].unsqueeze(0).long().to(device)
-                        )
+                        val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
             # - Final output layer, and storing of non masked pixels.
             for chart in train_options["charts"]:
                 output[chart] = class_decider(output[chart], train_options, chart)
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~cfv_masks[chart]]))
-                inf_ys_flat[chart] = torch.cat(
-                    (inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True))
-                )
+                inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]]))
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
