@@ -876,10 +876,10 @@ def create_sic_weight_map(options, SIC, sic_cfv, scene_id):
     # create weight map
     weight_map = np.ones_like(sic_np, dtype=sic_np.dtype) * edge_weights["center"]
 
-    # first applying ice_cfv_edges, then ice_water_edges, thus the intersection will be ice_water_edges
+    # first applying ice_water_edges, then ice_cfv_edges, thus the intersection will be ice_cfv_edges
     weight_map[inner_edges] = edge_weights["inner_edges"]
-    weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
     weight_map[ice_water_edge] = edge_weights["ice_water_edges"]
+    weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
 
     # set all sic_cfv values to 0 in weight_map
     weight_map = np.where(sic_np == sic_cfv, edge_weights["invalid"], weight_map).astype(sic_np.dtype)
