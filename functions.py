@@ -926,10 +926,10 @@ def create_sic_weight_map(options, SIC, sic_cfv, scene_id):
 
             save_path = os.path.join(visualization_save_path, f"{scene_id}_sic_weight_map.png")
             plt.savefig(save_path)
-            plt.close()
 
         # Interactively show the plot
         # plt.show()
+        plt.close()
 
     return torch.tensor(weight_map)
 
