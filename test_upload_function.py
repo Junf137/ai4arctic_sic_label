@@ -201,7 +201,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 preds=outputs_flat[chart], target=inf_ys_flat[chart], num_classes=train_options["n_classes"][chart]
             )
             # Calculate percentages
-            cm = cm.cpu().numpy()
+            cm = cm.numpy()
             row_sums = cm.sum(axis=1)
             # Handle rows with zero sum to avoid division by zero
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -214,28 +214,23 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             ax = sns.heatmap(cm_percent, annot=True, cmap="Blues")
 
             # Customize the plot
-            class_names = list(GROUP_NAMES[chart].values())
-            class_names.append("255")
+            class_names = list(GROUP_NAMES[chart].values()) + ["255"]
             tick_marks = np.arange(len(class_names)) + 0.5
             plt.xticks(tick_marks, class_names, rotation=45)
-            if chart in ["FLOE", "SOD"]:
-                plt.yticks(tick_marks, class_names, rotation=45)
-            else:
-                plt.yticks(tick_marks, class_names)
-
+            plt.yticks(tick_marks, class_names, rotation=45 if chart in ["FLOE", "SOD"] else 0)
             plt.xlabel("Predicted Labels")
             plt.ylabel("Actual Labels")
             plt.title(f"{chart} Confusion Matrix (%)")
 
             cbar = ax.collections[0].colorbar
-            tick_positions = np.linspace(0, 100, 6)  # 6 positions from 0% to 100%
-            cbar.set_ticks(tick_positions)
+            cbar.set_ticks(np.linspace(0, 100, 6))
             cbar.set_ticklabels(["0%", "20%", "40%", "60%", "80%", "100%"])
 
             mkdir_or_exist(f"{osp.join(cfg.work_dir)}/{test_name}")
             plt.savefig(
                 f"{osp.join(cfg.work_dir)}/{test_name}/{chart}_confusion_matrix.png", format="png", dpi=128, bbox_inches="tight"
             )
+            plt.close()
 
     # Save the results to the wandb
     wandb.run.summary[f"{test_name}/Best Combined Score"] = combined_score
