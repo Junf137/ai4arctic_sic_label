@@ -322,8 +322,8 @@ class AI4ArcticChallengeDataset(Dataset):
         y_patches = y_patches[:, :-1]
 
         y = {}
-        for idx, chart in enumerate(self.options["charts"]):
-            y[chart] = y_patches[:, idx]
+        for i, chart in enumerate(self.options["charts"]):
+            y[chart] = y_patches[:, i]
 
         return x, y, sic_weight_map
 

@@ -44,9 +44,8 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         device (str): The device to run the inference on
         cfg (Config): mmcv based Config object, Can be considered dict
     """
-
     if mode not in ["val", "test"]:
-        raise ValueError("String variable must be one of 'train_val', 'test_val', or 'train'")
+        raise ValueError("Mode must be 'val' or 'test'")
 
     train_options = cfg.train_options
     train_options = get_variable_options(train_options)
@@ -57,20 +56,18 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
 
     experiment_name = osp.splitext(osp.basename(cfg.work_dir))[0]
     artifact = wandb.Artifact(experiment_name, "dataset")
-
     table = wandb.Table(columns=["ID", "Image"])
 
-    # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
-    output_class = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
-    outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
-    inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
+    # Initialize storage for results
+    outputs_flat = {chart: [] for chart in train_options["charts"]}
+    inf_ys_flat = {chart: [] for chart in train_options["charts"]}
 
-    sic_cent_flat = torch.Tensor().to(device)
-    inf_y_sic_cent_flat = torch.Tensor().to(device)
-    sic_edge_flat = torch.Tensor().to(device)
-    inf_y_sic_edge_flat = torch.Tensor().to(device)
+    sic_cent_flat = []
+    inf_y_sic_cent_flat = []
+    sic_edge_flat = []
+    inf_y_sic_edge_flat = []
 
-    # ### Prepare the scene list, dataset and dataloaders
+    # Prepare dataset and dataloader
     dataset = AI4ArcticChallengeTestDataset(options=train_options, files=test_list, mode="train" if mode == "val" else "test")
     asid_loader = torch.utils.data.DataLoader(
         dataset,
@@ -82,26 +79,25 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     )
     print("Setup ready")
 
-    if mode == "val":
-        inference_name = "inference_val"
-    elif mode == "test":
-        inference_name = "inference_test"
-
+    inference_name = "inference_val" if mode == "val" else "inference_test"
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
 
     net.eval()
     for inf_x, inf_y, sic_weight_map, cfv_masks, scene_name, original_size in tqdm(
-        iterable=asid_loader, total=len(test_list), colour="green", position=0
+        iterable=asid_loader, total=len(test_list), colour="green", position=0, desc=inference_name
     ):
-        scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
+        scene_name = scene_name[:19]  # Remove '_prep.nc' from name
         torch.cuda.empty_cache()
 
         inf_x = inf_x.to(device, non_blocking=True)
+
         with torch.no_grad(), torch.amp.autocast(device_type=device.type):
             if train_options["model_selection"] == "swin":
                 output = slide_inference(inf_x, net, train_options, "test")
             else:
                 output = net(inf_x)
+
+            inf_x = inf_x.to("cpu")
 
         if train_options["down_sample_scale"] != 1:
             for chart in train_options["charts"]:
@@ -113,6 +109,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                     .squeeze()
                 )
                 cfv_masks[chart] = torch.gt(masks_int, 0)
+                cfv_masks[chart] = cfv_masks[chart].to("cpu")
 
                 # Upsample data
                 # check if the output is regression output, if yes, permute the dimension
@@ -122,22 +119,27 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                     output[chart] = output[chart].permute(0, 2, 3, 1)
                 else:
                     output[chart] = torch.nn.functional.interpolate(output[chart], size=original_size, mode="nearest")
+                output[chart] = output[chart].to("cpu")
 
                 inf_y[chart] = torch.nn.functional.interpolate(
                     inf_y[chart].unsqueeze(dim=0).unsqueeze(dim=0), size=original_size, mode="nearest"
                 ).squeeze()
+                inf_y[chart] = inf_y[chart].to("cpu")
 
             # Upsample the weight map
             sic_weight_map = torch.nn.functional.interpolate(
                 sic_weight_map.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest"
             ).squeeze()
+            sic_weight_map = sic_weight_map.to("cpu")
 
+        # Process and move results to CPU immediately
+        output_class = {}
         for chart in train_options["charts"]:
             output_class[chart] = class_decider(output[chart], train_options, chart).detach()
-            outputs_flat[chart] = torch.cat((outputs_flat[chart], output_class[chart][~cfv_masks[chart]]))
-            inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]].to(device, non_blocking=True)))
+            outputs_flat[chart].append(output_class[chart][~cfv_masks[chart]])
+            inf_ys_flat[chart].append(inf_y[chart][~cfv_masks[chart]])
 
-        # - Store SIC center and edge pixels for r2_metric
+        # Process SIC edge and center pixels
         _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
             edge_weights=train_options["sic_weight_map"]["edge_weights"],
             sic_weight_map=sic_weight_map,
@@ -145,61 +147,71 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             inf_y=inf_y,
             chart="SIC",
         )
-        sic_cent_flat = torch.cat((sic_cent_flat, _sic_cent_flat.to(device, non_blocking=True)))
-        inf_y_sic_cent_flat = torch.cat((inf_y_sic_cent_flat, _inf_y_sic_cent_flat.to(device, non_blocking=True)))
-        sic_edge_flat = torch.cat((sic_edge_flat, _sic_edge_flat.to(device, non_blocking=True)))
-        inf_y_sic_edge_flat = torch.cat((inf_y_sic_edge_flat, _inf_y_sic_edge_flat.to(device, non_blocking=True)))
+        sic_cent_flat.append(_sic_cent_flat)
+        inf_y_sic_cent_flat.append(_inf_y_sic_cent_flat)
+        sic_edge_flat.append(_sic_edge_flat)
+        inf_y_sic_edge_flat.append(_inf_y_sic_edge_flat)
 
-        for chart in train_options["charts"]:
-            inf_y[chart] = inf_y[chart].cpu().numpy()
-            output_class[chart] = output_class[chart].squeeze().cpu().numpy()
-
-        # - Show the scene inference.
+        # Visualization
         fig, axs2d = plt.subplots(nrows=3, ncols=3, figsize=(20, 20))
 
         axs = axs2d.flat
 
+        # HH and HV
         for j in range(0, 2):
             ax = axs[j]
-            img = torch.squeeze(inf_x, dim=0).cpu().numpy()[j]
-            if j == 0:
-                ax.set_title(f"Scene {scene_name}, HH")
-            else:
-                ax.set_title(f"Scene {scene_name}, HV")
+            img = inf_x.squeeze(0).numpy()[j]
+            ax.set_title(f"Scene {scene_name}, HH" if j == 0 else f"Scene {scene_name}, HV")
             ax.set_xticks([])
             ax.set_yticks([])
             ax.imshow(img, cmap="gray")
 
-        for idx, chart in enumerate(train_options["charts"]):
+        # Plot (0, 2)
+        ax = axs[2]
+        ax.set_xticks([])
+        ax.set_yticks([])
 
+        # Output from the model
+        for idx, chart in enumerate(train_options["charts"]):
             ax = axs[idx + 3]
-            output_class[chart] = output_class[chart].astype(float)
-            output_class[chart][cfv_masks[chart]] = np.nan
-            ax.imshow(
-                output_class[chart], vmin=0, vmax=train_options["n_classes"][chart] - 2, cmap="jet", interpolation="nearest"
-            )
+            output_np = output_class[chart].numpy().astype(float)
+            output_np[cfv_masks[chart].numpy()] = np.nan
+            ax.imshow(output_np, vmin=0, vmax=train_options["n_classes"][chart] - 2, cmap="jet", interpolation="nearest")
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.set_title([f"Scene {scene_name}, {chart}: Model Prediction"])
+            ax.set_title(f"Scene {scene_name}, {chart}: Model Prediction")
             chart_cbar(ax=ax, n_classes=train_options["n_classes"][chart], chart=chart, cmap="jet")
 
+        # Labels
         for idx, chart in enumerate(train_options["charts"]):
-
             ax = axs[idx + 6]
-            inf_y[chart] = inf_y[chart].astype(float)
-            inf_y[chart][cfv_masks[chart]] = np.nan
-            ax.imshow(inf_y[chart], vmin=0, vmax=train_options["n_classes"][chart] - 2, cmap="jet", interpolation="nearest")
+            inf_y_np = inf_y[chart].numpy().astype(float)
+            inf_y_np[cfv_masks[chart].numpy()] = np.nan
+            ax.imshow(inf_y_np, vmin=0, vmax=train_options["n_classes"][chart] - 2, cmap="jet", interpolation="nearest")
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.set_title([f"Scene {scene_name}, {chart}: Ground Truth"])
+            ax.set_title(f"Scene {scene_name}, {chart}: Ground Truth")
             chart_cbar(ax=ax, n_classes=train_options["n_classes"][chart], chart=chart, cmap="jet")
 
         plt.subplots_adjust(left=0, bottom=0, right=1, top=0.75, wspace=0.5, hspace=-0)
-        fig.savefig(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png", format="png", dpi=128, bbox_inches="tight")
+        fig.savefig(f"{osp.join(cfg.work_dir, inference_name, scene_name)}.png", format="png", dpi=128, bbox_inches="tight")
         plt.close("all")
-        table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png"))
+        table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir, inference_name, scene_name)}.png"))
 
-    # compute combine score
+        # Clean up GPU memory
+        del inf_x, output, _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat
+        torch.cuda.empty_cache()
+
+    # Concatenate results
+    for chart in train_options["charts"]:
+        outputs_flat[chart] = torch.cat(outputs_flat[chart])
+        inf_ys_flat[chart] = torch.cat(inf_ys_flat[chart])
+    sic_cent_flat = torch.cat(sic_cent_flat)
+    inf_y_sic_cent_flat = torch.cat(inf_y_sic_cent_flat)
+    sic_edge_flat = torch.cat(sic_edge_flat)
+    inf_y_sic_edge_flat = torch.cat(inf_y_sic_edge_flat)
+
+    # Compute metrics
     combined_score, scores = compute_metrics(
         true=inf_ys_flat,
         pred=outputs_flat,
@@ -211,12 +223,12 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     sic_cent_r2 = (
         torch.round(r2_metric(inf_y_sic_cent_flat, sic_cent_flat) * 100, decimals=3)
         if sic_cent_flat.numel() > 0
-        else torch.tensor(0.0, device=device)
+        else torch.tensor(0.0)
     )
     sic_edge_r2 = (
         torch.round(r2_metric(inf_y_sic_edge_flat, sic_edge_flat) * 100, decimals=3)
         if sic_edge_flat.numel() > 0
-        else torch.tensor(0.0, device=device)
+        else torch.tensor(0.0)
     )
 
     if train_options["compute_classwise_f1score"]:
@@ -236,7 +248,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 preds=outputs_flat[chart], target=inf_ys_flat[chart], num_classes=train_options["n_classes"][chart]
             )
             # Calculate percentages
-            cm = cm.cpu().numpy()
+            cm = cm.numpy()
             row_sums = cm.sum(axis=1)
             # Handle rows with zero sum to avoid division by zero
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -249,28 +261,23 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
             ax = sns.heatmap(cm_percent, annot=True, cmap="Blues")
 
             # Customize the plot
-            class_names = list(GROUP_NAMES[chart].values())
-            class_names.append("255")
+            class_names = list(GROUP_NAMES[chart].values()) + ["255"]
             tick_marks = np.arange(len(class_names)) + 0.5
             plt.xticks(tick_marks, class_names, rotation=45)
-            if chart in ["FLOE", "SOD"]:
-                plt.yticks(tick_marks, class_names, rotation=45)
-            else:
-                plt.yticks(tick_marks, class_names)
-
+            plt.yticks(tick_marks, class_names, rotation=45 if chart in ["FLOE", "SOD"] else 0)
             plt.xlabel("Predicted Labels")
             plt.ylabel("Actual Labels")
             plt.title(f"{chart} Confusion Matrix (%)")
 
             cbar = ax.collections[0].colorbar
-            tick_positions = np.linspace(0, 100, 6)  # 6 positions from 0% to 100%
-            cbar.set_ticks(tick_positions)
+            cbar.set_ticks(np.linspace(0, 100, 6))
             cbar.set_ticklabels(["0%", "20%", "40%", "60%", "80%", "100%"])
 
             mkdir_or_exist(f"{osp.join(cfg.work_dir)}/{test_name}")
             plt.savefig(
                 f"{osp.join(cfg.work_dir)}/{test_name}/{chart}_confusion_matrix.png", format="png", dpi=128, bbox_inches="tight"
             )
+            plt.close()
 
     # Save the results to the wandb
     wandb.run.summary[f"{test_name}/Best Combined Score"] = combined_score
