@@ -36,9 +36,8 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         device (str): The device to run the inference on
         cfg (Config): mmcv based Config object, Can be considered dict
     """
-
     if mode not in ["val", "test"]:
-        raise ValueError("String variable must be one of 'train_val', 'test_val', or 'train'")
+        raise ValueError("Mode must be 'val' or 'test'")
 
     train_options = cfg.train_options
     train_options = get_variable_options(train_options)
@@ -49,7 +48,6 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
 
     experiment_name = osp.splitext(osp.basename(cfg.work_dir))[0]
     artifact = wandb.Artifact(experiment_name, "dataset")
-
     table = wandb.Table(columns=["ID", "Image"])
 
     # - Stores the output and the reference pixels to calculate the scores after inference on all the scenes.
@@ -57,7 +55,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
     inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
 
-    # ### Prepare the scene list, dataset and dataloaders
+    # Prepare dataset and dataloader
     dataset = AI4ArcticChallengeTestDataset(options=train_options, files=test_list, mode="train" if mode == "val" else "test")
     asid_loader = torch.utils.data.DataLoader(
         dataset,
@@ -69,21 +67,18 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     )
     print("Setup ready")
 
-    if mode == "val":
-        inference_name = "inference_val"
-    elif mode == "test":
-        inference_name = "inference_test"
-
+    inference_name = "inference_val" if mode == "val" else "inference_test"
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
 
     net.eval()
     for inf_x, inf_y, cfv_masks, scene_name, original_size in tqdm(
-        iterable=asid_loader, total=len(test_list), colour="green", position=0
+        iterable=asid_loader, total=len(test_list), colour="green", position=0, desc=inference_name
     ):
-        scene_name = scene_name[:19]  # Removes the _prep.nc from the name.
+        scene_name = scene_name[:19]  # Remove '_prep.nc' from name
         torch.cuda.empty_cache()
 
         inf_x = inf_x.to(device, non_blocking=True)
+
         with torch.no_grad(), torch.amp.autocast(device_type=device.type):
             if train_options["model_selection"] == "swin":
                 output = slide_inference(inf_x, net, train_options, "test")
@@ -168,7 +163,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         plt.close("all")
         table.add_data(scene_name, wandb.Image(f"{osp.join(cfg.work_dir,inference_name,scene_name)}.png"))
 
-    # compute combine score
+    # Compute metrics
     combined_score, scores = compute_metrics(
         true=inf_ys_flat,
         pred=outputs_flat,
