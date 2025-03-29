@@ -284,8 +284,8 @@ class AI4ArcticChallengeDataset(Dataset):
         x = x_patches
 
         y = {}
-        for idx, chart in enumerate(self.options["charts"]):
-            y[chart] = y_patches[:, idx]
+        for i, chart in enumerate(self.options["charts"]):
+            y[chart] = y_patches[:, i]
 
         return x, y
 
