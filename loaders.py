@@ -133,12 +133,6 @@ class AI4ArcticChallengeDataset(Dataset):
         # Downsample dataset
         self._load_scenes()
 
-    def __del__(self):
-        """Cleanup resources when object is destroyed."""
-        # Clear cached data
-        self.scenes.clear()
-        torch.cuda.empty_cache()
-
     def _load_scenes(self):
         """Initialize dataset with optimized parallel preprocessing."""
         # Determine number of processes to use (use all available cores by default)
@@ -329,12 +323,6 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.original_sizes = []
 
         self._load_scenes()
-
-    def __del__(self):
-        """Cleanup resources when object is destroyed."""
-        # Clear cached data
-        self.scenes.clear()
-        torch.cuda.empty_cache()
 
     def _load_scenes(self):
         """Initialize dataset with optimized parallel preprocessing."""
