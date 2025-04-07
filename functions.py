@@ -84,9 +84,9 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
     scores: list
         List of scores for each chart.
     """
-    scores = {}
+    scores = {chart: torch.tensor(0.0, device=pred[chart].device) for chart in charts}
     for chart in charts:
-        if true[chart].ndim == 1 and pred[chart].ndim == 1:
+        if (metrics[chart]["weight"] > 0) and (true[chart].ndim == 1) and (pred[chart].ndim == 1):
             scores[chart] = torch.round(
                 metrics[chart]["func"](true=true[chart], pred=pred[chart], num_classes=num_classes[chart]) * 100, decimals=3
             )
