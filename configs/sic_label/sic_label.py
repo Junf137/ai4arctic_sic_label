@@ -105,7 +105,7 @@ train_options.update(
             "Cutmix_prob": 0.5,
         },
         # -- Loss configuration -- #
-        "task_weights": [1, 3, 3],
+        "task_weights": [1, 0, 0],
         "chart_loss": {
             "SIC": {
                 "type": "MSELossWithIgnoreIndex",
@@ -124,15 +124,15 @@ train_options.update(
         "chart_metric": {
             "SIC": {
                 "func": r2_metric,
-                "weight": 2,
+                "weight": 1,
             },
             "SOD": {
                 "func": f1_metric,
-                "weight": 2,
+                "weight": 0,
             },
             "FLOE": {
                 "func": f1_metric,
-                "weight": 1,
+                "weight": 0,
             },
         },
     }
