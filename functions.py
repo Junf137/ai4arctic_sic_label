@@ -86,17 +86,17 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
     scores: list
         List of scores for each chart.
     """
-    scores = {}
+    scores = {chart: torch.tensor(0.0, device=pred[chart].device) for chart in charts}
     for chart in charts:
-        if true[chart].ndim == 1 and pred[chart].ndim == 1:
+        if (metrics[chart]["weight"] > 0) and (true[chart].ndim == 1) and (pred[chart].ndim == 1):
             scores[chart] = torch.round(
                 metrics[chart]["func"](true=true[chart], pred=pred[chart], num_classes=num_classes[chart]) * 100, decimals=3
             )
 
         else:
             print(
-                f"true and pred must be 1D numpy array, got {true['SIC'].ndim} \
-                and {pred['SIC'].ndim} dimensions with shape {true['SIC'].shape} and {pred.shape}, respectively"
+                f"{chart}: true and pred must be 1D numpy array, got {true[chart].ndim} and {pred[chart].ndim} dimensions \
+                    with shape {true[chart].shape} and {pred[chart].shape}, respectively"
             )
 
     combined_score = compute_combined_score(scores=scores, charts=charts, metrics=metrics)

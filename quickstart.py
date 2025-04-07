@@ -99,9 +99,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         val_loss_sum = torch.tensor([0.0])  # To sum the validation batch losses during the epoch.
 
-        net.train()  # Set network to evaluation mode.
+        net.train()  # Set network to training mode.
 
-        # Loops though batches in queue.
+        # Loops through batches in queue.
         for i, (batch_x, batch_y, sic_weight_map) in enumerate(
             tqdm(iterable=dataloader_train, total=train_options["epoch_len"], colour="red", desc="Batch")
         ):
@@ -112,7 +112,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             batch_y = {chart: batch_y[chart].to(device, torch.long, non_blocking=True) for chart in train_options["charts"]}
             sic_weight_map = sic_weight_map.to(device, non_blocking=True)
 
-            # - Mixed precision training. (Saving memory)
+            # - Mixed precision training.
             with torch.amp.autocast(device_type=device.type):
                 # - Forward pass.
                 output = net(batch_x)
@@ -121,7 +121,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
                     # only calculate loss when there is at least a valid target value
-                    if (batch_y[chart] != train_options["class_fill_values"][chart]).any():
+                    if (weight > 0) and (batch_y[chart] != train_options["class_fill_values"][chart]).any():
 
                         if chart == "SIC" and train_options["sic_weight_map"]["train"]:
                             train_loss_batch += weight * weighted_mse_loss(
@@ -160,7 +160,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
         net.eval()  # Set network to evaluation mode.
 
-        # - Loops though scenes in queue.
+        # - Loops through scenes in queue.
         for i, (inf_x, inf_y, sic_weight_map, cfv_masks, name, original_size) in enumerate(
             tqdm(iterable=dataloader_val, total=len(train_options["validate_list"]), colour="green", desc="Validation")
         ):
@@ -173,7 +173,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             inf_y = {chart: inf_y[chart].to(device, torch.long, non_blocking=True) for chart in train_options["charts"]}
             sic_weight_map = sic_weight_map.to(device, non_blocking=True)
 
-            # - Ensures that no gradients are calculated, which otherwise take up a lot of space on the GPU.
+            # - No gradients during validation.
             with torch.no_grad(), torch.amp.autocast(device_type=device.type):
                 if train_options["model_selection"] == "swin":
                     output = slide_inference(inf_x, net, train_options, "val")
@@ -183,14 +183,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
                     # only calculate loss when there is at least a valid target value
-                    if (inf_y[chart] != train_options["class_fill_values"][chart]).any():
+                    if (weight > 0) and (inf_y[chart] != train_options["class_fill_values"][chart]).any():
 
                         if chart == "SIC" and train_options["sic_weight_map"]["val"]:
                             val_loss_batch += weight * weighted_mse_loss(output[chart].squeeze(), inf_y[chart], sic_weight_map)
                         else:
                             val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
-            # - Final output layer, and storing of non masked pixels.
+            # - Store outputs and targets.
             for chart in train_options["charts"]:
                 output[chart] = class_decider(output[chart], train_options, chart)
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~cfv_masks[chart]]))
@@ -276,7 +276,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             step=epoch,
         )
 
-        # If the scores is better than the previous epoch, then save the model
+        # - Save best model
         if combined_score > best_combined_score:
             best_combined_score = combined_score
 
@@ -300,7 +300,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         else:
             patience_counter += 1
 
-        # Early stopping
+        # - Early stopping
         if (patience != 0) and patience_counter >= patience:
             print(f"Early stopping at epoch {epoch}")
             break
