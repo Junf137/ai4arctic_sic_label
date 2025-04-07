@@ -101,5 +101,20 @@ train_options.update(
                 "ignore_index": 255,
             },
         },
+        # Metric functions for each ice parameter and the associated weight.
+        "chart_metric": {
+            "SIC": {
+                "func": r2_metric,
+                "weight": 2,
+            },
+            "SOD": {
+                "func": f1_metric,
+                "weight": 2,
+            },
+            "FLOE": {
+                "func": f1_metric,
+                "weight": 1,
+            },
+        },
     }
 )
