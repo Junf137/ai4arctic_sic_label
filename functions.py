@@ -93,8 +93,8 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
 
         else:
             print(
-                f"true and pred must be 1D numpy array, got {true['SIC'].ndim} \
-                and {pred['SIC'].ndim} dimensions with shape {true['SIC'].shape} and {pred.shape}, respectively"
+                f"{chart}: true and pred must be 1D numpy array, got {true[chart].ndim} and {pred[chart].ndim} dimensions \
+                    with shape {true[chart].shape} and {pred[chart].shape}, respectively"
             )
 
     combined_score = compute_combined_score(scores=scores, charts=charts, metrics=metrics)
