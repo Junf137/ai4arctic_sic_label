@@ -117,7 +117,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
                     # only calculate loss when there is at least a valid target value
-                    if (batch_y[chart] != train_options["class_fill_values"][chart]).any():
+                    if (weight > 0) and (batch_y[chart] != train_options["class_fill_values"][chart]).any():
                         train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
 
             # - Reset gradients from previous pass.
@@ -167,7 +167,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
                     # only calculate loss when there is at least a valid target value
-                    if (inf_y[chart] != train_options["class_fill_values"][chart]).any():
+                    if (weight > 0) and (inf_y[chart] != train_options["class_fill_values"][chart]).any():
                         val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
             # - Store outputs and targets.
