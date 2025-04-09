@@ -249,12 +249,14 @@ class AI4ArcticChallengeDataset(Dataset):
         x_list, y_list = [], []
         max_attempts = self.options["batch_size"] * 5  # Prevent infinite loops
         attempt_count = 0
+        scene_ids = []
 
         while len(x_list) < self.options["batch_size"] and attempt_count < max_attempts:
             attempt_count += 1
 
             # Random scene selection using PyTorch
             scene_id = torch.randint(0, len(self.files), (1,)).item()
+            scene_ids.append(scene_id)
 
             try:
                 x_patch, y_patch = self.random_crop_downsample(scene_id)
@@ -302,6 +304,9 @@ class AI4ArcticChallengeDataset(Dataset):
                 self.options["sic_weight_map"]["visualization"]
                 and torch.rand(1).item() < self.options["sic_weight_map"]["visualization_train_prob"]
             ):
+                file_name_str = self.files[scene_ids[i]][:-3]
+                time_str = datetime.datetime.now().strftime("%m_%d_%H")
+                random_str = str(torch.randint(0, 100000, (1,)).item())
                 plot_weight_map(
                     edges=edges,
                     ice_water_edge=ice_water_edge,
@@ -313,7 +318,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     hh_np=x[i][0].numpy(),
                     hv_np=x[i][1].numpy(),
                     plot_path=self.options["sic_weight_map"]["visualization_save_path"],
-                    plot_name=f"train_sic_weight_map_patch_{str(torch.randint(0, 100000, (1,)).item())}.png",
+                    plot_name=f"train_sic_weight_map_{file_name_str}_{time_str}_{random_str}.png",
                 )
 
         sic_weight_map = torch.stack(sic_weight_maps, dim=0)
