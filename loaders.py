@@ -29,7 +29,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
-from functions import rand_bbox, create_sic_weight_map
+from functions import rand_bbox, create_sic_weight_map, plot_weight_map
 
 
 def process_auxiliary_features(scene, options, target_shape):
@@ -111,12 +111,26 @@ def process_single_scene(options, scene):
     ).squeeze(0)
 
     # Create SIC weight map after downsampling using the SIC channel (first channel)
-    sic_weight_map = create_sic_weight_map(
+    edges, ice_water_edge, ice_cfv_edge, inner_edges, sic_weight_map = create_sic_weight_map(
         options=options["sic_weight_map"],
         SIC=temp_scene[0].clone(),
         sic_cfv=options["class_fill_values"]["SIC"],
-        scene_id=scene.scene_id[:-3],
     )
+
+    if options["sic_weight_map"]["visualization"]:
+        plot_weight_map(
+            edges=edges,
+            ice_water_edge=ice_water_edge,
+            ice_cfv_edge=ice_cfv_edge,
+            inner_edges=inner_edges,
+            sic_np=temp_scene[0].numpy(),
+            sic_cfv=options["class_fill_values"]["SIC"],
+            weight_map=sic_weight_map.numpy(),
+            hh_np=temp_scene[len(options["charts"])].numpy(),
+            hv_np=temp_scene[len(options["charts"]) + 1].numpy(),
+            plot_path=options["sic_weight_map"]["visualization_save_path"],
+            plot_name=f"{scene.scene_id[:-3]}_sic_weight_map.png",
+        )
 
     # Append weight map after target charts
     temp_scene = torch.cat(

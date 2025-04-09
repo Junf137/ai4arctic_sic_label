@@ -782,7 +782,7 @@ def get_edges(arr_np, ksize, threshold):
     return edges
 
 
-def create_sic_weight_map(options, SIC, sic_cfv, scene_id):
+def create_sic_weight_map(options, SIC, sic_cfv):
     """Mask SIC borders"""
     sic_np = SIC.numpy()
 
@@ -827,54 +827,75 @@ def create_sic_weight_map(options, SIC, sic_cfv, scene_id):
     # set all sic_cfv values to 0 in weight_map
     weight_map = np.where(sic_np == sic_cfv, edge_weights["invalid"], weight_map).astype(sic_np.dtype)
 
-    if options["visualization"]:
-        plt.figure(figsize=(10, 8))
+    return edges, ice_water_edge, ice_cfv_edge, inner_edges, torch.tensor(weight_map)
 
-        plt.subplot(231)
-        plt.imshow(edges, cmap="gray")
-        plt.title("SIC Edges")
-        plt.axis("off")
 
-        plt.subplot(232)
-        plt.imshow(ice_water_edge, cmap="gray")
-        plt.title("Ice Water Edges")
-        plt.axis("off")
+def plot_weight_map(
+    edges: np.ndarray,
+    ice_water_edge: np.ndarray,
+    ice_cfv_edge: np.ndarray,
+    inner_edges: np.ndarray,
+    sic_np: np.ndarray,
+    sic_cfv: int,
+    weight_map: np.ndarray,
+    hh_np: np.ndarray,
+    hv_np: np.ndarray,
+    plot_path: str,
+    plot_name: str,
+):
+    """Plot weight map"""
+    plt.figure(figsize=(12, 7))
 
-        plt.subplot(233)
-        plt.imshow(ice_cfv_edge, cmap="gray")
-        plt.title("Ice CFV Edges")
-        plt.axis("off")
+    plt.subplot(241)
+    plt.imshow(edges, cmap="gray")
+    plt.title("SIC Edges")
+    plt.axis("off")
 
-        plt.subplot(234)
-        plt.imshow(inner_edges, cmap="gray")
-        plt.title("Inner Edges")
-        plt.axis("off")
+    plt.subplot(242)
+    plt.imshow(ice_water_edge, cmap="gray")
+    plt.title("Ice-Water Edges")
+    plt.axis("off")
 
-        plt.subplot(235)
-        plt.imshow(weight_map, cmap="gray")
-        plt.title("Weight Map")
-        plt.axis("off")
+    plt.subplot(243)
+    plt.imshow(ice_cfv_edge, cmap="gray")
+    plt.title("Ice-CFV Edges")
+    plt.axis("off")
 
-        plt.subplot(236)
-        plt.imshow(np.ma.masked_where(sic_np == sic_cfv, sic_np), cmap=cmocean.cm.ice)
-        plt.title("SIC")
-        plt.axis("off")
+    plt.subplot(244)
+    plt.imshow(inner_edges, cmap="gray")
+    plt.title("Inner Edges")
+    plt.axis("off")
 
-        plt.tight_layout()
+    plt.subplot(245)
+    plt.imshow(np.ma.masked_where(sic_np == sic_cfv, sic_np), cmap=cmocean.cm.ice)
+    plt.title("SIC")
+    plt.axis("off")
 
-        visualization_save_path = options["visualization_save_path"]
-        if visualization_save_path:
-            # Create the directory if it does not exist
-            os.makedirs(os.path.abspath(visualization_save_path), mode=0o777, exist_ok=True)
+    plt.subplot(246)
+    plt.imshow(weight_map, cmap="gray")
+    plt.title("Weight Map")
+    plt.axis("off")
 
-            save_path = os.path.join(visualization_save_path, f"{scene_id}_sic_weight_map.png")
-            plt.savefig(save_path)
+    plt.subplot(247)
+    plt.imshow(hh_np, cmap="gray")
+    plt.title("HH")
+    plt.axis("off")
 
-        # Interactively show the plot
-        # plt.show()
-        plt.close()
+    plt.subplot(248)
+    plt.imshow(hv_np, cmap="gray")
+    plt.title("HV")
+    plt.axis("off")
 
-    return torch.tensor(weight_map)
+    plt.tight_layout()
+
+    if plot_path:
+        # Create the directory if it does not exist
+        os.makedirs(os.path.abspath(plot_path), mode=0o777, exist_ok=True)
+
+        save_path = os.path.join(plot_path, plot_name)
+        plt.savefig(save_path)
+
+    plt.close()
 
 
 def create_edge_cent_flat(edge_weights, sic_weight_map, output, inf_y, chart):
