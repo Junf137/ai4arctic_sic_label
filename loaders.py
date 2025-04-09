@@ -110,38 +110,6 @@ def process_single_scene(options, scene):
         temp_scene, options["down_sample_scale"], options["loader_downsampling"], options["patch_size"]
     ).squeeze(0)
 
-    # Create SIC weight map after downsampling using the SIC channel (first channel)
-    edges, ice_water_edge, ice_cfv_edge, inner_edges, sic_weight_map = create_sic_weight_map(
-        options=options["sic_weight_map"],
-        SIC=temp_scene[0].clone(),
-        sic_cfv=options["class_fill_values"]["SIC"],
-    )
-
-    if options["sic_weight_map"]["visualization"]:
-        plot_weight_map(
-            edges=edges,
-            ice_water_edge=ice_water_edge,
-            ice_cfv_edge=ice_cfv_edge,
-            inner_edges=inner_edges,
-            sic_np=temp_scene[0].numpy(),
-            sic_cfv=options["class_fill_values"]["SIC"],
-            weight_map=sic_weight_map.numpy(),
-            hh_np=temp_scene[len(options["charts"])].numpy(),
-            hv_np=temp_scene[len(options["charts"]) + 1].numpy(),
-            plot_path=options["sic_weight_map"]["visualization_save_path"],
-            plot_name=f"{scene.scene_id[:-3]}_sic_weight_map.png",
-        )
-
-    # Append weight map after target charts
-    temp_scene = torch.cat(
-        [
-            temp_scene[: len(options["charts"])],
-            sic_weight_map.unsqueeze(0),
-            temp_scene[len(options["charts"]) :],
-        ],
-        dim=0,
-    )
-
     return temp_scene
 
 
@@ -207,15 +175,10 @@ class AI4ArcticChallengeDataset(Dataset):
     def random_crop_downsample(self, idx):
         """Perform random cropping in scene.
 
-        The scene tensor has the following channel order:
-        - Channels 0:N: Target charts (SIC, SOD, FLOE)
-        - Channel N: SIC weight map
-        - Channels N+: Input features
-
         Returns:
             tuple: (x_patch, y_patch) where:
                 - x_patch: Input features tensor
-                - y_patch: Target charts and weight map tensor
+                - y_patch: Target charts tensor
         """
 
         patch_size = self.options["patch_size"]
@@ -238,20 +201,14 @@ class AI4ArcticChallengeDataset(Dataset):
             return None, None
 
         # Split into inputs and targets
-        # x_patch includes all input features after target charts and weight map
-        x_patch = patch[len(self.options["charts"]) + 1 :].unsqueeze(0)
-        # y_patch includes target charts and weight map (with weight map as the last channel)
-        y_patch = patch[: len(self.options["charts"]) + 1].unsqueeze(0)
+        # x_patch includes all input features after target charts
+        x_patch = patch[len(self.options["charts"]) :].unsqueeze(0)
+        # y_patch includes target charts
+        y_patch = patch[: len(self.options["charts"])].unsqueeze(0)
 
         return x_patch, y_patch
 
     def transform(self, x_patch, y_patch):
-        """Apply data augmentation to patches.
-
-        The y_patch tensor has the following channel order:
-        - Channels 0:N: Target charts (SIC, SOD, FLOE)
-        - Channel N: SIC weight map
-        """
         data_aug_options = self.options["data_augmentations"]
         if torch.rand(1) < data_aug_options["Random_h_flip"]:
             x_patch = TF.hflip(x_patch)
@@ -278,12 +235,7 @@ class AI4ArcticChallengeDataset(Dataset):
             random_scale = data_aug_options["Random_scale"][1]
 
         x_patch = TF.affine(x_patch, angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
-
-        # Apply the same affine transformation but with different fill values
-        # First transform target charts with fill value 255 (all channels except the last one)
-        y_patch[:, :-1] = TF.affine(y_patch[:, :-1], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
-        # Then transform weight map with fill value 0 (last channel only)
-        y_patch[:, -1:] = TF.affine(y_patch[:, -1:], angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=0)
+        y_patch = TF.affine(y_patch, angle=random_degree, translate=(0, 0), shear=0, scale=random_scale, fill=255)
 
         return x_patch, y_patch
 
@@ -331,13 +283,37 @@ class AI4ArcticChallengeDataset(Dataset):
         # prepare dataset for training
         x = x_patches
 
-        # Extract target charts and weight map. Last channel of y_patches is the SIC weight map
-        sic_weight_map = y_patches[:, -1]
-        y_patches = y_patches[:, :-1]
-
         y = {}
         for i, chart in enumerate(self.options["charts"]):
             y[chart] = y_patches[:, i]
+
+        # Create SIC weight map for each patch after transformation
+        sic_weight_maps = []
+        for i in range(self.options["batch_size"]):
+            edges, ice_water_edge, ice_cfv_edge, inner_edges, temp_weight_map = create_sic_weight_map(
+                options=self.options["sic_weight_map"],
+                SIC=y["SIC"][i].clone(),
+                sic_cfv=self.options["class_fill_values"]["SIC"],
+            )
+            sic_weight_maps.append(temp_weight_map)
+
+            # 0.05 probability to visualize the weight map
+            if self.options["sic_weight_map"]["visualization"] and torch.rand(1).item() < 0.1:
+                plot_weight_map(
+                    edges=edges,
+                    ice_water_edge=ice_water_edge,
+                    ice_cfv_edge=ice_cfv_edge,
+                    inner_edges=inner_edges,
+                    sic_np=y["SIC"][i].numpy(),
+                    sic_cfv=self.options["class_fill_values"]["SIC"],
+                    weight_map=temp_weight_map.numpy(),
+                    hh_np=x[i][0].numpy(),
+                    hv_np=x[i][1].numpy(),
+                    plot_path=self.options["sic_weight_map"]["visualization_save_path"],
+                    plot_name=f"train_sic_weight_map_patch_{str(torch.randint(0, 100000, (1,)).item())}.png",
+                )
+
+        sic_weight_map = torch.stack(sic_weight_maps, dim=0)
 
         return x, y, sic_weight_map
 
@@ -372,6 +348,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.mode = mode
 
         self.scenes = []
+        self.sic_weight_maps = []
         self.original_sizes = []
 
         self._load_scenes()
@@ -389,11 +366,10 @@ class AI4ArcticChallengeTestDataset(Dataset):
             )
 
         # Unpack the tuples and store in respective lists
-        self.scenes = []
-        self.original_sizes = []
-        for processed_scene, original_size in processed_data:
+        for processed_scene, original_size, sic_weight_map in processed_data:
             self.scenes.append(processed_scene)
             self.original_sizes.append(original_size)
+            self.sic_weight_maps.append(sic_weight_map)
 
     def _process_single_file(self, file):
         """Process a single file and return the processed scene."""
@@ -413,7 +389,30 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
             scene.close()
 
-        return processed_scene, original_size
+        # Create SIC weight map
+        edges, ice_water_edge, ice_cfv_edge, inner_edges, sic_weight_map = create_sic_weight_map(
+            options=self.options["sic_weight_map"],
+            SIC=processed_scene[0].clone(),
+            sic_cfv=self.options["class_fill_values"]["SIC"],
+        )
+
+        # Save the weight map of configured
+        if self.options["sic_weight_map"]["visualization"]:
+            plot_weight_map(
+                edges=edges,
+                ice_water_edge=ice_water_edge,
+                ice_cfv_edge=ice_cfv_edge,
+                inner_edges=inner_edges,
+                sic_np=processed_scene[0].numpy(),
+                sic_cfv=self.options["class_fill_values"]["SIC"],
+                weight_map=sic_weight_map.numpy(),
+                hh_np=processed_scene[len(self.options["charts"])].numpy(),
+                hv_np=processed_scene[len(self.options["charts"]) + 1].numpy(),
+                plot_path=self.options["sic_weight_map"]["visualization_save_path"],
+                plot_name=f"{file[:-3]}_sic_weight_map.png",
+            )
+
+        return processed_scene, original_size, sic_weight_map
 
     def __len__(self):
         """
@@ -443,14 +442,14 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
         scene = self.scenes[idx].clone()
 
-        x = scene[len(self.options["charts"]) + 1:].unsqueeze(0)
-
-        sic_weight_map = scene[len(self.options["charts"])]
+        x = scene[len(self.options["charts"]) :].unsqueeze(0)
 
         y_charts = scene[: len(self.options["charts"])]
         y = {}
         for i, chart in enumerate(self.options["charts"]):
             y[chart] = y_charts[i]
+
+        sic_weight_map = self.sic_weight_maps[idx].clone()
 
         cfv_masks = {}
         for chart in self.options["charts"]:
