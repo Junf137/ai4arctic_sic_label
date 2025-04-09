@@ -69,6 +69,7 @@ train_options.update(
                 "center": 1,
             },
             "visualization": False,
+            "visualization_train_prob": 0.0001,
             # Path to save visualization. Only works when visualization is True.
             "visualization_save_path": "output/visualization",
         },

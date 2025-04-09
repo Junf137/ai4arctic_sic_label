@@ -297,8 +297,11 @@ class AI4ArcticChallengeDataset(Dataset):
             )
             sic_weight_maps.append(temp_weight_map)
 
-            # 0.05 probability to visualize the weight map
-            if self.options["sic_weight_map"]["visualization"] and torch.rand(1).item() < 0.1:
+            # visualizing the weight map with probability
+            if (
+                self.options["sic_weight_map"]["visualization"]
+                and torch.rand(1).item() < self.options["sic_weight_map"]["visualization_train_prob"]
+            ):
                 plot_weight_map(
                     edges=edges,
                     ice_water_edge=ice_water_edge,
