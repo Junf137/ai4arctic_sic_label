@@ -16,11 +16,20 @@ data = xr.open_dataset("../data/r2t/train/20180607T184326_dmi_prep.nc", engine="
 
 # convert to torch tensor
 sic_tensor = torch.tensor(data.SIC.values, dtype=torch.float32)
+hh_tensor = torch.tensor(data.nersc_sar_primary.values, dtype=torch.float32)
+hv_tensor = torch.tensor(data.nersc_sar_secondary.values, dtype=torch.float32)
+
 
 # downsample SIC tensor
 down_sample_scale = 10
 sic_tensor = torch.nn.functional.interpolate(
     sic_tensor.unsqueeze(0).unsqueeze(0), scale_factor=1 / down_sample_scale, mode="nearest"
+).squeeze()
+hh_tensor = torch.nn.functional.interpolate(
+    hh_tensor.unsqueeze(0).unsqueeze(0), scale_factor=1 / down_sample_scale, mode="nearest"
+).squeeze()
+hv_tensor = torch.nn.functional.interpolate(
+    hv_tensor.unsqueeze(0).unsqueeze(0), scale_factor=1 / down_sample_scale, mode="nearest"
 ).squeeze()
 
 # print torch dtype and shape
@@ -39,29 +48,7 @@ print("unique values: ", unique_values)
 sic_cfv_num = np.count_nonzero(sic_np == 255)
 print(f"number of value 255 in SIC: {sic_cfv_num}, {sic_cfv_num / sic_np.size}%")
 
-
-def sic_visualization(sic_np, sic_cfv, title="SIC Visualization"):
-    """Visualize SIC with a color map"""
-
-    # Get unique values in sic_np
-    unique_values = np.unique(sic_np)
-    print("unique values: ", unique_values)
-
-    # Count number of sic_cfv values in sic_np
-    sic_cfv_num = np.count_nonzero(sic_np == sic_cfv)
-    print(f"number of value {sic_cfv} in SIC: {sic_cfv_num}, {sic_cfv_num / sic_np.size}%")
-
-    # mask sic_np here will not change the original sic_np
-    sic_np = np.ma.masked_where(sic_np == sic_cfv, sic_np)
-
-    # Plot SIC
-    plt.figure(figsize=(15, 10))
-    plt.imshow(sic_np, cmap=cmocean.cm.ice)
-    plt.colorbar()
-    plt.title(title)
-
-    # Interactively show the plot
-    # plt.show()
+# %%
 
 
 def get_edges(arr_np, ksize, threshold):
@@ -74,39 +61,15 @@ def get_edges(arr_np, ksize, threshold):
     return edges
 
 
-def mask_sic_label_edges(SIC, sic_cfv, ksize, threshold):
-    """Mask SIC borders"""
-    sic_np = SIC.numpy()
-
-    mask = get_edges(sic_np, ksize, threshold)
-
-    # Visualization only in debug mode
-    sic_visualization(sic_np=SIC.numpy(), sic_cfv=sic_cfv, title="Original SIC")
-    sic_visualization(sic_np=mask, sic_cfv=sic_cfv, title="Edge Mask")
-
-    # update SIC with mask
-    SIC[mask] = sic_cfv
-
-    sic_visualization(sic_np=SIC.numpy(), sic_cfv=sic_cfv, title="Masked SIC")
-
-
-# %% Masking sic_tensor
-
-# mask_sic_label_edges(sic_tensor, sic_cfv=255, ksize=3, threshold=0)
-
-
-# %%
-
-
 def create_sic_weight_map(SIC, sic_cfv, ksize, threshold, edge_weights):
     """Mask SIC borders"""
     sic_np = SIC.numpy()
 
     # set all non-zero values to 1 in sic_np and get ice_water
-    ice_water = np.where(sic_np == 0, 0, 1).astype(sic_np.dtype)
+    ice_water = np.where(sic_np == 0, 1, 0).astype(sic_np.dtype)
 
     # set all non-sic_cfv values to 1 in sic_np and get ice_cfv
-    ice_cfv = np.where(sic_np == sic_cfv, 0, 1).astype(sic_np.dtype)
+    ice_cfv = np.where(sic_np == sic_cfv, 1, 0).astype(sic_np.dtype)
 
     edges = get_edges(sic_np, ksize, threshold)
     ice_water_edge = get_edges(ice_water, ksize, threshold)
@@ -117,97 +80,99 @@ def create_sic_weight_map(SIC, sic_cfv, ksize, threshold, edge_weights):
     inner_edges = np.where(ice_cfv_edge == True, False, inner_edges)
 
     # create weight map
-    weight_map = np.ones_like(sic_np, dtype=sic_np.dtype)
+    weight_map = np.ones_like(sic_np, dtype=sic_np.dtype) * edge_weights["center"]
 
-    # first applying ice_cfv_edges, then ice_water_edges, thus the intersection will be ice_water_edges
+    # first applying ice_water_edges, then ice_cfv_edges, thus the intersection will be ice_cfv_edges
     weight_map[inner_edges] = edge_weights["inner_edges"]
-    weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
     weight_map[ice_water_edge] = edge_weights["ice_water_edges"]
-
-    # plot of intersection of ice_water_edges and ice_cfv_edges
-    intersection = np.where(ice_water_edge & ice_cfv_edge, 1, 0).astype(sic_np.dtype)
-    plt.imshow(intersection, cmap="gray")
-    plt.title(f"Intersection: {np.sum(intersection)}")
-    plt.axis("off")
-    plt.show()
+    weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
 
     # set all sic_cfv values to 0 in weight_map
-    weight_map = np.where(sic_np == sic_cfv, 0, weight_map).astype(sic_np.dtype)
+    weight_map = np.where(sic_np == sic_cfv, edge_weights["invalid"], weight_map).astype(sic_np.dtype)
 
-    plt.figure(figsize=(10, 8))
+    return edges, ice_water_edge, ice_cfv_edge, inner_edges, weight_map
 
-    plt.subplot(231)
+
+def plot_weight_map(
+    edges: np.ndarray,
+    ice_water_edge: np.ndarray,
+    ice_cfv_edge: np.ndarray,
+    inner_edges: np.ndarray,
+    sic_np: np.ndarray,
+    sic_cfv: int,
+    weight_map: np.ndarray,
+    hh_np: np.ndarray,
+    hv_np: np.ndarray,
+):
+    """Plot weight map"""
+    plt.figure(figsize=(12, 7))
+
+    plt.subplot(241)
     plt.imshow(edges, cmap="gray")
     plt.title("SIC Edges")
     plt.axis("off")
 
-    plt.subplot(232)
+    plt.subplot(242)
     plt.imshow(ice_water_edge, cmap="gray")
-    plt.title("Ice Water Edges")
+    plt.title("Ice-Water Edges")
     plt.axis("off")
 
-    plt.subplot(233)
+    plt.subplot(243)
     plt.imshow(ice_cfv_edge, cmap="gray")
-    plt.title("Ice CFV Edges")
+    plt.title("Ice-CFV Edges")
     plt.axis("off")
 
-    plt.subplot(234)
+    plt.subplot(244)
     plt.imshow(inner_edges, cmap="gray")
     plt.title("Inner Edges")
     plt.axis("off")
 
-    plt.subplot(235)
+    plt.subplot(245)
+    plt.imshow(np.ma.masked_where(sic_np == sic_cfv, sic_np), cmap=cmocean.cm.ice)
+    plt.title("SIC")
+    plt.axis("off")
+
+    plt.subplot(246)
     plt.imshow(weight_map, cmap="gray")
     plt.title("Weight Map")
     plt.axis("off")
 
-    plt.subplot(236)
-    plt.imshow(np.ma.masked_where(sic_np == sic_cfv, sic_np), cmap=cmocean.cm.ice)
-    plt.title("SIC")
+    plt.subplot(247)
+    plt.imshow(hh_np, cmap="gray")
+    plt.title("HH")
+    plt.axis("off")
+
+    plt.subplot(248)
+    plt.imshow(hv_np, cmap="gray")
+    plt.title("HV")
     plt.axis("off")
 
     plt.tight_layout()
 
     plt.show()
 
-    return weight_map
-
 
 # weight for inner edges, ice_cfv edges, ice_water edges
 edge_weights = {
+    "invalid": 0,
     "inner_edges": 0.5,
     "ice_cfv_edges": 0.5,
     "ice_water_edges": 1,
+    "center": 1,
 }
 
-weight_map = create_sic_weight_map(sic_tensor, sic_cfv=255, ksize=5, threshold=0, edge_weights=edge_weights)
+edges, ice_water_edge, ice_cfv_edge, inner_edges, weight_map = create_sic_weight_map(
+    SIC=sic_tensor, sic_cfv=255, ksize=5, threshold=0, edge_weights=edge_weights
+)
 
-
-# %%
-# Visualization of SAR data
-
-HH = data.nersc_sar_primary.values
-HV = data.nersc_sar_secondary.values
-
-# downsample HH and HV
-HH = torch.nn.functional.interpolate(
-    torch.tensor(HH).unsqueeze(0).unsqueeze(0), scale_factor=1 / down_sample_scale, mode="nearest"
-).squeeze()
-
-HV = torch.nn.functional.interpolate(
-    torch.tensor(HV).unsqueeze(0).unsqueeze(0), scale_factor=1 / down_sample_scale, mode="nearest"
-).squeeze()
-
-plt.figure(figsize=(15, 10))
-
-plt.subplot(1, 2, 1)
-plt.imshow(HH, cmap="gray")
-plt.title("HH")
-plt.axis("off")
-
-plt.subplot(1, 2, 2)
-plt.imshow(HV, cmap="gray")
-plt.title("HV")
-plt.axis("off")
-
-plt.show()
+plot_weight_map(
+    edges=edges,
+    ice_water_edge=ice_water_edge,
+    ice_cfv_edge=ice_cfv_edge,
+    inner_edges=inner_edges,
+    sic_np=sic_tensor.numpy(),
+    sic_cfv=255,
+    weight_map=weight_map,
+    hh_np=hh_tensor.numpy(),
+    hv_np=hv_tensor.numpy(),
+)
