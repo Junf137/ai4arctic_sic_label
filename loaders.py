@@ -29,7 +29,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 
 # -- Proprietary modules -- #
-from functions import rand_bbox, create_sic_weight_map, plot_weight_map
+from functions import rand_bbox, create_weight_map, plot_weight_map
 
 
 def process_auxiliary_features(scene, options, target_shape):
@@ -292,12 +292,12 @@ class AI4ArcticChallengeDataset(Dataset):
         # Create SIC weight map for each patch after transformation
         sic_weight_maps = []
         for i in range(self.options["batch_size"]):
-            edges, ice_water_edge, ice_cfv_edge, inner_edges, temp_weight_map = create_sic_weight_map(
+            edges, ice_water_edge, ice_cfv_edge, inner_edges, temp_weight_map = create_weight_map(
                 options=self.options["sic_weight_map"],
-                SIC=y["SIC"][i].clone(),
-                sic_cfv=self.options["class_fill_values"]["SIC"],
+                arr_np=y["SIC"][i].clone().numpy(),
+                cfv=self.options["class_fill_values"]["SIC"],
             )
-            sic_weight_maps.append(temp_weight_map)
+            sic_weight_maps.append(torch.tensor(temp_weight_map, dtype=x.dtype))
 
             # visualizing the weight map with probability
             if (
@@ -314,7 +314,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     inner_edges=inner_edges,
                     sic_np=y["SIC"][i].numpy(),
                     sic_cfv=self.options["class_fill_values"]["SIC"],
-                    weight_map=temp_weight_map.numpy(),
+                    weight_map=temp_weight_map,
                     hh_np=x[i][0].numpy(),
                     hv_np=x[i][1].numpy(),
                     plot_path=self.options["sic_weight_map"]["visualization_save_path"],
@@ -398,10 +398,10 @@ class AI4ArcticChallengeTestDataset(Dataset):
             scene.close()
 
         # Create SIC weight map
-        edges, ice_water_edge, ice_cfv_edge, inner_edges, sic_weight_map = create_sic_weight_map(
+        edges, ice_water_edge, ice_cfv_edge, inner_edges, sic_weight_map = create_weight_map(
             options=self.options["sic_weight_map"],
-            SIC=processed_scene[0].clone(),
-            sic_cfv=self.options["class_fill_values"]["SIC"],
+            arr_np=processed_scene[0].clone().numpy(),
+            cfv=self.options["class_fill_values"]["SIC"],
         )
 
         # Save the weight map of configured
@@ -413,14 +413,14 @@ class AI4ArcticChallengeTestDataset(Dataset):
                 inner_edges=inner_edges,
                 sic_np=processed_scene[0].numpy(),
                 sic_cfv=self.options["class_fill_values"]["SIC"],
-                weight_map=sic_weight_map.numpy(),
+                weight_map=sic_weight_map,
                 hh_np=processed_scene[len(self.options["charts"])].numpy(),
                 hv_np=processed_scene[len(self.options["charts"]) + 1].numpy(),
                 plot_path=self.options["sic_weight_map"]["visualization_save_path"],
                 plot_name=f"{file[:-3]}_sic_weight_map.png",
             )
 
-        return processed_scene, original_size, sic_weight_map
+        return processed_scene, original_size, torch.tensor(sic_weight_map, dtype=processed_scene.dtype)
 
     def __len__(self):
         """

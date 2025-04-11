@@ -782,10 +782,7 @@ def get_edges(arr_np, ksize, threshold):
     return edges
 
 
-def create_sic_weight_map(options, SIC, sic_cfv):
-    """Mask SIC borders"""
-    sic_np = SIC.numpy()
-
+def create_weight_map(options, arr_np, cfv):
     # set ksize
     ksize = options["ksize"]
 
@@ -795,13 +792,13 @@ def create_sic_weight_map(options, SIC, sic_cfv):
     # set edge weights
     edge_weights = options["edge_weights"]
 
-    # set all non-zero values to 1 in sic_np and get ice_water
-    ice_water = np.where(sic_np == 0, 1, 0).astype(sic_np.dtype)
+    # set all non-zero values to 1 in arr_np and get ice_water
+    ice_water = np.where(arr_np == 0, 1, 0).astype(arr_np.dtype)
 
-    # set all non-sic_cfv values to 1 in sic_np and get ice_cfv
-    ice_cfv = np.where(sic_np == sic_cfv, 1, 0).astype(sic_np.dtype)
+    # set all non-cfv values to 1 in arr_np and get ice_cfv
+    ice_cfv = np.where(arr_np == cfv, 1, 0).astype(arr_np.dtype)
 
-    edges = get_edges(sic_np, ksize, threshold)
+    edges = get_edges(arr_np, ksize, threshold)
     ice_water_edge = get_edges(ice_water, ksize, threshold)
     ice_cfv_edge = get_edges(ice_cfv, ksize, threshold)
 
@@ -810,17 +807,17 @@ def create_sic_weight_map(options, SIC, sic_cfv):
     inner_edges = np.where(ice_cfv_edge == True, False, inner_edges)
 
     # create weight map
-    weight_map = np.ones_like(sic_np, dtype=sic_np.dtype) * edge_weights["center"]
+    weight_map = np.ones_like(arr_np, dtype=arr_np.dtype) * edge_weights["center"]
 
     # first applying ice_water_edges, then ice_cfv_edges, thus the intersection will be ice_cfv_edges
     weight_map[inner_edges] = edge_weights["inner_edges"]
     weight_map[ice_water_edge] = edge_weights["ice_water_edges"]
     weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
 
-    # set all sic_cfv values to 0 in weight_map
-    weight_map = np.where(sic_np == sic_cfv, edge_weights["invalid"], weight_map).astype(sic_np.dtype)
+    # set all cfv values to 0 in weight_map
+    weight_map = np.where(arr_np == cfv, edge_weights["invalid"], weight_map).astype(arr_np.dtype)
 
-    return edges, ice_water_edge, ice_cfv_edge, inner_edges, torch.tensor(weight_map)
+    return edges, ice_water_edge, ice_cfv_edge, inner_edges, weight_map
 
 
 def plot_weight_map(
