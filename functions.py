@@ -787,14 +787,7 @@ def create_sic_weight_map(options, SIC, sic_cfv):
     sic_np = SIC.numpy()
 
     # set ksize
-    if options["ksize"] is not None:
-        ksize = options["ksize"]
-    else:
-        ksize_ratio = options["ksize_ratio"]
-        # Calculate kernel size ensuring odd number
-        ksize = max(3, int(min(SIC.shape[-2:]) / ksize_ratio))
-        ksize = ksize + 1 if ksize % 2 == 0 else ksize
-        ksize = min(ksize, min(SIC.shape[-2:]) - 2)
+    ksize = options["ksize"]
 
     # set threshold
     threshold = options["edge_threshold"]

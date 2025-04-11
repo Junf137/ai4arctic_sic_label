@@ -59,7 +59,6 @@ train_options.update(
             "val": True,
             "test": False,
             "ksize": 5,  # hard-coded kernel size
-            "ksize_ratio": 100,  # ratio of the (image size / kernel size), disabled when ksize is set.
             "edge_threshold": 0,  # threshold for determining the mask after sobel filter
             "edge_weights": {
                 "invalid": 0,
