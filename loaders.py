@@ -312,13 +312,14 @@ class AI4ArcticChallengeDataset(Dataset):
                     ice_water_edge=ice_water_edge,
                     ice_cfv_edge=ice_cfv_edge,
                     inner_edges=inner_edges,
-                    sic_np=y["SIC"][i].numpy(),
-                    sic_cfv=self.options["class_fill_values"]["SIC"],
+                    arr_np=y["SIC"][i].numpy(),
+                    cfv=self.options["class_fill_values"]["SIC"],
                     weight_map=temp_weight_map,
                     hh_np=x[i][0].numpy(),
                     hv_np=x[i][1].numpy(),
                     plot_path=self.options["sic_weight_map"]["visualization_save_path"],
                     plot_name=f"train_sic_weight_map_{file_name_str}_{time_str}_{random_str}.png",
+                    chart="SIC",
                 )
 
         sic_weight_map = torch.stack(sic_weight_maps, dim=0)
@@ -411,13 +412,14 @@ class AI4ArcticChallengeTestDataset(Dataset):
                 ice_water_edge=ice_water_edge,
                 ice_cfv_edge=ice_cfv_edge,
                 inner_edges=inner_edges,
-                sic_np=processed_scene[0].numpy(),
-                sic_cfv=self.options["class_fill_values"]["SIC"],
+                arr_np=processed_scene[0].numpy(),
+                cfv=self.options["class_fill_values"]["SIC"],
                 weight_map=sic_weight_map,
                 hh_np=processed_scene[len(self.options["charts"])].numpy(),
                 hv_np=processed_scene[len(self.options["charts"]) + 1].numpy(),
                 plot_path=self.options["sic_weight_map"]["visualization_save_path"],
                 plot_name=f"{file[:-3]}_sic_weight_map.png",
+                chart="SIC",
             )
 
         return processed_scene, original_size, torch.tensor(sic_weight_map, dtype=processed_scene.dtype)

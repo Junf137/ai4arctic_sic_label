@@ -825,20 +825,21 @@ def plot_weight_map(
     ice_water_edge: np.ndarray,
     ice_cfv_edge: np.ndarray,
     inner_edges: np.ndarray,
-    sic_np: np.ndarray,
-    sic_cfv: int,
+    arr_np: np.ndarray,
+    cfv: int,
     weight_map: np.ndarray,
     hh_np: np.ndarray,
     hv_np: np.ndarray,
     plot_path: str,
     plot_name: str,
+    chart: str,
 ):
     """Plot weight map"""
     plt.figure(figsize=(12, 7))
 
     plt.subplot(241)
     plt.imshow(edges, cmap="gray")
-    plt.title("SIC Edges")
+    plt.title(f"{chart} Edges")
     plt.axis("off")
 
     plt.subplot(242)
@@ -857,8 +858,8 @@ def plot_weight_map(
     plt.axis("off")
 
     plt.subplot(245)
-    plt.imshow(np.ma.masked_where(sic_np == sic_cfv, sic_np), cmap=cmocean.cm.ice)
-    plt.title("SIC")
+    plt.imshow(np.ma.masked_where(arr_np == cfv, arr_np), cmap=cmocean.cm.ice)
+    plt.title(f"{chart}")
     plt.axis("off")
 
     plt.subplot(246)
