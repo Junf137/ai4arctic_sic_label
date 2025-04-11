@@ -889,17 +889,17 @@ def plot_weight_map(
     plt.close()
 
 
-def create_edge_cent_flat(edge_weights, sic_weight_map, output, inf_y, chart):
-    """Create edge and center flat tensors for r2 metric"""
+def create_edge_cent_flat(edge_weights, weight_map, output, inf_y, chart):
+    """Create edge and center flat tensors"""
     invalid_weight = edge_weights["invalid"]
     center_weight = edge_weights["center"]
 
-    sic_cent_mask = sic_weight_map == center_weight
-    sic_edge_mask = (sic_weight_map != invalid_weight) & (sic_weight_map != center_weight)
+    cent_mask = weight_map == center_weight
+    edge_mask = (weight_map != invalid_weight) & (weight_map != center_weight)
 
-    sic_cent_flat = output[chart].squeeze()[sic_cent_mask].flatten()
-    inf_y_sic_cent_flat = inf_y[chart].squeeze()[sic_cent_mask].flatten()
-    sic_edge_flat = output[chart].squeeze()[sic_edge_mask].flatten()
-    inf_y_sic_edge_flat = inf_y[chart].squeeze()[sic_edge_mask].flatten()
+    cent_flat = output[chart].squeeze()[cent_mask].flatten()
+    inf_y_cent_flat = inf_y[chart].squeeze()[cent_mask].flatten()
+    edge_flat = output[chart].squeeze()[edge_mask].flatten()
+    inf_y_edge_flat = inf_y[chart].squeeze()[edge_mask].flatten()
 
-    return sic_cent_flat, inf_y_sic_cent_flat, sic_edge_flat, inf_y_sic_edge_flat
+    return cent_flat, inf_y_cent_flat, edge_flat, inf_y_edge_flat

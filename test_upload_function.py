@@ -142,7 +142,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         # Process SIC edge and center pixels
         _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
             edge_weights=train_options["sic_weight_map"]["edge_weights"],
-            sic_weight_map=sic_weight_map,
+            weight_map=sic_weight_map,
             output=output,
             inf_y=inf_y,
             chart="SIC",
