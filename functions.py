@@ -782,6 +782,44 @@ def get_edges(arr_np, ksize, threshold):
     return edges
 
 
+def get_chart_weight_map_and_plot(
+    options: dict,
+    arr_np: np.ndarray,
+    hh_np: np.ndarray,
+    hv_np: np.ndarray,
+    en_plot: bool,
+    plot_name: str,
+    chart: str,
+):
+    # Create SIC weight map
+    edges, ice_water_edge, ice_cfv_edge, inner_edges, weight_map = create_weight_map(
+        arr_np=arr_np,
+        cfv=options["class_fill_values"][chart],
+        ksize=options["weight_map"]["ksize"],
+        threshold=options["weight_map"]["edge_threshold"],
+        weights=options["weight_map"]["weights"][chart],
+    )
+
+    # Save the weight map of configured
+    if en_plot:
+        plot_weight_map(
+            edges=edges,
+            ice_water_edge=ice_water_edge,
+            ice_cfv_edge=ice_cfv_edge,
+            inner_edges=inner_edges,
+            arr_np=arr_np,
+            cfv=options["class_fill_values"][chart],
+            weight_map=weight_map,
+            hh_np=hh_np,
+            hv_np=hv_np,
+            plot_path=options["weight_map"]["visualization_save_path"],
+            plot_name=plot_name,
+            chart=chart,
+        )
+
+    return weight_map
+
+
 def create_weight_map(arr_np: np.ndarray, cfv: int, ksize: int, threshold: float, weights: dict):
     # set all non-zero values to 1 in arr_np and get ice_water
     ice_water = np.where(arr_np == 0, 1, 0).astype(arr_np.dtype)
