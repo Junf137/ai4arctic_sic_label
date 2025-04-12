@@ -102,7 +102,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.train()  # Set network to training mode.
 
         # Loops through batches in queue.
-        for i, (batch_x, batch_y, sic_weight_map) in enumerate(
+        for i, (batch_x, batch_y, sic_weight_map, sod_weight_map, floe_weight_map) in enumerate(
             tqdm(iterable=dataloader_train, total=train_options["epoch_len"], colour="red", desc="Batch")
         ):
             train_loss_batch = torch.tensor([0.0]).to(device)  # Reset from previous batch.
@@ -161,7 +161,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
 
         # - Loops through scenes in queue.
-        for i, (inf_x, inf_y, sic_weight_map, cfv_masks, name, original_size) in enumerate(
+        for i, (inf_x, inf_y, sic_weight_map, sod_weight_map, floe_weight_map, cfv_masks, name, original_size) in enumerate(
             tqdm(iterable=dataloader_val, total=len(train_options["validate_list"]), colour="green", desc="Validation")
         ):
             torch.cuda.empty_cache()
