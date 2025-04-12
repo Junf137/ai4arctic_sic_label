@@ -122,3 +122,21 @@ class WeightedMSELoss(torch.nn.Module):
 
         valid_errors = weighted_squared_errors[weight_map > 0]
         return torch.mean(valid_errors) if valid_errors.numel() > 0 else torch.tensor(0.0, device=input.device)
+
+
+class WeightedCrossEntropyLoss(torch.nn.Module):
+    def __init__(self):
+        super(WeightedCrossEntropyLoss, self).__init__()
+
+    def forward(self, input, target, weight_map):
+
+        weight_map, target = weight_map.type_as(input), target.type_as(input)
+
+        # input should be [N, C, H, W] and target [N, H, W]
+        assert input.dim() == 4 and target.dim() == 3
+
+        cross_entropy = F.cross_entropy(input, target, reduction="none")
+        weighted_cross_entropy = cross_entropy * weight_map
+
+        valid_errors = weighted_cross_entropy[weight_map > 0]
+        return torch.mean(valid_errors) if valid_errors.numel() > 0 else torch.tensor(0.0, device=input.device)

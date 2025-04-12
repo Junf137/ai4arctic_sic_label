@@ -42,7 +42,7 @@ from functions import (
 )
 
 # Load costume loss function
-from losses import WaterConsistencyLoss, WeightedMSELoss
+from losses import WaterConsistencyLoss, WeightedMSELoss, WeightedCrossEntropyLoss
 
 # Custom dataloaders for regular training and validation.
 from loaders import get_variable_options, AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset
@@ -91,6 +91,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for chart in train_options["charts"]
     }
     weighted_mse_loss = WeightedMSELoss()
+    weighted_cross_entropy_loss = WeightedCrossEntropyLoss()
 
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(start_epoch, train_options["epochs"]), desc="Training"):
@@ -121,14 +122,25 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
                     # only calculate loss when there is at least a valid target value
-                    if (weight > 0) and (batch_y[chart] != train_options["class_fill_values"][chart]).any():
+                    if (weight == 0) or (batch_y[chart] == train_options["class_fill_values"][chart]).all():
+                        continue
 
-                        if chart == "SIC" and train_options["weight_map"]["train"]:
+                    if train_options["weight_map"]["train"] and train_options["weight_map"]["enable_weights"][chart]:
+
+                        if chart == "SIC":
                             train_loss_batch += weight * weighted_mse_loss(
                                 output[chart].squeeze(), batch_y[chart], sic_weight_map
                             )
-                        else:
-                            train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
+                        elif chart == "SOD":
+                            train_loss_batch += weight * weighted_cross_entropy_loss(
+                                output[chart].squeeze(), batch_y[chart], sod_weight_map
+                            )
+                        elif chart == "FLOE":
+                            train_loss_batch += weight * weighted_cross_entropy_loss(
+                                output[chart].squeeze(), batch_y[chart], floe_weight_map
+                            )
+                    else:
+                        train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -183,12 +195,26 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 for chart, weight in zip(train_options["charts"], train_options["task_weights"]):
 
                     # only calculate loss when there is at least a valid target value
-                    if (weight > 0) and (inf_y[chart] != train_options["class_fill_values"][chart]).any():
+                    if (weight == 0) or (inf_y[chart] == train_options["class_fill_values"][chart]).all():
+                        continue
 
-                        if chart == "SIC" and train_options["weight_map"]["val"]:
-                            val_loss_batch += weight * weighted_mse_loss(output[chart].squeeze(), inf_y[chart], sic_weight_map)
-                        else:
-                            val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
+                    if train_options["weight_map"]["val"] and train_options["weight_map"]["enable_weights"][chart]:
+
+                        if chart == "SIC":
+                            val_loss_batch += weight * weighted_mse_loss(
+                                output[chart].squeeze(), inf_y[chart], sic_weight_map
+                            )
+                        elif chart == "SOD":
+                            val_loss_batch += weight * weighted_cross_entropy_loss(
+                                output[chart].squeeze(), inf_y[chart], sod_weight_map
+                            )
+                        elif chart == "FLOE":
+                            val_loss_batch += weight * weighted_cross_entropy_loss(
+                                output[chart].squeeze(), inf_y[chart], floe_weight_map
+                            )
+
+                    else:
+                        val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
             # - Store outputs and targets.
             for chart in train_options["charts"]:
