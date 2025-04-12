@@ -303,8 +303,8 @@ class AI4ArcticChallengeDataset(Dataset):
 
             # visualizing the weight map with probability
             if (
-                self.options["sic_weight_map"]["visualization"]
-                and torch.rand(1).item() < self.options["sic_weight_map"]["visualization_train_prob"]
+                self.options["weight_map"]["visualization"]
+                and torch.rand(1).item() < self.options["weight_map"]["visualization_train_prob"]
             ):
                 file_name_str = self.files[scene_ids[i]][:-3]
                 time_str = datetime.datetime.now().strftime("%m_%d_%H")
@@ -319,7 +319,7 @@ class AI4ArcticChallengeDataset(Dataset):
                     weight_map=temp_weight_map,
                     hh_np=x[i][0].numpy(),
                     hv_np=x[i][1].numpy(),
-                    plot_path=self.options["sic_weight_map"]["visualization_save_path"],
+                    plot_path=self.options["weight_map"]["visualization_save_path"],
                     plot_name=f"train_sic_weight_map_{file_name_str}_{time_str}_{random_str}.png",
                     chart="SIC",
                 )
@@ -410,7 +410,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         )
 
         # Save the weight map of configured
-        if self.options["sic_weight_map"]["visualization"]:
+        if self.options["weight_map"]["visualization"]:
             plot_weight_map(
                 edges=edges,
                 ice_water_edge=ice_water_edge,
@@ -421,7 +421,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
                 weight_map=sic_weight_map,
                 hh_np=processed_scene[len(self.options["charts"])].numpy(),
                 hv_np=processed_scene[len(self.options["charts"]) + 1].numpy(),
-                plot_path=self.options["sic_weight_map"]["visualization_save_path"],
+                plot_path=self.options["weight_map"]["visualization_save_path"],
                 plot_name=f"{file[:-3]}_sic_weight_map.png",
                 chart="SIC",
             )

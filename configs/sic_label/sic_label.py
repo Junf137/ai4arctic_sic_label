@@ -54,23 +54,47 @@ train_options.update(
         "down_sample_scale": 10,
         "deterministic": False,
         # -- SIC weight map configuration -- #
-        "sic_weight_map": {
+        "weight_map": {
+            # Enable weight map for different stages.
             "train": True,
             "val": True,
             "test": False,
+            # Configuration for creating the weight map.
             "ksize": 5,  # hard-coded kernel size
             "edge_threshold": 0,  # threshold for determining the mask after sobel filter
-            "edge_weights": {
-                "invalid": 0,
-                "inner_edges": 0.5,
-                "ice_cfv_edges": 0.5,
-                "ice_water_edges": 1,
-                "center": 1,
-            },
+            # Visualization.
             "visualization": False,
             "visualization_train_prob": 0.0001,
-            # Path to save visualization. Only works when visualization is True.
-            "visualization_save_path": "output/visualization",
+            "visualization_save_path": "output/visualization",  # Path to save visualization. Only works when visualization is True.
+            # Weights for different charts.
+            "enable_weights": {
+                "SIC": True,
+                "SOD": True,
+                "FLOE": True,
+            },
+            "weights": {
+                "SIC": {
+                    "invalid": 0,
+                    "inner_edges": 0.5,
+                    "ice_cfv_edges": 0.5,
+                    "ice_water_edges": 0.5,
+                    "center": 1,
+                },
+                "SOD": {
+                    "invalid": 0,
+                    "inner_edges": 0.5,
+                    "ice_cfv_edges": 0.5,
+                    "ice_water_edges": 0.5,
+                    "center": 1,
+                },
+                "FLOE": {
+                    "invalid": 0,
+                    "inner_edges": 0.5,
+                    "ice_cfv_edges": 0.5,
+                    "ice_water_edges": 0.5,
+                    "center": 1,
+                },
+            },
         },
         # -- Training configuration -- #
         "epochs": 300,

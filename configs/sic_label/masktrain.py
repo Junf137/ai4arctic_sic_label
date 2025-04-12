@@ -13,7 +13,7 @@ with read_base():
 
 train_options.update(
     {
-        "sic_weight_map": {
+        "weight_map": {
             "train": True,
             "val": False,
             "test": False,
