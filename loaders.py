@@ -293,9 +293,11 @@ class AI4ArcticChallengeDataset(Dataset):
         sic_weight_maps = []
         for i in range(self.options["batch_size"]):
             edges, ice_water_edge, ice_cfv_edge, inner_edges, temp_weight_map = create_weight_map(
-                options=self.options["sic_weight_map"],
                 arr_np=y["SIC"][i].clone().numpy(),
                 cfv=self.options["class_fill_values"]["SIC"],
+                ksize=self.options["weight_map"]["ksize"],
+                threshold=self.options["weight_map"]["edge_threshold"],
+                weights=self.options["weight_map"]["sic_weights"],
             )
             sic_weight_maps.append(torch.tensor(temp_weight_map, dtype=x.dtype))
 
@@ -400,9 +402,11 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
         # Create SIC weight map
         edges, ice_water_edge, ice_cfv_edge, inner_edges, sic_weight_map = create_weight_map(
-            options=self.options["sic_weight_map"],
             arr_np=processed_scene[0].clone().numpy(),
             cfv=self.options["class_fill_values"]["SIC"],
+            ksize=self.options["weight_map"]["ksize"],
+            threshold=self.options["weight_map"]["edge_threshold"],
+            weights=self.options["weight_map"]["sic_weights"],
         )
 
         # Save the weight map of configured

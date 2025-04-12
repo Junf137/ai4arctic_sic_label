@@ -782,16 +782,7 @@ def get_edges(arr_np, ksize, threshold):
     return edges
 
 
-def create_weight_map(options, arr_np, cfv):
-    # set ksize
-    ksize = options["ksize"]
-
-    # set threshold
-    threshold = options["edge_threshold"]
-
-    # set edge weights
-    edge_weights = options["edge_weights"]
-
+def create_weight_map(arr_np: np.ndarray, cfv: int, ksize: int, threshold: float, weights: dict):
     # set all non-zero values to 1 in arr_np and get ice_water
     ice_water = np.where(arr_np == 0, 1, 0).astype(arr_np.dtype)
 
@@ -807,15 +798,15 @@ def create_weight_map(options, arr_np, cfv):
     inner_edges = np.where(ice_cfv_edge == True, False, inner_edges)
 
     # create weight map
-    weight_map = np.ones_like(arr_np, dtype=arr_np.dtype) * edge_weights["center"]
+    weight_map = np.ones_like(arr_np, dtype=arr_np.dtype) * weights["center"]
 
     # first applying ice_water_edges, then ice_cfv_edges, thus the intersection will be ice_cfv_edges
-    weight_map[inner_edges] = edge_weights["inner_edges"]
-    weight_map[ice_water_edge] = edge_weights["ice_water_edges"]
-    weight_map[ice_cfv_edge] = edge_weights["ice_cfv_edges"]
+    weight_map[inner_edges] = weights["inner_edges"]
+    weight_map[ice_water_edge] = weights["ice_water_edges"]
+    weight_map[ice_cfv_edge] = weights["ice_cfv_edges"]
 
     # set all cfv values to 0 in weight_map
-    weight_map = np.where(arr_np == cfv, edge_weights["invalid"], weight_map).astype(arr_np.dtype)
+    weight_map = np.where(arr_np == cfv, weights["invalid"], weight_map).astype(arr_np.dtype)
 
     return edges, ice_water_edge, ice_cfv_edge, inner_edges, weight_map
 
