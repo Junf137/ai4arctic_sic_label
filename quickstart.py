@@ -90,8 +90,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         chart: get_loss(train_options["chart_loss"][chart]["type"], chart=chart, **train_options["chart_loss"][chart])
         for chart in train_options["charts"]
     }
-    weighted_mse_loss = WeightedMSELoss()
-    weighted_cross_entropy_loss = WeightedCrossEntropyLoss()
+    weighted_loss_functions = {
+        "SIC": WeightedMSELoss(),
+        "SOD": WeightedCrossEntropyLoss(),
+        "FLOE": WeightedCrossEntropyLoss(),
+    }
 
     # -- Training Loop -- #
     for epoch in tqdm(iterable=range(start_epoch, train_options["epochs"]), desc="Training"):
@@ -126,15 +129,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                         continue
 
                     if train_options["weight_map"]["train"] and train_options["weight_map"]["enable_weights"][chart]:
-
-                        if chart == "SIC":
-                            train_loss_batch += weight * weighted_mse_loss(
-                                output[chart].squeeze(), batch_y[chart], weight_maps[chart]
-                            )
-                        elif chart in ["SOD", "FLOE"]:
-                            train_loss_batch += weight * weighted_cross_entropy_loss(
-                                output[chart].squeeze(), batch_y[chart], weight_maps[chart]
-                            )
+                        train_loss_batch += weight * weighted_loss_functions[chart](
+                            output[chart].squeeze(), batch_y[chart], weight_maps[chart]
+                        )
                     else:
                         train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
 
@@ -195,15 +192,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                         continue
 
                     if train_options["weight_map"]["val"] and train_options["weight_map"]["enable_weights"][chart]:
-
-                        if chart == "SIC":
-                            val_loss_batch += weight * weighted_mse_loss(
-                                output[chart].squeeze(), inf_y[chart], weight_maps[chart]
-                            )
-                        elif chart in ["SOD", "FLOE"]:
-                            val_loss_batch += weight * weighted_cross_entropy_loss(
-                                output[chart].squeeze(), inf_y[chart], weight_maps[chart]
-                            )
+                        val_loss_batch += weight * weighted_loss_functions[chart](
+                            output[chart].squeeze(), inf_y[chart], weight_maps[chart]
+                        )
                     else:
                         val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
