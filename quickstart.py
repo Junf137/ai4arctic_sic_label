@@ -215,7 +215,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # - Store SIC center and edge pixels for r2_metric
             _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
-                edge_weights=train_options["weight_map"]["sic_weights"],
+                weights=train_options["weight_map"]["weights"]["SIC"],
                 weight_map=weight_maps["SIC"],
                 output=output,
                 inf_y=inf_y,

@@ -918,10 +918,10 @@ def plot_weight_map(
     plt.close()
 
 
-def create_edge_cent_flat(edge_weights, weight_map, output, inf_y, chart):
+def create_edge_cent_flat(weights: dict, weight_map: torch.Tensor, output: torch.Tensor, inf_y: torch.Tensor, chart: str):
     """Create edge and center flat tensors"""
-    invalid_weight = edge_weights["invalid"]
-    center_weight = edge_weights["center"]
+    invalid_weight = weights["invalid"]
+    center_weight = weights["center"]
 
     cent_mask = weight_map == center_weight
     edge_mask = (weight_map != invalid_weight) & (weight_map != center_weight)
