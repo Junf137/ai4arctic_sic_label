@@ -886,8 +886,15 @@ def plot_weight_map(
     plt.title("Inner Edges")
     plt.axis("off")
 
+    if chart == "SIC":
+        cmap = cmocean.cm.ice
+    elif chart == "SOD":
+        cmap = cmocean.cm.thermal
+    elif chart == "FLOE":
+        cmap = cmocean.cm.haline
+
     plt.subplot(245)
-    plt.imshow(np.ma.masked_where(arr_np == cfv, arr_np), cmap=cmocean.cm.ice)
+    plt.imshow(np.ma.masked_where(arr_np == cfv, arr_np), cmap=cmap)
     plt.title(f"{chart}")
     plt.axis("off")
 
