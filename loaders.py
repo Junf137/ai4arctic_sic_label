@@ -337,8 +337,6 @@ class AI4ArcticChallengeTestDataset(Dataset):
             )
 
         # Unpack the tuples and store in respective lists
-        self.scenes = []
-        self.original_sizes = []
         for processed_scene, original_size in processed_data:
             self.scenes.append(processed_scene)
             self.original_sizes.append(original_size)
