@@ -55,9 +55,9 @@ train_options.update(
         "deterministic": False,
         # -- Training configuration -- #
         "epochs": 300,
-        "epoch_len": 500,  # Number of batches for each epoch.
+        "epoch_len": 250,  # Number of batches for each epoch.
         "patch_size": 256,
-        "batch_size": 16,
+        "batch_size": 32,
         "model_selection": "unet_regression",  #'unet_feature_fusion', #'unet_regression',
         "unet_conv_filters": [32, 32, 64, 64],
         "optimizer": {
