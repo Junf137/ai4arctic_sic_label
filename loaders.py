@@ -289,12 +289,9 @@ class AI4ArcticChallengeDataset(Dataset):
         for i, chart in enumerate(self.options["charts"]):
             y[chart] = y_patches[:, i]
 
-        # Create SIC weight map for each patch after transformation
-        sic_weight_maps = []
-        sod_weight_maps = []
-        floe_weight_maps = []
+        # Create weight map for each patch after transformation
+        weight_maps = {chart: [] for chart in self.options["charts"]}
         for i in range(self.options["batch_size"]):
-
             en_plot = (
                 self.options["weight_map"]["visualization"]
                 and torch.rand(1).item() < self.options["weight_map"]["visualization_train_prob"]
@@ -306,44 +303,22 @@ class AI4ArcticChallengeDataset(Dataset):
                 time_str = datetime.datetime.now().strftime("%m_%d_%H")
                 random_str = str(torch.randint(0, 100000, (1,)).item())
 
-            temp_weight_map = get_chart_weight_map_and_plot(
-                options=self.options,
-                arr_np=y["SIC"][i].clone().numpy(),
-                hh_np=x[i][0].clone().numpy(),
-                hv_np=x[i][1].clone().numpy(),
-                en_plot=en_plot,
-                plot_name=f"train_sic_weight_map_{file_name_str}_{time_str}_{random_str}.png",
-                chart="SIC",
-            )
-            sic_weight_maps.append(torch.tensor(temp_weight_map, dtype=x.dtype))
+            for chart in self.options["charts"]:
+                temp_weight_map = get_chart_weight_map_and_plot(
+                    options=self.options,
+                    arr_np=y[chart][i].clone().numpy(),
+                    hh_np=x[i][0].clone().numpy(),
+                    hv_np=x[i][1].clone().numpy(),
+                    en_plot=en_plot,
+                    plot_name=f"train_{chart.lower()}_weight_map_{file_name_str}_{time_str}_{random_str}.png",
+                    chart=chart,
+                )
+                weight_maps[chart].append(torch.tensor(temp_weight_map, dtype=x.dtype))
 
-            temp_weight_map = get_chart_weight_map_and_plot(
-                options=self.options,
-                arr_np=y["SOD"][i].clone().numpy(),
-                hh_np=x[i][0].clone().numpy(),
-                hv_np=x[i][1].clone().numpy(),
-                en_plot=en_plot,
-                plot_name=f"train_sod_weight_map_{file_name_str}_{time_str}_{random_str}.png",
-                chart="SOD",
-            )
-            sod_weight_maps.append(torch.tensor(temp_weight_map, dtype=x.dtype))
+        # Stack weight maps for each chart
+        stacked_weight_maps = {chart: torch.stack(maps, dim=0) for chart, maps in weight_maps.items()}
 
-            temp_weight_map = get_chart_weight_map_and_plot(
-                options=self.options,
-                arr_np=y["FLOE"][i].clone().numpy(),
-                hh_np=x[i][0].clone().numpy(),
-                hv_np=x[i][1].clone().numpy(),
-                en_plot=en_plot,
-                plot_name=f"train_floe_weight_map_{file_name_str}_{time_str}_{random_str}.png",
-                chart="FLOE",
-            )
-            floe_weight_maps.append(torch.tensor(temp_weight_map, dtype=x.dtype))
-
-        sic_weight_map = torch.stack(sic_weight_maps, dim=0)
-        sod_weight_map = torch.stack(sod_weight_maps, dim=0)
-        floe_weight_map = torch.stack(floe_weight_maps, dim=0)
-
-        return x, y, sic_weight_map, sod_weight_map, floe_weight_map
+        return x, y, stacked_weight_maps
 
     def _handle_scene_error(self, scene_id, error, attempt_count):
         print(f"Cropping failed in {self.files[scene_id]}: {str(error)}")
@@ -376,9 +351,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         self.mode = mode
 
         self.scenes = []
-        self.sic_weight_maps = []
-        self.sod_weight_maps = []
-        self.floe_weight_maps = []
+        self.weight_maps = {chart: [] for chart in self.options["charts"]}
         self.original_sizes = []
 
         self._load_scenes()
@@ -396,12 +369,12 @@ class AI4ArcticChallengeTestDataset(Dataset):
             )
 
         # Unpack the tuples and store in respective lists
-        for processed_scene, original_size, sic_weight_map, sod_weight_map, floe_weight_map in processed_data:
+        for processed_scene, original_size, weight_maps in processed_data:
             self.scenes.append(processed_scene)
             self.original_sizes.append(original_size)
-            self.sic_weight_maps.append(sic_weight_map)
-            self.sod_weight_maps.append(sod_weight_map)
-            self.floe_weight_maps.append(floe_weight_map)
+
+            for chart in self.options["charts"]:
+                self.weight_maps[chart].append(weight_maps[chart])
 
     def _process_single_file(self, file):
         """Process a single file and return the processed scene."""
@@ -421,43 +394,21 @@ class AI4ArcticChallengeTestDataset(Dataset):
 
             scene.close()
 
-        # Create SIC weight map
-        sic_weight_map = get_chart_weight_map_and_plot(
-            options=self.options,
-            arr_np=processed_scene[0].clone().numpy(),
-            hh_np=processed_scene[len(self.options["charts"])].clone().numpy(),
-            hv_np=processed_scene[len(self.options["charts"]) + 1].clone().numpy(),
-            en_plot=self.options["weight_map"]["visualization"],
-            plot_name=f"{file[:-3]}_sic_weight_map.png",
-            chart="SIC",
-        )
-        sic_weight_map = torch.tensor(sic_weight_map, dtype=processed_scene.dtype)
+        # Create weight maps dictionary for all charts
+        weight_maps = {}
+        for i, chart in enumerate(self.options["charts"]):
+            weight_map = get_chart_weight_map_and_plot(
+                options=self.options,
+                arr_np=processed_scene[i].clone().numpy(),
+                hh_np=processed_scene[len(self.options["charts"])].clone().numpy(),
+                hv_np=processed_scene[len(self.options["charts"]) + 1].clone().numpy(),
+                en_plot=self.options["weight_map"]["visualization"],
+                plot_name=f"{file[:-3]}_{chart.lower()}_weight_map.png",
+                chart=chart,
+            )
+            weight_maps[chart] = torch.tensor(weight_map, dtype=processed_scene.dtype)
 
-        # Create SOD weight map
-        sod_weight_map = get_chart_weight_map_and_plot(
-            options=self.options,
-            arr_np=processed_scene[1].clone().numpy(),
-            hh_np=processed_scene[len(self.options["charts"])].clone().numpy(),
-            hv_np=processed_scene[len(self.options["charts"]) + 1].clone().numpy(),
-            en_plot=self.options["weight_map"]["visualization"],
-            plot_name=f"{file[:-3]}_sod_weight_map.png",
-            chart="SOD",
-        )
-        sod_weight_map = torch.tensor(sod_weight_map, dtype=processed_scene.dtype)
-
-        # Create FLOE weight map
-        floe_weight_map = get_chart_weight_map_and_plot(
-            options=self.options,
-            arr_np=processed_scene[2].clone().numpy(),
-            hh_np=processed_scene[len(self.options["charts"])].clone().numpy(),
-            hv_np=processed_scene[len(self.options["charts"]) + 1].clone().numpy(),
-            en_plot=self.options["weight_map"]["visualization"],
-            plot_name=f"{file[:-3]}_floe_weight_map.png",
-            chart="FLOE",
-        )
-        floe_weight_map = torch.tensor(floe_weight_map, dtype=processed_scene.dtype)
-
-        return processed_scene, original_size, sic_weight_map, sod_weight_map, floe_weight_map
+        return processed_scene, original_size, weight_maps
 
     def __len__(self):
         """
@@ -479,6 +430,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
             4D torch tensor; ready inference data.
         y :
             Dict with 3D torch tensors for each reference chart; reference inference data for x. None if test is true.
+        weight_maps:
+            Dict with 2D torch tensors; weight map for each chart.
         masks :
             Dict with 2D torch tensors; mask for each chart for loss calculation. Contain only SAR mask if test is true.
         name : str
@@ -494,9 +447,8 @@ class AI4ArcticChallengeTestDataset(Dataset):
         for i, chart in enumerate(self.options["charts"]):
             y[chart] = y_charts[i]
 
-        sic_weight_map = self.sic_weight_maps[idx].clone()
-        sod_weight_map = self.sod_weight_maps[idx].clone()
-        floe_weight_map = self.floe_weight_maps[idx].clone()
+        # Get weight maps for current scene
+        scene_weight_maps = {chart: self.weight_maps[chart][idx].clone() for chart in self.options["charts"]}
 
         cfv_masks = {}
         for chart in self.options["charts"]:
@@ -505,7 +457,7 @@ class AI4ArcticChallengeTestDataset(Dataset):
         name = self.files[idx]
         original_size = self.original_sizes[idx]
 
-        return x, y, sic_weight_map, sod_weight_map, floe_weight_map, cfv_masks, name, original_size
+        return x, y, scene_weight_maps, cfv_masks, name, original_size
 
 
 def get_variable_options(train_options: dict):

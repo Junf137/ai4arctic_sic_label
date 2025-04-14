@@ -83,7 +83,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     os.makedirs(osp.join(cfg.work_dir, inference_name), exist_ok=True)
 
     net.eval()
-    for inf_x, inf_y, sic_weight_map, cfv_masks, scene_name, original_size in tqdm(
+    for inf_x, inf_y, weight_maps, cfv_masks, scene_name, original_size in tqdm(
         iterable=asid_loader, total=len(test_list), colour="green", position=0, desc=inference_name
     ):
         scene_name = scene_name[:19]  # Remove '_prep.nc' from name
@@ -126,11 +126,11 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 ).squeeze()
                 inf_y[chart] = inf_y[chart].to("cpu")
 
-            # Upsample the weight map
-            sic_weight_map = torch.nn.functional.interpolate(
-                sic_weight_map.unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest"
-            ).squeeze()
-            sic_weight_map = sic_weight_map.to("cpu")
+                # Upsample the weight maps
+                weight_maps[chart] = torch.nn.functional.interpolate(
+                    weight_maps[chart].unsqueeze(0).unsqueeze(0), size=original_size, mode="nearest"
+                ).squeeze()
+                weight_maps[chart] = weight_maps[chart].to("cpu")
 
         # Process and move results to CPU immediately
         output_class = {}
@@ -142,7 +142,7 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         # Process SIC edge and center pixels
         _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
             edge_weights=train_options["weight_map"]["sic_weights"],
-            weight_map=sic_weight_map,
+            weight_map=weight_maps["SIC"],
             output=output,
             inf_y=inf_y,
             chart="SIC",

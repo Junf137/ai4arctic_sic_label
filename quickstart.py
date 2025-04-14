@@ -103,7 +103,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.train()  # Set network to training mode.
 
         # Loops through batches in queue.
-        for i, (batch_x, batch_y, sic_weight_map, sod_weight_map, floe_weight_map) in enumerate(
+        for i, (batch_x, batch_y, weight_maps) in enumerate(
             tqdm(iterable=dataloader_train, total=train_options["epoch_len"], colour="red", desc="Batch")
         ):
             train_loss_batch = torch.tensor([0.0]).to(device)  # Reset from previous batch.
@@ -111,7 +111,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # - Transfer to device.
             batch_x = batch_x.to(device, non_blocking=True)
             batch_y = {chart: batch_y[chart].to(device, torch.long, non_blocking=True) for chart in train_options["charts"]}
-            sic_weight_map = sic_weight_map.to(device, non_blocking=True)
+            weight_maps = {chart: weight_map.to(device, non_blocking=True) for chart, weight_map in weight_maps.items()}
 
             # - Mixed precision training.
             with torch.amp.autocast(device_type=device.type):
@@ -129,15 +129,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                         if chart == "SIC":
                             train_loss_batch += weight * weighted_mse_loss(
-                                output[chart].squeeze(), batch_y[chart], sic_weight_map
+                                output[chart].squeeze(), batch_y[chart], weight_maps[chart]
                             )
-                        elif chart == "SOD":
+                        elif chart in ["SOD", "FLOE"]:
                             train_loss_batch += weight * weighted_cross_entropy_loss(
-                                output[chart].squeeze(), batch_y[chart], sod_weight_map
-                            )
-                        elif chart == "FLOE":
-                            train_loss_batch += weight * weighted_cross_entropy_loss(
-                                output[chart].squeeze(), batch_y[chart], floe_weight_map
+                                output[chart].squeeze(), batch_y[chart], weight_maps[chart]
                             )
                     else:
                         train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
@@ -173,7 +169,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         net.eval()  # Set network to evaluation mode.
 
         # - Loops through scenes in queue.
-        for i, (inf_x, inf_y, sic_weight_map, sod_weight_map, floe_weight_map, cfv_masks, name, original_size) in enumerate(
+        for i, (inf_x, inf_y, weight_maps, cfv_masks, name, original_size) in enumerate(
             tqdm(iterable=dataloader_val, total=len(train_options["validate_list"]), colour="green", desc="Validation")
         ):
             torch.cuda.empty_cache()
@@ -183,7 +179,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # - Transfer to device.
             inf_x = inf_x.to(device, non_blocking=True)
             inf_y = {chart: inf_y[chart].to(device, torch.long, non_blocking=True) for chart in train_options["charts"]}
-            sic_weight_map = sic_weight_map.to(device, non_blocking=True)
+            weight_maps = {chart: weight_map.to(device, non_blocking=True) for chart, weight_map in weight_maps.items()}
 
             # - No gradients during validation.
             with torch.no_grad(), torch.amp.autocast(device_type=device.type):
@@ -202,17 +198,12 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                         if chart == "SIC":
                             val_loss_batch += weight * weighted_mse_loss(
-                                output[chart].squeeze(), inf_y[chart], sic_weight_map
+                                output[chart].squeeze(), inf_y[chart], weight_maps[chart]
                             )
-                        elif chart == "SOD":
+                        elif chart in ["SOD", "FLOE"]:
                             val_loss_batch += weight * weighted_cross_entropy_loss(
-                                output[chart].squeeze(), inf_y[chart], sod_weight_map
+                                output[chart].squeeze(), inf_y[chart], weight_maps[chart]
                             )
-                        elif chart == "FLOE":
-                            val_loss_batch += weight * weighted_cross_entropy_loss(
-                                output[chart].squeeze(), inf_y[chart], floe_weight_map
-                            )
-
                     else:
                         val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
@@ -225,7 +216,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # - Store SIC center and edge pixels for r2_metric
             _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
                 edge_weights=train_options["weight_map"]["sic_weights"],
-                weight_map=sic_weight_map,
+                weight_map=weight_maps["SIC"],
                 output=output,
                 inf_y=inf_y,
                 chart="SIC",
