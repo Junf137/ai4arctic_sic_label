@@ -37,8 +37,8 @@ from functions import (
     get_loss,
     get_model,
     seed_worker,
-    r2_metric,
-    create_edge_cent_flat,
+    cat_edge_cent_metrics,
+    calc_edge_cent_metrics,
 )
 
 # Load costume loss function
@@ -158,10 +158,17 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         outputs_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
         inf_ys_flat = {chart: torch.Tensor().to(device) for chart in train_options["charts"]}
 
-        sic_cent_flat = torch.Tensor().to(device)
-        inf_y_sic_cent_flat = torch.Tensor().to(device)
-        sic_edge_flat = torch.Tensor().to(device)
-        inf_y_sic_edge_flat = torch.Tensor().to(device)
+        # Create data structure to store edge and center predictions and true values
+        cent_edge_flat = {
+            "cent": {
+                "pred": {chart: torch.Tensor().to(device) for chart in train_options["charts"]},
+                "true": {chart: torch.Tensor().to(device) for chart in train_options["charts"]},
+            },
+            "edge": {
+                "pred": {chart: torch.Tensor().to(device) for chart in train_options["charts"]},
+                "true": {chart: torch.Tensor().to(device) for chart in train_options["charts"]},
+            },
+        }
 
         net.eval()  # Set network to evaluation mode.
 
@@ -204,18 +211,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~cfv_masks[chart]]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]]))
 
-            # - Store SIC center and edge pixels for r2_metric
-            _sic_cent_flat, _inf_y_sic_cent_flat, _sic_edge_flat, _inf_y_sic_edge_flat = create_edge_cent_flat(
-                weights=train_options["weight_map"]["weights"]["SIC"],
-                weight_map=weight_maps["SIC"],
-                output=output,
-                inf_y=inf_y,
-                chart="SIC",
-            )
-            sic_cent_flat = torch.cat((sic_cent_flat, _sic_cent_flat.to(device, non_blocking=True)))
-            inf_y_sic_cent_flat = torch.cat((inf_y_sic_cent_flat, _inf_y_sic_cent_flat.to(device, non_blocking=True)))
-            sic_edge_flat = torch.cat((sic_edge_flat, _sic_edge_flat.to(device, non_blocking=True)))
-            inf_y_sic_edge_flat = torch.cat((inf_y_sic_edge_flat, _inf_y_sic_edge_flat.to(device, non_blocking=True)))
+            # Concatenate edge and center predictions and true flat values for all charts
+            cent_edge_flat = cat_edge_cent_metrics(cent_edge_flat, weight_maps, output, inf_y, train_options)
 
             # - Add batch loss.
             val_loss_sum += val_loss_batch.detach().item()
@@ -232,16 +229,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             num_classes=train_options["n_classes"],
         )
 
-        sic_cent_r2 = (
-            torch.round(r2_metric(inf_y_sic_cent_flat, sic_cent_flat) * 100, decimals=3)
-            if sic_cent_flat.numel() > 0
-            else torch.tensor(0.0, device=device)
-        )
-        sic_edge_r2 = (
-            torch.round(r2_metric(inf_y_sic_edge_flat, sic_edge_flat) * 100, decimals=3)
-            if sic_edge_flat.numel() > 0
-            else torch.tensor(0.0, device=device)
-        )
+        # Compute chart score and combine score for cent and edge regions
+        edge_cent_comb_scores, edge_cent_scores = calc_edge_cent_metrics(cent_edge_flat, train_options)
 
         if train_options["compute_classwise_f1score"]:
             from functions import compute_classwise_f1score
@@ -256,9 +245,13 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for chart in train_options["charts"]:
             metric_name = train_options["chart_metric"][chart]["name"]
             print(f"{chart} {metric_name}: {scores[chart]}%")
+            print(f"{chart} Center {metric_name}: {edge_cent_scores["cent"][chart]:.3f}")
+            print(f"{chart} Edge {metric_name}: {edge_cent_scores["edge"][chart]:.3f}")
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {metric_name}": scores[chart]}, step=epoch)
+            wandb.log({f"{chart} Center {metric_name}": edge_cent_scores["cent"][chart]}, step=epoch)
+            wandb.log({f"{chart} Edge {metric_name}": edge_cent_scores["edge"][chart]}, step=epoch)
 
             # if classwise_f1score is True,
             if train_options["compute_classwise_f1score"]:
@@ -267,19 +260,19 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 print(f"{chart} F1 score:", classwise_scores[chart])
 
         print(f"Combined score: {combined_score}%")
+        print(f"Combined score Center: {edge_cent_comb_scores["cent"]:.3f}%")
+        print(f"Combined score Edge: {edge_cent_comb_scores["edge"]:.3f}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
         print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
-        print(f"SIC Center R2: {sic_cent_r2}%")
-        print(f"SIC Edge R2: {sic_edge_r2}%")
 
         # Log combine score and epoch loss to wandb
         wandb.log(
             {
                 "Combined score": combined_score,
+                "Combined score Center": edge_cent_comb_scores["cent"],
+                "Combined score Edge": edge_cent_comb_scores["edge"],
                 "Train Epoch Loss": train_loss_epoch,
                 "Validation Epoch Loss": val_loss_epoch,
-                "SIC Center R2": sic_cent_r2,
-                "SIC Edge R2": sic_edge_r2,
                 "Learning Rate": optimizer.param_groups[0]["lr"],
             },
             step=epoch,
@@ -291,12 +284,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
             # Log the best combine score, and the metrics that make that best combine score in summary in wandb.
             wandb.run.summary[f"While training/Best Combined Score"] = best_combined_score
+            wandb.run.summary[f"While training/Best Combined Score Center"] = edge_cent_comb_scores["cent"]
+            wandb.run.summary[f"While training/Best Combined Score Edge"] = edge_cent_comb_scores["edge"]
             for chart in train_options["charts"]:
                 metric_name = train_options["chart_metric"][chart]["name"]
                 wandb.run.summary[f"While training/{chart} {metric_name}"] = scores[chart]
+                wandb.run.summary[f"While training/{chart} Center {metric_name}"] = edge_cent_scores["cent"][chart]
+                wandb.run.summary[f"While training/{chart} Edge {metric_name}"] = edge_cent_scores["edge"][chart]
             wandb.run.summary[f"While training/Train Epoch Loss"] = train_loss_epoch
-            wandb.run.summary[f"While training/SIC Center R2"] = sic_cent_r2
-            wandb.run.summary[f"While training/SIC Edge R2"] = sic_edge_r2
             wandb.run.summary[f"while training/Best Epoch"] = epoch
 
             # Save the best model in work_dirs
@@ -464,11 +459,13 @@ def main():
     wandb.define_metric("Validation Cross Entropy Epoch Loss", summary="none")
     wandb.define_metric("Validation Water Consistency Epoch Loss", summary="none")
     wandb.define_metric("Combined score", summary="none")
-    wandb.define_metric("SIC r2_metric", summary="none")
-    wandb.define_metric("SIC Center R2", summary="none")
-    wandb.define_metric("SIC Edge R2", summary="none")
-    wandb.define_metric("SOD f1_metric", summary="none")
-    wandb.define_metric("FLOE f1_metric", summary="none")
+    wandb.define_metric("Combined score Center", summary="none")
+    wandb.define_metric("Combined score Edge", summary="none")
+    for chart in train_options["charts"]:
+        metric_name = train_options["chart_metric"][chart]["name"]
+        wandb.define_metric(f"{chart} {metric_name}", summary="none")
+        wandb.define_metric(f"{chart} Center {metric_name}", summary="none")
+        wandb.define_metric(f"{chart} Edge {metric_name}", summary="none")
     wandb.define_metric("Water Consistency Accuracy", summary="none")
     wandb.define_metric("Learning Rate", summary="none")
     if train_options["compute_classwise_f1score"]:

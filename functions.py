@@ -941,3 +941,84 @@ def create_edge_cent_flat(weights: dict, weight_map: torch.Tensor, output: torch
     inf_y_edge_flat = inf_y[chart].squeeze()[edge_mask].flatten()
 
     return cent_flat, inf_y_cent_flat, edge_flat, inf_y_edge_flat
+
+
+def cat_edge_cent_metrics(cent_edge_flat, weight_maps, output, inf_y, options):
+    """Concatenate edge and center metrics for each chart.
+
+    Args:
+        cent_edge_flat: Dictionary to store concatenated metrics
+        weight_maps: Dictionary of weight maps for each chart
+        output: Model output dictionary by chart
+        inf_y: Ground truth dictionary by chart
+        options: training options dictionary
+
+    Returns:
+        Dictionary with structure:
+        {
+            "cent": {
+                "pred": {chart: tensor},
+                "true": {chart: tensor}
+            },
+            "edge": {
+                "pred": {chart: tensor},
+                "true": {chart: tensor}
+            }
+        }
+    """
+    for chart in options["charts"]:
+        if options["weight_map"]["enable_weights"][chart] is False:
+            continue
+
+        # Calculate edge and center metrics
+        cent_flat, y_cent_flat, edge_flat, y_edge_flat = create_edge_cent_flat(
+            weights=options["weight_map"]["weights"][chart],
+            weight_map=weight_maps[chart],
+            output=output,
+            inf_y=inf_y,
+            chart=chart,
+        )
+
+        cent_edge_flat["cent"]["pred"][chart] = torch.cat((cent_edge_flat["cent"]["pred"][chart], cent_flat))
+        cent_edge_flat["cent"]["true"][chart] = torch.cat((cent_edge_flat["cent"]["true"][chart], y_cent_flat))
+        cent_edge_flat["edge"]["pred"][chart] = torch.cat((cent_edge_flat["edge"]["pred"][chart], edge_flat))
+        cent_edge_flat["edge"]["true"][chart] = torch.cat((cent_edge_flat["edge"]["true"][chart], y_edge_flat))
+
+    return cent_edge_flat
+
+
+def calc_edge_cent_metrics(cent_edge_flat, options):
+    """
+    Calculate chart metrics and combined scores for edge and center regions.
+    This function computes metrics and combined scores for two regions:
+    "center" and "edge". It uses the provided true and predicted values
+    along with chart and metric options to calculate the scores.
+    Args:
+        cent_edge_flat (dict): containing true and predicted
+            values for the "center" and "edge" regions for all charts.
+            The structure is expected to be:
+            {
+                "cent": {"true": [...], "pred": [...]},
+                "edge": {"true": [...], "pred": [...]}
+            }
+        options (dict): Training options
+    Returns:
+        edge_cent_comb_scores (dict): Combined scores for "center" and "edge" regions.
+        edge_cent_scores (dict): Detailed scores for "center" and "edge" regions.
+    """
+    edge_cent_comb_scores = {}
+    edge_cent_scores = {}
+
+    for region in ["cent", "edge"]:
+        comb_score, scores = compute_metrics(
+            true=cent_edge_flat[region]["true"],
+            pred=cent_edge_flat[region]["pred"],
+            charts=options["charts"],
+            metrics=options["chart_metric"],
+            num_classes=options["n_classes"],
+        )
+
+        edge_cent_comb_scores[region] = comb_score
+        edge_cent_scores[region] = scores
+
+    return edge_cent_comb_scores, edge_cent_scores
