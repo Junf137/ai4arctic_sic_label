@@ -237,8 +237,9 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     print(f"{test_name}/Best Combined Score = {combined_score}")
 
     for chart in train_options["charts"]:
-        wandb.run.summary[f"{test_name}/{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[chart]
-        print(f"{test_name}/{chart} {train_options['chart_metric'][chart]['func'].__name__} = {scores[chart]}")
+        metric_name = train_options["chart_metric"][chart]["name"]
+        wandb.run.summary[f"{test_name}/{chart} {metric_name}"] = scores[chart]
+        print(f"{test_name}/{chart} {metric_name} = {scores[chart]}")
 
         if train_options["compute_classwise_f1score"]:
             wandb.run.summary[f"{test_name}/{chart}: classwise score:"] = classwise_scores[chart]

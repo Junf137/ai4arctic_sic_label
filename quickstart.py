@@ -202,10 +202,11 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         print(f"Epoch {epoch} score:")
 
         for chart in train_options["charts"]:
-            print(f"{chart} {train_options['chart_metric'][chart]['func'].__name__}: {scores[chart]}%")
+            metric_name = train_options["chart_metric"][chart]["name"]
+            print(f"{chart} {metric_name}: {scores[chart]}%")
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
-            wandb.log({f"{chart} {train_options['chart_metric'][chart]['func'].__name__}": scores[chart]}, step=epoch)
+            wandb.log({f"{chart} {metric_name}": scores[chart]}, step=epoch)
 
             # if classwise_f1score is True,
             if train_options["compute_classwise_f1score"]:
@@ -235,9 +236,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
             # Log the best combine score, and the metrics that make that best combine score in summary in wandb.
             wandb.run.summary[f"While training/Best Combined Score"] = best_combined_score
             for chart in train_options["charts"]:
-                wandb.run.summary[f"While training/{chart} {train_options['chart_metric'][chart]['func'].__name__}"] = scores[
-                    chart
-                ]
+                metric_name = train_options["chart_metric"][chart]["name"]
+                wandb.run.summary[f"While training/{chart} {metric_name}"] = scores[chart]
             wandb.run.summary[f"While training/Train Epoch Loss"] = train_loss_epoch
             wandb.run.summary[f"while training/Best Epoch"] = epoch
 
