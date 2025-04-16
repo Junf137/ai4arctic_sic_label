@@ -86,18 +86,20 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
     scores: list
         List of scores for each chart.
     """
-    scores = {chart: torch.tensor(0.0, device=pred[chart].device) for chart in charts}
-    for chart in charts:
-        if (metrics[chart]["weight"] > 0) and (true[chart].ndim == 1) and (pred[chart].ndim == 1):
-            scores[chart] = torch.round(
-                metrics[chart]["func"](true=true[chart], pred=pred[chart], num_classes=num_classes[chart]) * 100, decimals=3
-            )
+    scores = {chart: torch.tensor(0.0).to(device=pred[chart].device) for chart in charts}
 
-        else:
-            print(
-                f"{chart}: true and pred must be 1D numpy array, got {true[chart].ndim} and {pred[chart].ndim} dimensions \
-                    with shape {true[chart].shape} and {pred[chart].shape}, respectively"
-            )
+    for chart in charts:
+        assert (
+            true[chart].ndim == 1 and pred[chart].ndim == 1
+        ), f"true and pred must be 1D numpy array, got {true[chart].ndim} and {pred[chart].ndim} dimensions with shape {true[chart].shape} and {pred[chart].shape}"
+
+        if metrics[chart]["weight"] == 0:
+            print(f"skipping {chart} with weight {metrics[chart]['weight']}")
+            continue
+
+        scores[chart] = torch.round(
+            metrics[chart]["func"](true=true[chart], pred=pred[chart], num_classes=num_classes[chart]) * 100, decimals=3
+        )
 
     combined_score = compute_combined_score(scores=scores, charts=charts, metrics=metrics)
 
