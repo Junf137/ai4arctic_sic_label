@@ -245,8 +245,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for chart in train_options["charts"]:
             metric_name = train_options["chart_metric"][chart]["name"]
             print(f"{chart} {metric_name}: {scores[chart]}%")
-            print(f"{chart} Center {metric_name}: {edge_cent_scores["cent"][chart]:.3f}")
-            print(f"{chart} Edge {metric_name}: {edge_cent_scores["edge"][chart]:.3f}")
+            print(f"{chart} Center {metric_name}: {edge_cent_scores['cent'][chart]:.3f}")
+            print(f"{chart} Edge {metric_name}: {edge_cent_scores['edge'][chart]:.3f}")
 
             # Log in wandb the SIC r2_metric, SOD f1_metric and FLOE f1_metric
             wandb.log({f"{chart} {metric_name}": scores[chart]}, step=epoch)
@@ -260,8 +260,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                 print(f"{chart} F1 score:", classwise_scores[chart])
 
         print(f"Combined score: {combined_score}%")
-        print(f"Combined score Center: {edge_cent_comb_scores["cent"]:.3f}%")
-        print(f"Combined score Edge: {edge_cent_comb_scores["edge"]:.3f}%")
+        print(f"Combined score Center: {edge_cent_comb_scores['cent']:.3f}%")
+        print(f"Combined score Edge: {edge_cent_comb_scores['edge']:.3f}%")
         print(f"Train Epoch Loss: {train_loss_epoch:.3f}")
         print(f"Validation Epoch Loss: {val_loss_epoch:.3f}")
 

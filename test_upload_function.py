@@ -269,10 +269,10 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     print(f"{test_name}/Best Combined Score = {combined_score}")
 
     wandb.run.summary[f"{test_name}/Best Combined Score Center"] = edge_cent_comb_scores["cent"]
-    print(f"{test_name}/Best Combined Score Center = {edge_cent_comb_scores["cent"]}")
+    print(f"{test_name}/Best Combined Score Center = {edge_cent_comb_scores['cent']}")
 
     wandb.run.summary[f"{test_name}/Best Combined Score Edge"] = edge_cent_comb_scores["edge"]
-    print(f"{test_name}/Best Combined Score Edge = {edge_cent_comb_scores["edge"]}")
+    print(f"{test_name}/Best Combined Score Edge = {edge_cent_comb_scores['edge']}")
 
     for chart in train_options["charts"]:
         metric_name = train_options["chart_metric"][chart]["name"]
