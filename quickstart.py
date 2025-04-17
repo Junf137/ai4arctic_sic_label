@@ -130,7 +130,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     if train_options["weight_map"]["train"] and train_options["weight_map"]["enable_weights"][chart]:
                         train_loss_batch += weight * weighted_loss_functions[chart](
-                            output[chart].squeeze(), batch_y[chart], weight_maps[chart]
+                            output[chart].squeeze(-1), batch_y[chart], weight_maps[chart]
                         )
                     else:
                         train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
@@ -200,7 +200,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
 
                     if train_options["weight_map"]["val"] and train_options["weight_map"]["enable_weights"][chart]:
                         val_loss_batch += weight * weighted_loss_functions[chart](
-                            output[chart].squeeze(), inf_y[chart], weight_maps[chart]
+                            output[chart].squeeze(-1), inf_y[chart].unsqueeze(0), weight_maps[chart].unsqueeze(0)
                         )
                     else:
                         val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
