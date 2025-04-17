@@ -95,6 +95,12 @@ def compute_metrics(true, pred, charts, metrics, num_classes):
             print(f"skipping {chart} with weight {metrics[chart]['weight']}")
             continue
 
+        if pred[chart].numel() == 0 or true[chart].numel() == 0:
+            print(
+                f"skipping {chart} with empty prediction or true values. pred: {pred[chart].numel()}, true: {true[chart].numel()}"
+            )
+            continue
+
         scores[chart] = torch.round(
             metrics[chart]["func"](true=true[chart], pred=pred[chart], num_classes=num_classes[chart]) * 100, decimals=3
         )
