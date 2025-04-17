@@ -933,13 +933,15 @@ def plot_weight_map(
     plt.close()
 
 
-def create_edge_cent_flat(weights: dict, weight_map: torch.Tensor, output: torch.Tensor, inf_y: torch.Tensor, chart: str):
+def create_edge_cent_flat(
+    weights: dict, weight_map: torch.Tensor, output: torch.Tensor, inf_y: torch.Tensor, chart: str, cfv: int
+):
     """Create edge and center flat tensors"""
     invalid_weight = weights["invalid"]
     center_weight = weights["center"]
 
     cent_mask = weight_map == center_weight
-    edge_mask = (weight_map != invalid_weight) & (weight_map != center_weight)
+    edge_mask = (inf_y[chart] != cfv) & (weight_map != center_weight)
 
     cent_flat = output[chart].squeeze()[cent_mask].flatten()
     inf_y_cent_flat = inf_y[chart].squeeze()[cent_mask].flatten()
@@ -983,6 +985,7 @@ def cat_edge_cent_metrics(cent_edge_flat, weight_maps, output, inf_y, options):
             output=output,
             inf_y=inf_y,
             chart=chart,
+            cfv=options["class_fill_values"][chart],
         )
 
         cent_edge_flat["cent"]["pred"][chart] = torch.cat((cent_edge_flat["cent"]["pred"][chart], cent_flat))
