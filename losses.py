@@ -110,8 +110,9 @@ class MSELossWithIgnoreIndex(nn.MSELoss):
 
 
 class WeightedMSELoss(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(WeightedMSELoss, self).__init__()
+        self.ignore_index = kwargs.get("ignore_index", None) if kwargs else None
 
     def forward(self, input, target, weight_map):
 
@@ -125,17 +126,16 @@ class WeightedMSELoss(torch.nn.Module):
 
 
 class WeightedCrossEntropyLoss(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(WeightedCrossEntropyLoss, self).__init__()
+        self.ignore_index = kwargs.get("ignore_index", None) if kwargs else None
 
     def forward(self, input, target, weight_map):
-
-        weight_map, target = weight_map.type_as(input), target.type_as(input)
 
         # input should be [N, C, H, W] and target [N, H, W]
         assert input.dim() == 4 and target.dim() == 3
 
-        cross_entropy = F.cross_entropy(input, target, reduction="none")
+        cross_entropy = F.cross_entropy(input, target, ignore_index=self.ignore_index, reduction="none")
         weighted_cross_entropy = cross_entropy * weight_map
 
         valid_errors = weighted_cross_entropy[weight_map > 0]

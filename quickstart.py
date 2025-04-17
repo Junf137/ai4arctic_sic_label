@@ -91,9 +91,9 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for chart in train_options["charts"]
     }
     weighted_loss_functions = {
-        "SIC": WeightedMSELoss(),
-        "SOD": WeightedCrossEntropyLoss(),
-        "FLOE": WeightedCrossEntropyLoss(),
+        "SIC": WeightedMSELoss(**train_options["chart_loss"]["SIC"]),
+        "SOD": WeightedCrossEntropyLoss(**train_options["chart_loss"]["SOD"]),
+        "FLOE": WeightedCrossEntropyLoss(**train_options["chart_loss"]["FLOE"]),
     }
 
     # -- Training Loop -- #
