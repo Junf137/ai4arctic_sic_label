@@ -390,8 +390,8 @@ def main():
         cfg.work_dir = osp.join("./work_dir", osp.splitext(osp.basename(args.config))[0])
 
     # Append run ID for cross-validation runs
-    if train_options["cross_val_run"]:
-        cfg.work_dir = osp.join(cfg.work_dir, wandb_id)
+    # if train_options["cross_val_run"]:
+    cfg.work_dir = osp.join(cfg.work_dir, wandb_id)
 
     ic(osp.abspath(cfg.work_dir))
     mkdir_or_exist(osp.abspath(cfg.work_dir))

@@ -15,9 +15,7 @@ venv_path=$5
 
 # Set the config array
 config_array=(
-    "configs/sic_label/mask_opts_nomask.py"
-    "configs/sic_label/mask_opts_masktrain.py"
-    "configs/sic_label/mask_opts_masktrainvalid.py"
+    "configs/sic_label/sic_label.py"
 )
 
 
@@ -27,6 +25,6 @@ for i in "${!config_array[@]}"; do
 
     for j in $(seq 1 $submit_num); do
         sbatch $job_script ${config_array[i]} $wandb_project $seed $venv_path
-        sleep 10
+        sleep 3
     done
 done
