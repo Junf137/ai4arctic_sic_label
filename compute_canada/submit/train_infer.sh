@@ -13,11 +13,33 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-type=REQUEUE
 
-# Usage: sbatch train_infer.sh <config> <wandb_project> <seed> <venv_path>
-if [ "$#" -ne 4 ]; then
-    echo "---* Usage: sbatch ${0##*/} <config> <wandb_project> <seed> <venv_path>"
+MIN_ARGS=4
+
+# Usage: sbatch train_infer.sh <venv_path> <config> <wandb_project> <seed> <other_args...>
+if [ $# -lt $MIN_ARGS ]; then
+    echo "Error: This script requires no less than $MIN_ARGS arguments."
+    echo "---* Usage: sbatch ${0##*/} <venv_path> <config> <wandb_project> <seed> <other_args...>"
     exit 1
 fi
+
+# virtual environment path
+VENV_PATH=$1
+shift
+
+# config path
+CONFIG_PATH=$1
+shift
+
+# wandb project name
+WANDB_PROJ=$1
+shift
+
+# seed for random number generation
+SEED=$1
+shift
+
+# rest of the arguments will be passed to the python script
+OTHER_ARGS="$@"
 
 # Load necessary modules
 echo "---* Loading required modules..."
@@ -26,8 +48,9 @@ module load StdEnv gcc opencv/4.10.0 python/3.10.13
 # module --force purge && module load StdEnv gcc opencv/4.10.0 python/3.10.13 && source ~/.venvs/ai4arctic/bin/activate
 
 # Activate the virtual environment
-source $4/bin/activate
+source $VENV_PATH/bin/activate
 
 echo "---* Running the python script..."
 export WANDB_MODE=offline
-python quickstart.py $1 --wandb-project=$2 --seed=$3
+# Fix the incorrect argument passing
+python quickstart.py $CONFIG_PATH --wandb-project=$WANDB_PROJ --seed=$SEED $OTHER_ARGS
