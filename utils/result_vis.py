@@ -27,18 +27,25 @@ metrics = {
     "FLOE F1": ("Test/FLOE F1", "Test/FLOE Center F1", "Test/FLOE Edge F1"),
 }
 
-# Scale factor for the x-axis transformation between 1 and 100
-X_AXIS_SCALE_FACTOR_1 = 2
-X_AXIS_SCALE_FACTOR_2 = 10
+# Group data by edges_weight and calculate statistics
+grouped_df = df.groupby("edges_weight")
 
-Y_RANGE_1 = {
-    "min": 0.0,
-    "max": 1.0,
-}
-Y_RANGE_2 = {
-    "min": 0.0,
-    "max": 1.0,
-}
+# Create a new dataframe with mean and std for each metric
+stats_df = pd.DataFrame()
+
+for col in df.columns:
+    if col != "edges_weight" and col != "Name":
+        # Calculate mean for the column
+        stats_df[f"{col}_mean"] = grouped_df[col].mean()
+        # Calculate standard deviation for the column
+        stats_df[f"{col}_std"] = grouped_df[col].std()
+
+# Reset index to make edges_weight a column
+stats_df = stats_df.reset_index()
+
+
+# Scale factor for the x-axis transformation between 1 and 100
+X_AXIS_SCALE_FACTOR = 10
 
 
 # Create a custom transformation function for the x-axis
@@ -56,7 +63,7 @@ def format_x(x, pos):
 
 
 # Apply transformation to the x values
-df["transformed_edges_weight"] = transform_x(df["edges_weight"])
+stats_df["transformed_edges_weight"] = transform_x(stats_df["edges_weight"])
 
 # %%
 
@@ -70,42 +77,70 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     ax = axes[i]
 
     # Calculate metrics ranges for better visualization
-    edge_values = df[col_edge].values
-    center_all_values = np.concatenate([df[col].values, df[col_center].values])
+    edge_values = stats_df[f"{col_edge}_mean"].values
+    center_all_values = np.concatenate([stats_df[f"{col}_mean"].values, stats_df[f"{col_center}_mean"].values])
 
-    edge_min, edge_max = edge_values.min(), edge_values.max()
-    center_all_min, center_all_max = center_all_values.min(), center_all_values.max()
+    edge_min, edge_max = np.nanmin(edge_values), np.nanmax(edge_values)
+    center_all_min, center_all_max = np.nanmin(center_all_values), np.nanmax(center_all_values)
 
-    # Add padding to the ranges (5% of the range)
-    edge_padding = (edge_max - edge_min) * 0.05
-    center_all_padding = (center_all_max - center_all_min) * 0.05
+    # Add padding to the ranges (10% of the range)
+    edge_padding = (edge_max - edge_min) * 0.1
+    center_all_padding = (center_all_max - center_all_min) * 0.1
 
-    # Update Y ranges
-    Y_RANGE_1["min"] = edge_min - edge_padding
-    Y_RANGE_1["max"] = edge_max + edge_padding
-    Y_RANGE_2["min"] = center_all_min - center_all_padding
-    Y_RANGE_2["max"] = center_all_max + center_all_padding
+    # Create y-axis ranges
+    y_range_edge = {"min": edge_min - edge_padding, "max": edge_max + edge_padding}
+
+    y_range_center_all = {"min": center_all_min - center_all_padding, "max": center_all_max + center_all_padding}
 
     # Create a twin axis for the edge metrics
     ax2 = ax.twinx()
 
-    # Plot center and all metrics on the main axis
-    ax.plot(df["transformed_edges_weight"], df[col], marker="*", linestyle="-", label=f"{task_name} All")
-    ax.plot(df["transformed_edges_weight"], df[col_center], marker="o", linestyle="-", label=f"{task_name} Center")
+    # Plot center and all metrics on the main axis with error bars
+    ax.errorbar(
+        stats_df["transformed_edges_weight"],
+        stats_df[f"{col}_mean"],
+        yerr=stats_df[f"{col}_std"],
+        marker="*",
+        linestyle="-",
+        label=f"{task_name} All",
+        elinewidth=1,
+        capsize=3,
+    )
 
-    # Plot edge metrics on the twin axis
-    ax2.plot(df["transformed_edges_weight"], df[col_edge], marker="s", linestyle="--", color="red", label=f"{task_name} Edge")
+    ax.errorbar(
+        stats_df["transformed_edges_weight"],
+        stats_df[f"{col_center}_mean"],
+        yerr=stats_df[f"{col_center}_std"],
+        marker="o",
+        linestyle="-",
+        label=f"{task_name} Center",
+        elinewidth=1,
+        capsize=3,
+    )
+
+    # Plot edge metrics on the twin axis with error bars
+    ax2.errorbar(
+        stats_df["transformed_edges_weight"],
+        stats_df[f"{col_edge}_mean"],
+        yerr=stats_df[f"{col_edge}_std"],
+        marker="s",
+        linestyle="--",
+        color="red",
+        label=f"{task_name} Edge",
+        elinewidth=1,
+        capsize=3,
+    )
 
     # Set labels and limits for main axis (center/all)
     ax.set_title(task_name)
     ax.set_xlabel("edges_weight")
     ax.set_ylabel(f"{task_name} (Center/All)", color="blue")
-    ax.set_ylim(Y_RANGE_2["min"], Y_RANGE_2["max"])
+    ax.set_ylim(y_range_center_all["min"], y_range_center_all["max"])
     ax.tick_params(axis="y", labelcolor="blue")
 
     # Set labels and limits for twin axis (edge)
     ax2.set_ylabel(f"{task_name} (Edge)", color="red")
-    ax2.set_ylim(Y_RANGE_1["min"], Y_RANGE_1["max"])
+    ax2.set_ylim(y_range_edge["min"], y_range_edge["max"])
     ax2.tick_params(axis="y", labelcolor="red")
 
     # Create combined legend
@@ -128,4 +163,14 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
         line.set_linewidth(1)
 
 plt.tight_layout()
+plt.savefig("../output/metrics_with_error_bars.png", dpi=300)
 plt.show()
+
+# 4. Print the statistical summary
+print("Statistical Summary for Each Edge Weight:")
+for edge_weight in sorted(stats_df["edges_weight"].unique()):
+    print(f"\nEdges Weight = {edge_weight}")
+    for metric in ["Test/Best Combined Score", "Test/SOD F1", "Test/SIC R2", "Test/FLOE F1"]:
+        mean_val = stats_df.loc[stats_df["edges_weight"] == edge_weight, f"{metric}_mean"].values[0]
+        std_val = stats_df.loc[stats_df["edges_weight"] == edge_weight, f"{metric}_std"].values[0]
+        print(f"  {metric}: {mean_val:.2f} ± {std_val:.2f}")
