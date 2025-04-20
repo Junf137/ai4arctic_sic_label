@@ -940,7 +940,10 @@ def create_edge_cent_flat(
     invalid_weight = weights["invalid"]
     center_weight = weights["center"]
 
-    cent_mask = weight_map == center_weight
+    # First exclude invalid pixels, then separating center and edge regions using wight.
+    #   1. This only work when the weight on center and edge regions are different.
+    #   2. When assigning the same weight to center and edge regions, center pixels will be all valid pixels.
+    cent_mask = (inf_y[chart] != cfv) & (weight_map == center_weight)
     edge_mask = (inf_y[chart] != cfv) & (weight_map != center_weight)
 
     cent_flat = output[chart].squeeze()[cent_mask].flatten()
