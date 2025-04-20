@@ -48,9 +48,9 @@ train_options.update(
         "p-out": 20,  # number of scenes taken from the TRAIN SET as the validation set.
         "compute_classwise_f1score": False,
         "plot_confusion_matrix": True,
-        "load_proc": 3,  # Number of parallel processes when loading data.
-        "num_workers": 3,  # Number of parallel processes to fetch data.
-        "num_workers_val": 3,  # Number of parallel processes during validation.
+        "load_proc": 4,  # Number of parallel processes when loading data.
+        "num_workers": 4,  # Number of parallel processes to fetch data.
+        "num_workers_val": 4,  # Number of parallel processes during validation.
         "down_sample_scale": 10,
         "deterministic": False,
         # -- Training configuration -- #
