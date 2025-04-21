@@ -98,6 +98,13 @@ stats_df["transformed_edges_weight"] = transform_x(stats_df["edges_weight"])
 # 3. Plot
 fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
 axes = axes.flatten()
+plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.tab10.colors)
+
+color_scheme = {
+    "All": "blue",
+    "Center": "green",
+    "Edge": "purple",
+}
 
 
 # Create two y-axes for each subplot (one for edge metrics, one for center/all metrics)
@@ -127,40 +134,51 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     ax.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col}_mean"],
-        marker="*",
+        marker="o",
         linestyle="-",
-        label=f"{task_name} All",
+        color=f"{color_scheme['All']}",
+        label=f"All",
+        linewidth=1,
+        markersize=3,
+        alpha=0.7,
     )
 
     ax.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_center}_mean"],
-        marker="o",
-        linestyle="-",
-        label=f"{task_name} Center",
+        marker="s",
+        linestyle="--",
+        color=f"{color_scheme['Center']}",
+        label=f"Center",
+        linewidth=1,
+        markersize=3,
+        alpha=0.7,
     )
 
     # Plot edge metrics on the twin axis with error bars
     ax2.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_edge}_mean"],
-        marker="s",
+        marker="^",
         linestyle="--",
-        color="red",
-        label=f"{task_name} Edge",
+        color=f"{color_scheme['Edge']}",
+        label=f"Edge",
+        linewidth=1,
+        markersize=3,
+        alpha=0.7,
     )
 
     # Set labels and limits for main axis (center/all)
     ax.set_title(task_name)
     ax.set_xlabel("edges_weight")
-    ax.set_ylabel(f"{task_name} (Center/All)", color="blue")
+    ax.set_ylabel(f"{task_name} (Center/All)", color=f"{color_scheme['All']}")
     ax.set_ylim(y_range_center_all["min"], y_range_center_all["max"])
-    ax.tick_params(axis="y", labelcolor="blue")
+    ax.tick_params(axis="y", labelcolor=f"{color_scheme['All']}")
 
     # Set labels and limits for twin axis (edge)
-    ax2.set_ylabel(f"{task_name} (Edge)", color="red")
+    ax2.set_ylabel(f"{task_name} (Edge)", color=f"{color_scheme['Edge']}")
     ax2.set_ylim(y_range_edge["min"], y_range_edge["max"])
-    ax2.tick_params(axis="y", labelcolor="red")
+    ax2.tick_params(axis="y", labelcolor=f"{color_scheme['Edge']}")
 
     # Create combined legend
     lines1, labels1 = ax.get_legend_handles_labels()
@@ -175,26 +193,20 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     # Add vertical lines to show the region transitions
     ax.axvline(x=REGION1_WIDTH, color="gray", linestyle="--", alpha=0.5)
 
-    # Add custom ticks for key values
-    region_ticks = [
-        0,
-        transform_single(0.5),
-        transform_single(1),
-        transform_single(5),
-        transform_single(10),
-        transform_single(20) + 0.005,
-        transform_single(30) + 0.005,
-        transform_single(50),
-        transform_single(70),
-        1.0,
-    ]
-    ax.set_xticks(region_ticks)
-
-    # reduce the dot size
-    for line in ax.lines + ax2.lines:
-        line.set_markersize(3)  # Set the size of the markers
-        line.set_alpha(0.7)  # Set the transparency of the lines
-        line.set_linewidth(1)
+    ax.set_xticks(
+        [
+            0,
+            transform_single(0.5),
+            transform_single(1),
+            transform_single(5),
+            transform_single(10),
+            transform_single(20) + 0.005,
+            transform_single(30) + 0.005,
+            transform_single(50),
+            transform_single(70),
+            1.0,
+        ]
+    )
 
 plt.tight_layout()
 plt.savefig(f"{path}/weight_experiments_vis.png", dpi=300)
