@@ -49,31 +49,26 @@ REGION1_BOUNDARY = 1.0  # Boundary between region 1 and 2
 REGION2_BOUNDARY = 10.0  # Boundary between region 2 and 3
 
 # Define scale factors for each region
-REGION1_WIDTH = 0.13  # Width allocated for region 1 [0, 1) in the transformed space
-REGION2_WIDTH = 0.23  # Width allocated for region 2 [1, 10) in the transformed space
-REGION3_WIDTH = 0.64  # Width allocated for region 3 [10, 100] in the transformed space
+REGION1_WIDTH = 0.15  # Width allocated for region 1 [0, 1) in the transformed space
+REGION2_WIDTH = 0.25  # Width allocated for region 2 [1, 10) in the transformed space
+REGION3_WIDTH = 0.60  # Width allocated for region 3 [10, 100] in the transformed space
+
+
+def transform_single(x):
+    if x < REGION1_BOUNDARY:
+        return REGION1_WIDTH * (x / REGION1_BOUNDARY)
+    elif x < REGION2_BOUNDARY:
+        log_scale = np.log10(x / REGION1_BOUNDARY) / np.log10(REGION2_BOUNDARY / REGION1_BOUNDARY)
+        return REGION1_WIDTH + REGION2_WIDTH * log_scale
+    else:
+        log_scale = np.log10(x / REGION2_BOUNDARY) / np.log10(100 / REGION2_BOUNDARY)
+        return REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * log_scale
+
 
 # Create a custom transformation function for the x-axis with three distinct regions
 def transform_x(x):
-    result = np.zeros_like(x, dtype=float)
+    return [transform_single(val) for val in x]
 
-    # Region 1: Linear scale for [0, 1)
-    mask_r1 = x < REGION1_BOUNDARY
-    result[mask_r1] = REGION1_WIDTH * (x[mask_r1] / REGION1_BOUNDARY)
-
-    # Region 2: Log scale for [1, 10)
-    mask_r2 = (x >= REGION1_BOUNDARY) & (x < REGION2_BOUNDARY)
-    if np.any(mask_r2):
-        log_scale = np.log10(x[mask_r2] / REGION1_BOUNDARY) / np.log10(REGION2_BOUNDARY / REGION1_BOUNDARY)
-        result[mask_r2] = REGION1_WIDTH + REGION2_WIDTH * log_scale
-
-    # Region 3: Log scale for [10, 100]
-    mask_r3 = x >= REGION2_BOUNDARY
-    if np.any(mask_r3):
-        log_scale = np.log10(x[mask_r3] / REGION2_BOUNDARY) / np.log10(100 / REGION2_BOUNDARY)
-        result[mask_r3] = REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * log_scale
-
-    return result
 
 # Custom formatter to display the original values on the axis
 def format_x(x, pos):
@@ -91,6 +86,7 @@ def format_x(x, pos):
         normalized = (x - REGION1_WIDTH - REGION2_WIDTH) / REGION3_WIDTH
         original = REGION2_BOUNDARY * (10 ** (normalized * np.log10(100 / REGION2_BOUNDARY)))
         return f"{int(original)}"
+
 
 # Apply transformation to the x values
 stats_df["transformed_edges_weight"] = transform_x(stats_df["edges_weight"])
@@ -188,15 +184,16 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
 
     # Add custom ticks for key values
     region_ticks = [
-        0,                                  # 0
-        REGION1_WIDTH * 0.5,                # 0.5
-        REGION1_WIDTH,                      # 1
-        REGION1_WIDTH + REGION2_WIDTH * 0.5, # ~3
-        REGION1_WIDTH + REGION2_WIDTH,      # 10
-        REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * 0.25, # ~18
-        REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * 0.5,  # ~32
-        REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * 0.75, # ~56
-        1.0                                 # 100
+        0,
+        transform_single(0.5),
+        transform_single(1),
+        transform_single(5),
+        transform_single(10),
+        transform_single(20) + 0.005,
+        transform_single(30) + 0.005,
+        transform_single(50),
+        transform_single(70),
+        1.0,
     ]
     ax.set_xticks(region_ticks)
 
