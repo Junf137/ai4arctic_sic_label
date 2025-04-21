@@ -44,23 +44,53 @@ for col in df.columns:
 stats_df = stats_df.reset_index()
 
 
-# Scale factor for the x-axis transformation between 1 and 100
-X_AXIS_SCALE_FACTOR = 10
+# Define the boundaries for the three regions
+REGION1_BOUNDARY = 1.0  # Boundary between region 1 and 2
+REGION2_BOUNDARY = 10.0  # Boundary between region 2 and 3
 
+# Define scale factors for each region
+REGION1_WIDTH = 0.13  # Width allocated for region 1 [0, 1) in the transformed space
+REGION2_WIDTH = 0.23  # Width allocated for region 2 [1, 10) in the transformed space
+REGION3_WIDTH = 0.64  # Width allocated for region 3 [10, 100] in the transformed space
 
-# Create a custom transformation function for the x-axis
+# Create a custom transformation function for the x-axis with three distinct regions
 def transform_x(x):
-    # For values between 0 and 1, return as is (linear scale)
-    # For values between 1 and 100, compress using logarithmic scale
-    return np.where(x <= 1, x, 1 + np.log10(x) / np.log10(X_AXIS_SCALE_FACTOR_1))
+    result = np.zeros_like(x, dtype=float)
 
+    # Region 1: Linear scale for [0, 1)
+    mask_r1 = x < REGION1_BOUNDARY
+    result[mask_r1] = REGION1_WIDTH * (x[mask_r1] / REGION1_BOUNDARY)
 
-# Create a formatter to display the original values on the axis
+    # Region 2: Log scale for [1, 10)
+    mask_r2 = (x >= REGION1_BOUNDARY) & (x < REGION2_BOUNDARY)
+    if np.any(mask_r2):
+        log_scale = np.log10(x[mask_r2] / REGION1_BOUNDARY) / np.log10(REGION2_BOUNDARY / REGION1_BOUNDARY)
+        result[mask_r2] = REGION1_WIDTH + REGION2_WIDTH * log_scale
+
+    # Region 3: Log scale for [10, 100]
+    mask_r3 = x >= REGION2_BOUNDARY
+    if np.any(mask_r3):
+        log_scale = np.log10(x[mask_r3] / REGION2_BOUNDARY) / np.log10(100 / REGION2_BOUNDARY)
+        result[mask_r3] = REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * log_scale
+
+    return result
+
+# Custom formatter to display the original values on the axis
 def format_x(x, pos):
-    # For values between 0 and 1, return as is (linear scale)
-    # For values between 1 and 100, return the transformed value
-    return f"{x:.1f}" if x <= 1 else f"{int(X_AXIS_SCALE_FACTOR_1 ** (x - 1))}"
-
+    if x < REGION1_WIDTH:  # Region 1
+        original = (x / REGION1_WIDTH) * REGION1_BOUNDARY
+        return f"{original:.1f}"
+    elif x < REGION1_WIDTH + REGION2_WIDTH:  # Region 2
+        normalized = (x - REGION1_WIDTH) / REGION2_WIDTH
+        original = REGION1_BOUNDARY * (10 ** (normalized * np.log10(REGION2_BOUNDARY / REGION1_BOUNDARY)))
+        if original < 10:
+            return f"{original:.1f}"
+        else:
+            return f"{int(original)}"
+    else:  # Region 3
+        normalized = (x - REGION1_WIDTH - REGION2_WIDTH) / REGION3_WIDTH
+        original = REGION2_BOUNDARY * (10 ** (normalized * np.log10(100 / REGION2_BOUNDARY)))
+        return f"{int(original)}"
 
 # Apply transformation to the x values
 stats_df["transformed_edges_weight"] = transform_x(stats_df["edges_weight"])
@@ -153,8 +183,22 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     # Set custom formatter to show original values
     ax.xaxis.set_major_formatter(FuncFormatter(format_x))
 
-    # Add vertical line at x=1 to show the transition between scales
-    ax.axvline(x=1, color="gray", linestyle="--", alpha=0.5)
+    # Add vertical lines to show the region transitions
+    ax.axvline(x=REGION1_WIDTH, color="gray", linestyle="--", alpha=0.5)
+
+    # Add custom ticks for key values
+    region_ticks = [
+        0,                                  # 0
+        REGION1_WIDTH * 0.5,                # 0.5
+        REGION1_WIDTH,                      # 1
+        REGION1_WIDTH + REGION2_WIDTH * 0.5, # ~3
+        REGION1_WIDTH + REGION2_WIDTH,      # 10
+        REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * 0.25, # ~18
+        REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * 0.5,  # ~32
+        REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * 0.75, # ~56
+        1.0                                 # 100
+    ]
+    ax.set_xticks(region_ticks)
 
     # reduce the dot size
     for line in ax.lines + ax2.lines:
