@@ -122,39 +122,30 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     ax2 = ax.twinx()
 
     # Plot center and all metrics on the main axis with error bars
-    ax.errorbar(
+    ax.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col}_mean"],
-        yerr=stats_df[f"{col}_std"],
         marker="*",
         linestyle="-",
         label=f"{task_name} All",
-        elinewidth=1,
-        capsize=3,
     )
 
-    ax.errorbar(
+    ax.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_center}_mean"],
-        yerr=stats_df[f"{col_center}_std"],
         marker="o",
         linestyle="-",
         label=f"{task_name} Center",
-        elinewidth=1,
-        capsize=3,
     )
 
     # Plot edge metrics on the twin axis with error bars
-    ax2.errorbar(
+    ax2.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_edge}_mean"],
-        yerr=stats_df[f"{col_edge}_std"],
         marker="s",
         linestyle="--",
         color="red",
         label=f"{task_name} Edge",
-        elinewidth=1,
-        capsize=3,
     )
 
     # Set labels and limits for main axis (center/all)
