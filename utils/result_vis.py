@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
+path = "../output/result_vis"
+
 # 1. Load data
-df = pd.read_csv("../output/wandb_export_2025-04-20T16_14_36.944-04_00.csv")
+df = pd.read_csv(f"{path}/weight_experiments_result.csv")
 
 # for the rows where Name is `nomask`, set the values of edges_weight to 1
 df.loc[df["Name"] == "nomask", "edges_weight"] = 1
@@ -195,7 +197,7 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
         line.set_linewidth(1)
 
 plt.tight_layout()
-plt.savefig("../output/metrics_with_error_bars.png", dpi=300)
+plt.savefig(f"{path}/weight_experiments_vis.png", dpi=300)
 plt.show()
 
 # 4. Print the statistical summary
