@@ -173,7 +173,6 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     # Add vertical lines to show the region transitions
     ax.axvline(x=REGION1_WIDTH, color="gray", linestyle="--", alpha=0.5)
 
-
     # mark the value of highest point of All, Center, and Edge with a dot
     ax.annotate(
         f"{stats_df[f'{col}_mean'].max():.2f}",
@@ -186,7 +185,7 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
 
 plt.tight_layout()
 plt.savefig(f"{path}/weight_experiments_vis.png", dpi=300)
-plt.show()
+# plt.show()
 
 # 4. Print the statistical summary
 print("Statistical Summary for Each Edge Weight:")
@@ -196,3 +195,82 @@ for edge_weight in sorted(stats_df["edges_weight"].unique()):
         mean_val = stats_df.loc[stats_df["edges_weight"] == edge_weight, f"{metric}_mean"].values[0]
         std_val = stats_df.loc[stats_df["edges_weight"] == edge_weight, f"{metric}_std"].values[0]
         print(f"  {metric}: {mean_val:.2f} ± {std_val:.2f}")
+
+# %%
+
+
+# 5. Create box plots for the metrics
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+axes = axes.flatten()
+
+# Define categories for visualization
+categories = ["All", "Center", "Edge"]
+colors = [color_scheme["All"], color_scheme["Center"], color_scheme["Edge"]]
+
+for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()):
+    ax = axes[i]
+
+    ax.plot(
+        stats_df["transformed_edges_weight"],
+        stats_df[f"{col_edge}_mean"],
+        linestyle="--",
+        color=f"{color_scheme['Edge']}",
+        label=f"Edge",
+        linewidth=1,
+        alpha=0.5,
+    )
+
+    edge_weights = sorted(df["edges_weight"].unique())
+
+    box_data = []
+    # Prepare data for the box plot
+    for edge_weight in edge_weights:
+        box_data.append(
+            [
+                df.loc[df["edges_weight"] == edge_weight, col_all].values,
+                df.loc[df["edges_weight"] == edge_weight, col_center].values,
+                df.loc[df["edges_weight"] == edge_weight, col_edge].values,
+            ]
+        )
+
+    # Generate positions for box plot groups
+    group_width = 0.8
+    box_width = group_width / 3  # 3 categories
+
+    for j in range(len(edge_weights)):
+        positions = [j - group_width / 3 + box_width / 2, j, j + group_width / 3 - box_width / 2]
+
+        bp = ax.boxplot(
+            box_data[j],
+            positions=positions,
+            widths=box_width * 0.8,
+            patch_artist=True,
+            showfliers=False,  # Don't show outliers
+            medianprops=dict(color="black"),
+            boxprops=dict(alpha=0.7),
+        )
+
+        # Set box colors
+        for box, color in zip(bp["boxes"], colors):
+            box.set(facecolor=color)
+
+    # Set x-tick labels with original edge weight values
+    ax.set_xticks(range(len(edge_weights)))
+    ax.set_xticklabels([str(w) for w in x_mapping["before"][2:-2]])
+
+    # Add labels and title
+    ax.set_title(task_name)
+    ax.set_xlabel("Edges Weight") if i >= 2 else None
+    ax.set_ylabel("Score") if i % 2 == 0 else None
+
+    # Add grid
+    ax.yaxis.grid(True, linestyle="--", alpha=0.5)
+
+    # Add a legend
+    if i == 0:
+        handles = [plt.Rectangle((0, 0), 1, 1, color=color, alpha=0.7) for color in colors]
+        ax.legend(handles, categories, loc="center right")
+
+plt.tight_layout()
+plt.savefig(f"{path}/weight_experiments_boxplot.png", dpi=300)
+plt.show()
