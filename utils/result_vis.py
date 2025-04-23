@@ -174,6 +174,16 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     ax.axvline(x=REGION1_WIDTH, color="gray", linestyle="--", alpha=0.5)
 
 
+    # mark the value of highest point of All, Center, and Edge with a dot
+    ax.annotate(
+        f"{stats_df[f'{col}_mean'].max():.2f}",
+        xy=(stats_df["transformed_edges_weight"][stats_df[f"{col}_mean"].idxmax()], stats_df[f"{col}_mean"].max()),
+        xytext=(5, 5),
+        textcoords="offset points",
+        fontsize=8,
+        color=f"{color_scheme['All']}",
+    )
+
 plt.tight_layout()
 plt.savefig(f"{path}/weight_experiments_vis.png", dpi=300)
 plt.show()
