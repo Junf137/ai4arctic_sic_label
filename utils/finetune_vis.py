@@ -36,7 +36,7 @@ stats_df = stats_df.reset_index()
 stats_df = stats_df.sort_values(by="ksize")
 
 # Create a figure with subplots
-fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 axes = axes.flatten()
 
 color_scheme = {
@@ -92,7 +92,7 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     )
 
     ax.set_title(task_name)
-    ax.set_xlabel("Kernel Size")
+    ax.set_xlabel("Kernel Size") if (i >= 2) else None
     ax.set_ylabel("Score")
     ax.yaxis.grid(True, linestyle="--", alpha=0.5)
     ax.legend(loc="lower right")

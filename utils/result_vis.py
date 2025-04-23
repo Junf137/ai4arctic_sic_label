@@ -96,7 +96,7 @@ stats_df["transformed_edges_weight"] = transform_x(stats_df["edges_weight"])
 # %%
 
 # 3. Plot
-fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 axes = axes.flatten()
 plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.tab10.colors)
 
@@ -127,9 +127,6 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
 
     y_range_center_all = {"min": center_all_min - center_all_padding, "max": center_all_max + center_all_padding}
 
-    # Create a twin axis for the edge metrics
-    ax2 = ax.twinx()
-
     # Plot center and all metrics on the main axis with error bars
     ax.plot(
         stats_df["transformed_edges_weight"],
@@ -156,7 +153,7 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     )
 
     # Plot edge metrics on the twin axis with error bars
-    ax2.plot(
+    ax.plot(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_edge}_mean"],
         marker="^",
@@ -170,20 +167,11 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
 
     # Set labels and limits for main axis (center/all)
     ax.set_title(task_name)
-    ax.set_xlabel("edges_weight")
-    ax.set_ylabel(f"{task_name} (Center/All)", color=f"{color_scheme['All']}")
-    ax.set_ylim(y_range_center_all["min"], y_range_center_all["max"])
-    ax.tick_params(axis="y", labelcolor=f"{color_scheme['All']}")
-
-    # Set labels and limits for twin axis (edge)
-    ax2.set_ylabel(f"{task_name} (Edge)", color=f"{color_scheme['Edge']}")
-    ax2.set_ylim(y_range_edge["min"], y_range_edge["max"])
-    ax2.tick_params(axis="y", labelcolor=f"{color_scheme['Edge']}")
-
-    # Create combined legend
-    lines1, labels1 = ax.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines1 + lines2, labels1 + labels2, loc="lower right")
+    ax.set_xlabel("edges_weight") if (i >= 2) else None
+    ax.set_ylabel(f"Scores") if (i % 2 == 0) else None
+    # ax.set_ylim(y_range_center_all["min"], y_range_center_all["max"])
+    ax.tick_params(axis="y")
+    ax.legend(loc="center right")
 
     ax.yaxis.grid(True, linestyle="--", alpha=0.5)
 
