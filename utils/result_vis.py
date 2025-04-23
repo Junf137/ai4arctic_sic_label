@@ -56,15 +56,14 @@ REGION2_WIDTH = 0.25  # Width allocated for region 2 [1, 10) in the transformed 
 REGION3_WIDTH = 0.60  # Width allocated for region 3 [10, 100] in the transformed space
 
 
+x_mapping = {
+    "before": [-1, -0.5, 0, 0.5, 1, 3, 5, 8, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 105, 110],
+    "after": [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+}
+
+
 def transform_single(x):
-    if x < REGION1_BOUNDARY:
-        return REGION1_WIDTH * (x / REGION1_BOUNDARY)
-    elif x < REGION2_BOUNDARY:
-        log_scale = np.log10(x / REGION1_BOUNDARY) / np.log10(REGION2_BOUNDARY / REGION1_BOUNDARY)
-        return REGION1_WIDTH + REGION2_WIDTH * log_scale
-    else:
-        log_scale = np.log10(x / REGION2_BOUNDARY) / np.log10(100 / REGION2_BOUNDARY)
-        return REGION1_WIDTH + REGION2_WIDTH + REGION3_WIDTH * log_scale
+    return x_mapping["after"][x_mapping["before"].index(x)]
 
 
 # Create a custom transformation function for the x-axis with three distinct regions
@@ -74,20 +73,7 @@ def transform_x(x):
 
 # Custom formatter to display the original values on the axis
 def format_x(x, pos):
-    if x < REGION1_WIDTH:  # Region 1
-        original = (x / REGION1_WIDTH) * REGION1_BOUNDARY
-        return f"{original:.1f}"
-    elif x < REGION1_WIDTH + REGION2_WIDTH:  # Region 2
-        normalized = (x - REGION1_WIDTH) / REGION2_WIDTH
-        original = REGION1_BOUNDARY * (10 ** (normalized * np.log10(REGION2_BOUNDARY / REGION1_BOUNDARY)))
-        if original < 10:
-            return f"{original:.1f}"
-        else:
-            return f"{int(original)}"
-    else:  # Region 3
-        normalized = (x - REGION1_WIDTH - REGION2_WIDTH) / REGION3_WIDTH
-        original = REGION2_BOUNDARY * (10 ** (normalized * np.log10(100 / REGION2_BOUNDARY)))
-        return f"{int(original)}"
+    return x_mapping["before"][x_mapping["after"].index(x)]
 
 
 # Apply transformation to the x values
@@ -181,20 +167,6 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     # Add vertical lines to show the region transitions
     ax.axvline(x=REGION1_WIDTH, color="gray", linestyle="--", alpha=0.5)
 
-    ax.set_xticks(
-        [
-            0,
-            transform_single(0.5),
-            transform_single(1),
-            transform_single(5),
-            transform_single(10),
-            transform_single(20) + 0.005,
-            transform_single(30) + 0.005,
-            transform_single(50),
-            transform_single(70),
-            1.0,
-        ]
-    )
 
 plt.tight_layout()
 plt.savefig(f"{path}/weight_experiments_vis.png", dpi=300)
