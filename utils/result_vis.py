@@ -114,38 +114,44 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
     y_range_center_all = {"min": center_all_min - center_all_padding, "max": center_all_max + center_all_padding}
 
     # Plot center and all metrics on the main axis with error bars
-    ax.plot(
+    ax.errorbar(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col}_mean"],
+        yerr=stats_df[f"{col}_std"],
         marker="o",
         linestyle="-",
         color=f"{color_scheme['All']}",
         label=f"All",
+        capsize=3,
         linewidth=1,
         markersize=3,
         alpha=0.7,
     )
 
-    ax.plot(
+    ax.errorbar(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_center}_mean"],
+        yerr=stats_df[f"{col_center}_std"],
         marker="s",
         linestyle="--",
         color=f"{color_scheme['Center']}",
         label=f"Center",
+        capsize=3,
         linewidth=1,
         markersize=3,
         alpha=0.7,
     )
 
     # Plot edge metrics on the twin axis with error bars
-    ax.plot(
+    ax.errorbar(
         stats_df["transformed_edges_weight"],
         stats_df[f"{col_edge}_mean"],
+        yerr=stats_df[f"{col_edge}_std"],
         marker="^",
         linestyle="--",
         color=f"{color_scheme['Edge']}",
         label=f"Edge",
+        capsize=3,
         linewidth=1,
         markersize=3,
         alpha=0.7,
