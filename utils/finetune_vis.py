@@ -8,6 +8,14 @@ path = "../output/result_vis"
 # Read the CSV file
 df = pd.read_csv(f"{path}/finetune_result.csv")
 
+# Original best values
+original_best = {
+    "Best Combined Score": [86.600, 89.125, 64.498],
+    "SOD F1": [88.858, 91.036, 67.272],
+    "SIC R2": [90.922, 93.801, 68.312],
+    "FLOE F1": [73.440, 75.951, 51.324],
+}
+
 # Dictionary of metrics to visualize
 metrics = {
     "Best Combined Score": ("Test/Best Combined Score", "Test/Best Combined Score Center", "Test/Best Combined Score Edge"),
@@ -91,11 +99,37 @@ for i, (task_name, (col, col_center, col_edge)) in enumerate(metrics.items()):
         alpha=0.7,
     )
 
+    # Add horizontal lines for original best values
+    ax.axhline(
+        y=original_best[task_name][0],
+        color=color_scheme["All"],
+        linestyle=":",
+        alpha=0.5,
+        label=f"Original All",
+        linewidth=1,
+    )
+    ax.axhline(
+        y=original_best[task_name][1],
+        color=color_scheme["Center"],
+        linestyle=":",
+        alpha=0.3,
+        label=f"Original Center",
+        linewidth=1,
+    )
+    ax.axhline(
+        y=original_best[task_name][2],
+        color=color_scheme["Edge"],
+        linestyle=":",
+        alpha=0.3,
+        label=f"Original Edge",
+        linewidth=1,
+    )
+
     ax.set_title(task_name)
     ax.set_xlabel("Kernel Size") if (i >= 2) else None
-    ax.set_ylabel("Score")
-    ax.yaxis.grid(True, linestyle="--", alpha=0.5)
-    ax.legend(loc="lower right")
+    ax.set_ylabel("Score") if (i % 2 == 0) else None
+    if i == 0:
+        ax.legend(loc="center right")
 
     # Set x-ticks to be ksizes
     ax.set_xticks(sorted(df["ksize"].unique()))
