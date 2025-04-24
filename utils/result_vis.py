@@ -38,18 +38,14 @@ color_scheme = {
 # Group data by edges_weight and calculate statistics
 grouped_df = df.groupby("edges_weight")
 
-# Create a new dataframe with mean and std for each metric
-stats_df = pd.DataFrame()
-
+stats = pd.DataFrame()
 for col in df.columns:
     if col != "edges_weight" and col != "Name":
-        # Calculate mean for the column
-        stats_df[f"{col}_mean"] = grouped_df[col].mean()
-        # Calculate standard deviation for the column
-        stats_df[f"{col}_std"] = grouped_df[col].std()
+        stats[f"{col}_mean"] = grouped_df[col].mean()
+        stats[f"{col}_std"] = grouped_df[col].std()
 
 # Reset index to make edges_weight a column
-stats_df = stats_df.reset_index()
+stats = stats.reset_index()
 
 x_mapping = {
     "before": [-1, -0.5, 0, 0.5, 1, 3, 5, 8, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 105, 110],
@@ -62,16 +58,17 @@ def transform_x(x):
     return [x_mapping["after"][x_mapping["before"].index(val)] for val in x]
 
 
-# Apply transformation to the x values
-stats_df["transformed_edges_weight"] = transform_x(stats_df["edges_weight"])
+stats["tx"] = transform_x(stats["edges_weight"])
+
+edge_weights = sorted(df["edges_weight"].unique())
 
 # Print the statistical summary
 print("Statistical Summary for Each Edge Weight:")
-for edge_weight in sorted(stats_df["edges_weight"].unique()):
+for edge_weight in sorted(stats["edges_weight"].unique()):
     print(f"\nEdges Weight = {edge_weight}")
     for metric in ["Test/Best Combined Score", "Test/SOD F1", "Test/SIC R2", "Test/FLOE F1"]:
-        mean_val = stats_df.loc[stats_df["edges_weight"] == edge_weight, f"{metric}_mean"].values[0]
-        std_val = stats_df.loc[stats_df["edges_weight"] == edge_weight, f"{metric}_std"].values[0]
+        mean_val = stats.loc[stats["edges_weight"] == edge_weight, f"{metric}_mean"].values[0]
+        std_val = stats.loc[stats["edges_weight"] == edge_weight, f"{metric}_std"].values[0]
         print(f"  {metric}: {mean_val:.2f} ± {std_val:.2f}")
 
 # %%
@@ -87,8 +84,8 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
     ax = axes[i]
 
     ax.plot(
-        stats_df["transformed_edges_weight"],
-        stats_df[f"{col_edge}_mean"],
+        stats["tx"],
+        stats[f"{col_edge}_mean"],
         linestyle="--",
         color=f"{color_scheme['Edge']}",
         label=f"Edge",
@@ -96,32 +93,25 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
         alpha=0.5,
     )
 
-    edge_weights = sorted(df["edges_weight"].unique())
-
-    box_data = []
-    # Prepare data for the box plot
-    for edge_weight in edge_weights:
-        box_data.append(
-            [
-                df.loc[df["edges_weight"] == edge_weight, col_all].values,
-                df.loc[df["edges_weight"] == edge_weight, col_center].values,
-                df.loc[df["edges_weight"] == edge_weight, col_edge].values,
-            ]
-        )
-
     # Generate positions for box plot groups
     group_width = 0.8
     box_width = group_width / 3  # 3 categories
 
-    for j in range(len(edge_weights)):
+    for j, w in enumerate(edge_weights):
         positions = [j - group_width / 3 + box_width / 2, j, j + group_width / 3 - box_width / 2]
 
+        group = [
+            df.loc[df["edges_weight"] == w, col_all].values,
+            df.loc[df["edges_weight"] == w, col_center].values,
+            df.loc[df["edges_weight"] == w, col_edge].values,
+        ]
+
         bp = ax.boxplot(
-            box_data[j],
+            group,
             positions=positions,
             widths=box_width * 0.8,
             patch_artist=True,
-            showfliers=False,  # Don't show outliers
+            showfliers=False,
             medianprops=dict(color="black"),
             boxprops=dict(alpha=0.7),
         )
@@ -135,17 +125,17 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
     ax.set_xticklabels([str(w) for w in x_mapping["before"][2:-2]])
 
     # Add labels and title
-    ax.set_title(task_name)
+    ax.set_title(task_name, fontsize=10)
     ax.set_xlabel("Edges Weight") if i >= 2 else None
     ax.set_ylabel("Score") if i % 2 == 0 else None
 
     # Add grid
-    ax.yaxis.grid(True, linestyle="--", alpha=0.5)
+    ax.grid(True, axis="y", linestyle="--", alpha=0.5)
 
     # Add a legend
     if i == 0:
         handles = [plt.Rectangle((0, 0), 1, 1, color=color, alpha=0.7) for color in colors]
-        ax.legend(handles, categories, loc="center right")
+        ax.legend(handles, categories, loc="lower right", fontsize=8)
 
 plt.tight_layout()
 plt.savefig(f"{path}/weight_experiments_boxplot.png", dpi=300)
