@@ -67,14 +67,27 @@ stats["tx"] = transform_x(stats["edges_weight"])
 
 edge_weights = sorted(df["edges_weight"].unique())
 
-# Print the statistical summary
-print("Statistical Summary for Each Edge Weight:")
-for edge_weight in sorted(stats["edges_weight"].unique()):
-    print(f"\nEdges Weight = {edge_weight}")
+
+def save_stats():
+    # save stats to csv in the format of "mean ± std"
+    stats_formatted = pd.DataFrame()
+    stats_formatted["edges_weight"] = stats["edges_weight"]
+
+    # Format all metric columns as "mean ± std"
     for metric in ["Test/Best Combined Score", "Test/SOD F1", "Test/SIC R2", "Test/FLOE F1"]:
-        mean_val = stats.loc[stats["edges_weight"] == edge_weight, f"{metric}_mean"].values[0]
-        std_val = stats.loc[stats["edges_weight"] == edge_weight, f"{metric}_std"].values[0]
-        print(f"  {metric}: {mean_val:.2f} ± {std_val:.2f}")
+        for suffix in ["", " Center", " Edge"]:
+            column = f"{metric}{suffix}"
+            mean_col = f"{column}_mean"
+            std_col = f"{column}_std"
+
+            if mean_col in stats.columns and std_col in stats.columns:
+                stats_formatted[column] = stats.apply(lambda row: f"{row[mean_col]:.3f} ± {row[std_col]:.3f}", axis=1)
+
+    # Save the formatted stats to CSV
+    stats_formatted.to_csv(f"{path}/weight_experiments_stats.csv", index=False)
+
+
+save_stats()
 
 # %%
 
