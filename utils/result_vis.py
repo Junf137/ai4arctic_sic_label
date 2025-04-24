@@ -11,6 +11,9 @@ path = "../output/result_vis"
 # Load data
 df = pd.read_csv(f"{path}/weight_experiments_result.csv")
 
+# change column name "weight_map.weights.SIC.inner_edges" to "edges_weight"
+df.rename(columns={"weight_map.weights.SIC.inner_edges": "edges_weight"}, inplace=True)
+
 # for the rows where Name is `nomask`, set the values of edges_weight to 1
 df.loc[df["Name"] == "nomask", "edges_weight"] = 1
 
@@ -110,7 +113,24 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
             linewidth=1,
             alpha=0.5,
         )
-
+        ax.plot(
+            stats["tx"],
+            stats[f"{col_all}_mean"],
+            linestyle="--",
+            color=f"{color_scheme['All']}",
+            label=f"All",
+            linewidth=1,
+            alpha=0.5,
+        )
+        ax.plot(
+            stats["tx"],
+            stats[f"{col_center}_mean"],
+            linestyle="--",
+            color=f"{color_scheme['Center']}",
+            label=f"Center",
+            linewidth=1,
+            alpha=0.5,
+        )
     # Generate positions for box plot groups
     group_width = 0.8
     box_width = group_width / 3  # 3 categories
@@ -181,8 +201,8 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
     ax_top.yaxis.set_major_formatter(StrMethodFormatter("{x:.1f}"))
     ax_bottom.yaxis.set_major_formatter(StrMethodFormatter("{x:.1f}"))
 
-    ax_top.tick_params(axis='y', labelsize=8)
-    ax_bottom.tick_params(axis='y', labelsize=8)
+    ax_top.tick_params(axis="y", labelsize=8)
+    ax_bottom.tick_params(axis="y", labelsize=8)
     ax_bottom.set_xticks(range(len(edge_weights)))
     ax_bottom.set_xticklabels([str(w) for w in x_mapping["before"][2:-2]], rotation=45, fontsize=8)
 
