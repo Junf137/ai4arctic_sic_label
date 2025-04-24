@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import StrMethodFormatter
+from scipy import interpolate
 
 path = "../output/result_vis"
 
@@ -87,6 +88,31 @@ def save_stats():
     stats_formatted.to_csv(f"{path}/weight_experiments_stats.csv", index=False)
 
 
+def smooth_curve(x, y, smoothing_factor=0.3, num_points=100):
+    """
+    Apply a spline smoothing to create a smoother trend line
+
+    Args:
+        x: x-coordinates
+        y: y-coordinates
+        smoothing_factor: Controls the amount of smoothing (0 to 1)
+
+    Returns:
+        Tuple of (x_smooth, y_smooth) for plotting
+    """
+    # Create more fine-grained points for smoother curves
+    x_smooth = np.linspace(min(x), max(x), num_points)
+
+    # Create the spline representation
+    # s parameter controls smoothing (higher = more smoothing)
+    spline = interpolate.splrep(x, y, s=smoothing_factor)
+
+    # Evaluate the smoothed curve at the new x points
+    y_smooth = interpolate.splev(x_smooth, spline)
+
+    return x_smooth, y_smooth
+
+
 save_stats()
 
 # %%
@@ -117,27 +143,30 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
     ax_bottom = fig.add_subplot(inner_gs[1], sharex=ax_top)
 
     for ax in (ax_top, ax_bottom):
+        x_smooth, y_smooth = smooth_curve(stats["tx"], stats[f"{col_edge}_mean"], smoothing_factor=0.3, num_points=10)
         ax.plot(
-            stats["tx"],
-            stats[f"{col_edge}_mean"],
+            x_smooth,
+            y_smooth,
             linestyle="--",
             color=f"{color_scheme['Edge']}",
             label=f"Edge",
             linewidth=1,
             alpha=0.5,
         )
+        x_smooth, y_smooth = smooth_curve(stats["tx"], stats[f"{col_all}_mean"], smoothing_factor=1, num_points=10)
         ax.plot(
-            stats["tx"],
-            stats[f"{col_all}_mean"],
+            x_smooth,
+            y_smooth,
             linestyle="--",
             color=f"{color_scheme['All']}",
             label=f"All",
             linewidth=1,
             alpha=0.5,
         )
+        x_smooth, y_smooth = smooth_curve(stats["tx"], stats[f"{col_center}_mean"], smoothing_factor=1, num_points=10)
         ax.plot(
-            stats["tx"],
-            stats[f"{col_center}_mean"],
+            x_smooth,
+            y_smooth,
             linestyle="--",
             color=f"{color_scheme['Center']}",
             label=f"Center",
