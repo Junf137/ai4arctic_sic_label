@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
+import matplotlib.gridspec as gridspec
+from matplotlib.ticker import StrMethodFormatter
 
 path = "../output/result_vis"
 
@@ -73,25 +75,41 @@ for edge_weight in sorted(stats["edges_weight"].unique()):
 
 # %%
 
-fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-axes = axes.flatten()
+fig = plt.figure(figsize=(12, 8))
+outer_gs = gridspec.GridSpec(2, 2, figure=fig, wspace=0.3, hspace=0.3)
 
 # Define categories for visualization
 categories = ["All", "Center", "Edge"]
 colors = [color_scheme["All"], color_scheme["Center"], color_scheme["Edge"]]
 
 for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()):
-    ax = axes[i]
+    # locate subplot
+    row, col = divmod(i, 2)
+    cell = outer_gs[row, col]
 
-    ax.plot(
-        stats["tx"],
-        stats[f"{col_edge}_mean"],
-        linestyle="--",
-        color=f"{color_scheme['Edge']}",
-        label=f"Edge",
-        linewidth=1,
-        alpha=0.5,
-    )
+    # compute y-limits for broken axis:
+    edge_vals = df[col_edge].values
+    ac_vals = np.concatenate([df[col_all].values, df[col_center].values])
+    pad_e = (edge_vals.max() - edge_vals.min()) * 0.1
+    pad_a = (ac_vals.max() - ac_vals.min()) * 0.1
+    y_edge = (edge_vals.min() - pad_e, edge_vals.max() + pad_e)
+    y_ac = (ac_vals.min() - pad_a, ac_vals.max() + pad_a)
+
+    # make a 2-row gridspec inside this cell
+    inner_gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=cell, height_ratios=[2, 4], hspace=0.05)
+    ax_top = fig.add_subplot(inner_gs[0])
+    ax_bottom = fig.add_subplot(inner_gs[1], sharex=ax_top)
+
+    for ax in (ax_top, ax_bottom):
+        ax.plot(
+            stats["tx"],
+            stats[f"{col_edge}_mean"],
+            linestyle="--",
+            color=f"{color_scheme['Edge']}",
+            label=f"Edge",
+            linewidth=1,
+            alpha=0.5,
+        )
 
     # Generate positions for box plot groups
     group_width = 0.8
@@ -106,37 +124,68 @@ for i, (task_name, (col_all, col_center, col_edge)) in enumerate(metrics.items()
             df.loc[df["edges_weight"] == w, col_edge].values,
         ]
 
-        bp = ax.boxplot(
-            group,
-            positions=positions,
-            widths=box_width * 0.8,
-            patch_artist=True,
-            showfliers=False,
-            medianprops=dict(color="black"),
-            boxprops=dict(alpha=0.7),
-        )
+        for ax in (ax_top, ax_bottom):
+            bp = ax.boxplot(
+                group,
+                positions=positions,
+                widths=box_width * 0.8,
+                patch_artist=True,
+                showfliers=False,
+                medianprops=dict(color="black"),
+                boxprops=dict(alpha=0.7),
+            )
 
-        # Set box colors
-        for box, color in zip(bp["boxes"], colors):
-            box.set(facecolor=color)
+            # Set box colors
+            for box, color in zip(bp["boxes"], colors):
+                box.set(facecolor=color)
 
-    # Set x-tick labels with original edge weight values
-    ax.set_xticks(range(len(edge_weights)))
-    ax.set_xticklabels([str(w) for w in x_mapping["before"][2:-2]])
+    # Set the y-limits for the two axes
+    ax_top.set_ylim(*y_ac)  # All + Center region
+    ax_bottom.set_ylim(*y_edge)  # Edge region
 
-    # Add labels and title
-    ax.set_title(task_name, fontsize=10)
-    ax.set_xlabel("Edges Weight") if i >= 2 else None
-    ax.set_ylabel("Score") if i % 2 == 0 else None
+    # Hide the spines between them
+    ax_top.spines["bottom"].set_visible(False)
+    ax_bottom.spines["top"].set_visible(False)
+    ax_top.tick_params(axis="x", which="both", bottom=False, top=False)
 
-    # Add grid
-    ax.grid(True, axis="y", linestyle="--", alpha=0.5)
+    # Add “break” marks
+    d = 0.015  # size of diagonal lines in axes coords
+    kwargs = dict(marker=[(-1, -d), (1, d)], markersize=10, linestyle="none", color="k", clip_on=False)
+    ax_top.plot([0, 1], [0, 0], transform=ax_top.transAxes, **kwargs)
+    ax_bottom.plot([0, 1], [1, 1], transform=ax_bottom.transAxes, **kwargs)
 
-    # Add a legend
+    ax_top.set_title(task_name)
+    ax_bottom.set_xlabel("Edges Weight") if i >= 2 else None
+    fig.text(
+        0.07,  # x position in figure coords
+        0.28,  # y position in figure coords
+        "Score",
+        va="center",
+        rotation="vertical",
+    )
+    fig.text(
+        0.07,  # x position in figure coords
+        0.72,  # y position in figure coords
+        "Score",
+        va="center",
+        rotation="vertical",
+    )
+
+    ax_top.grid(True, axis="y", linestyle="--", alpha=0.5)
+    ax_bottom.grid(True, axis="y", linestyle="--", alpha=0.5)
+
     if i == 0:
         handles = [plt.Rectangle((0, 0), 1, 1, color=color, alpha=0.7) for color in colors]
-        ax.legend(handles, categories, loc="lower right", fontsize=8)
+        ax_bottom.legend(handles, categories, loc="lower right", fontsize=8)
+
+    ax_top.yaxis.set_major_formatter(StrMethodFormatter("{x:.1f}"))
+    ax_bottom.yaxis.set_major_formatter(StrMethodFormatter("{x:.1f}"))
+
+    ax_top.tick_params(axis='y', labelsize=8)
+    ax_bottom.tick_params(axis='y', labelsize=8)
+    ax_bottom.set_xticks(range(len(edge_weights)))
+    ax_bottom.set_xticklabels([str(w) for w in x_mapping["before"][2:-2]], rotation=45, fontsize=8)
 
 plt.tight_layout()
-plt.savefig(f"{path}/weight_experiments_boxplot.png", dpi=300)
+plt.savefig(f"{path}/weight_experiments_boxplot_broken.png", dpi=300)
 plt.show()
