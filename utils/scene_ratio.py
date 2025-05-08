@@ -1,19 +1,26 @@
 import os
+import sys
 import numpy as np
 import xarray as xr
 import pandas as pd
 from pathlib import Path
 import json
 
+sys.path.append("..")
+from functions import get_edges
+
 # Define the folder path containing NC files
 # folder_path = "./data/r2t/train/"
-folder_path = "./data/r2t/test/"
+folder_path = "../data/r2t/test/"
 
-output_folder = "./output/"
+output_folder = "../output/"
 
 # Target data list
 # datalist_path = "./datalists/valset2.json"
-datalist_path = "./datalists/testset.json"
+datalist_path = "../datalists/testset.json"
+
+ksize = 5
+threshold = 0
 
 # Define class ranges
 chart_info = {
@@ -34,12 +41,15 @@ chart_info = {
 
 def get_chart_info(data: np.array, chart: str, chart_info: dict):
 
+    edges = get_edges(arr_np=data, ksize=ksize, threshold=threshold)
+    edge_pixel = np.sum(edges)
+
     invalid = np.sum(data == chart_info[chart]["invalid_value"])
     valid = data.size - invalid
     class_counts = {cls: np.sum(data == cls) for cls in chart_info[chart]["classes"]}
     class_ratios = {cls: count / valid if valid > 0 else 0 for cls, count in class_counts.items()}
 
-    return invalid, valid, class_counts, class_ratios
+    return invalid, valid, class_counts, class_ratios, edge_pixel
 
 
 # Variables to track
@@ -66,13 +76,13 @@ def analyze_nc_file(file_path):
         total_pixels = height * width
 
         # Calculate statistics for SIC
-        sic_invalid, sic_valid, sic_class_counts, sic_class_ratios = get_chart_info(sic, "SIC", chart_info)
+        sic_invalid, sic_valid, sic_class_counts, sic_class_ratios, sic_edge_pixel = get_chart_info(sic, "SIC", chart_info)
 
         # Calculate statistics for SOD
-        sod_invalid, sod_valid, sod_class_counts, sod_class_ratios = get_chart_info(sod, "SOD", chart_info)
+        sod_invalid, sod_valid, sod_class_counts, sod_class_ratios, sod_edge_pixel = get_chart_info(sod, "SOD", chart_info)
 
         # Calculate statistics for FLOE
-        floe_invalid, floe_valid, floe_class_counts, floe_class_ratios = get_chart_info(floe, "FLOE", chart_info)
+        floe_invalid, floe_valid, floe_class_counts, floe_class_ratios, floe_edge_pixel = get_chart_info(floe, "FLOE", chart_info)
 
         # Create a dictionary of statistics
         stats = {
@@ -82,12 +92,15 @@ def analyze_nc_file(file_path):
             "sic_invalid_pixels": sic_invalid,
             "sic_valid_pixels": sic_valid,
             "sic_valid_ratio": sic_valid / total_pixels,
+            "sic_edge_ratio": sic_edge_pixel / total_pixels,
             "sod_invalid_pixels": sod_invalid,
             "sod_valid_pixels": sod_valid,
             "sod_valid_ratio": sod_valid / total_pixels,
+            "sod_edge_ratio": sod_edge_pixel / total_pixels,
             "floe_invalid_pixels": floe_invalid,
             "floe_valid_pixels": floe_valid,
             "floe_valid_ratio": floe_valid / total_pixels,
+            "floe_edge_ratio": floe_edge_pixel / total_pixels,
         }
 
         # Add class counts and ratios to stats
@@ -180,6 +193,7 @@ def main():
         print("\nSEA ICE CONCENTRATION (SIC):")
         print(f"  Valid Pixels: {avg_stats['sic_valid_pixels']:.1f} ({avg_stats['sic_valid_ratio']*100:.2f}%)")
         print(f"  Invalid Pixels: {avg_stats['sic_invalid_pixels']:.1f} ({(1-avg_stats['sic_valid_ratio'])*100:.2f}%)")
+        print(f"  Edge Ratio: {avg_stats['sic_edge_ratio']*100:.2f}%")
         print("  Class Distribution (Valid Pixels):")
         for cls in chart_info["SIC"]["classes"]:
             cls_count = avg_stats[f"sic_class_{cls}_count"]
@@ -190,6 +204,7 @@ def main():
         print("\nSTAGE OF DEVELOPMENT (SOD):")
         print(f"  Valid Pixels: {avg_stats['sod_valid_pixels']:.1f} ({avg_stats['sod_valid_ratio']*100:.2f}%)")
         print(f"  Invalid Pixels: {avg_stats['sod_invalid_pixels']:.1f} ({(1-avg_stats['sod_valid_ratio'])*100:.2f}%)")
+        print(f"  Edge Ratio: {avg_stats['sod_edge_ratio']*100:.2f}%")
         print("  Class Distribution (Valid Pixels):")
         for cls in chart_info["SOD"]["classes"]:
             cls_count = avg_stats[f"sod_class_{cls}_count"]
@@ -200,6 +215,7 @@ def main():
         print("\nFLOE SIZE (FLOE):")
         print(f"  Valid Pixels: {avg_stats['floe_valid_pixels']:.1f} ({avg_stats['floe_valid_ratio']*100:.2f}%)")
         print(f"  Invalid Pixels: {avg_stats['floe_invalid_pixels']:.1f} ({(1-avg_stats['floe_valid_ratio'])*100:.2f}%)")
+        print(f"  Edge Ratio: {avg_stats['floe_edge_ratio']*100:.2f}%")
         print("  Class Distribution (Valid Pixels):")
         for cls in chart_info["FLOE"]["classes"]:
             cls_count = avg_stats[f"floe_class_{cls}_count"]
