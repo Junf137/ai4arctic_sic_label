@@ -92,15 +92,15 @@ def analyze_nc_file(file_path):
             "sic_invalid_pixels": sic_invalid,
             "sic_valid_pixels": sic_valid,
             "sic_valid_ratio": sic_valid / total_pixels,
-            "sic_edge_ratio": sic_edge_pixel / total_pixels,
+            "sic_edge_ratio": sic_edge_pixel / sic_valid,
             "sod_invalid_pixels": sod_invalid,
             "sod_valid_pixels": sod_valid,
             "sod_valid_ratio": sod_valid / total_pixels,
-            "sod_edge_ratio": sod_edge_pixel / total_pixels,
+            "sod_edge_ratio": sod_edge_pixel / sod_valid,
             "floe_invalid_pixels": floe_invalid,
             "floe_valid_pixels": floe_valid,
             "floe_valid_ratio": floe_valid / total_pixels,
-            "floe_edge_ratio": floe_edge_pixel / total_pixels,
+            "floe_edge_ratio": floe_edge_pixel / floe_valid,
         }
 
         # Add class counts and ratios to stats
