@@ -21,7 +21,23 @@ other_args="$@"
 
 # Set the config array
 config_array=(
-    "configs/sic_label/sic_label.py"
+    "configs/sic_label/masktrain_0.0.py"
+    "configs/sic_label/masktrain_0.5.py"
+    "configs/sic_label/nomask.py"
+    "configs/sic_label/masktrain_3.py"
+    "configs/sic_label/masktrain_5.py"
+    "configs/sic_label/masktrain_8.py"
+    "configs/sic_label/masktrain_35.py"
+    "configs/sic_label/masktrain_10.py"
+    "configs/sic_label/masktrain_20.py"
+    "configs/sic_label/masktrain_30.py"
+    "configs/sic_label/masktrain_40.py"
+    "configs/sic_label/masktrain_50.py"
+    "configs/sic_label/masktrain_60.py"
+    "configs/sic_label/masktrain_70.py"
+    "configs/sic_label/masktrain_80.py"
+    "configs/sic_label/masktrain_90.py"
+    "configs/sic_label/masktrain_100.py"
 )
 
 
