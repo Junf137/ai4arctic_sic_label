@@ -763,6 +763,10 @@ def get_model(train_options, device):
         from unet import UNet_regression
 
         net = UNet_regression(options=train_options).to(device)
+    elif train_options["model_selection"] == "UNet_regression_var":
+        from unet import UNet_regression_var
+
+        net = UNet_regression_var(options=train_options).to(device)
     elif train_options["model_selection"] in ["UNet_regression_all"]:
         from unet import UNet_regression_all
 
