@@ -92,10 +92,10 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
     patience = train_options["patience"]  # Number of epochs to wait before early stopping.
     patience_counter = 0  # Counter for early stopping.
 
-    loss_ce_functions = {
-        chart: get_loss(train_options["chart_loss"][chart]["type"], chart=chart, **train_options["chart_loss"][chart])
-        for chart in train_options["charts"]
-    }
+    # loss_ce_functions = {
+    #     chart: get_loss(train_options["chart_loss"][chart]["type"], chart=chart, **train_options["chart_loss"][chart])
+    #     for chart in train_options["charts"]
+    # }
     weighted_loss_functions = {
         "SIC": WeightedGaussianNLLLoss(**train_options["chart_loss"]["SIC"]),
         "SOD": WeightedCrossEntropyLoss(**train_options["chart_loss"]["SOD"]),
@@ -143,8 +143,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                             train_loss_batch += weight * weighted_loss_functions[chart](
                                 output[chart].squeeze(-1), batch_y[chart], weight_maps[chart]
                             )
-                    else:
-                        train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
+                    # else:
+                    #     train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
 
             # - Reset gradients from previous pass.
             optimizer.zero_grad()
@@ -218,8 +218,8 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                             val_loss_batch += weight * weighted_loss_functions[chart](
                                 output[chart].squeeze(-1), inf_y[chart].unsqueeze(0), weight_maps[chart].unsqueeze(0)
                             )
-                    else:
-                        val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
+                    # else:
+                    #     val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
             # - Store outputs and targets.
             for chart in train_options["charts"]:
