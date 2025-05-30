@@ -42,7 +42,7 @@ from functions import (
 )
 
 # Load costume loss function
-from losses import WaterConsistencyLoss, WeightedMSELoss, WeightedCrossEntropyLoss
+from losses import WaterConsistencyLoss, WeightedMSELoss, WeightedCrossEntropyLoss, WeightedGaussianNLLLoss
 
 # Custom dataloaders for regular training and validation.
 from loaders import get_variable_options, AI4ArcticChallengeDataset, AI4ArcticChallengeTestDataset
@@ -97,7 +97,7 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
         for chart in train_options["charts"]
     }
     weighted_loss_functions = {
-        "SIC": WeightedMSELoss(**train_options["chart_loss"]["SIC"]),
+        "SIC": WeightedGaussianNLLLoss(**train_options["chart_loss"]["SIC"]),
         "SOD": WeightedCrossEntropyLoss(**train_options["chart_loss"]["SOD"]),
         "FLOE": WeightedCrossEntropyLoss(**train_options["chart_loss"]["FLOE"]),
     }
@@ -135,9 +135,14 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                         continue
 
                     if train_options["weight_map"]["train"] and train_options["weight_map"]["enable_weights"][chart]:
-                        train_loss_batch += weight * weighted_loss_functions[chart](
-                            output[chart].squeeze(-1), batch_y[chart], weight_maps[chart]
-                        )
+                        if chart == "SIC" and train_options["model_selection"] == "UNet_regression_var":
+                            train_loss_batch += weight * weighted_loss_functions[chart](
+                                output[chart], batch_y[chart], weight_maps[chart]
+                            )
+                        else:
+                            train_loss_batch += weight * weighted_loss_functions[chart](
+                                output[chart].squeeze(-1), batch_y[chart], weight_maps[chart]
+                            )
                     else:
                         train_loss_batch += weight * loss_ce_functions[chart](output[chart], batch_y[chart])
 
@@ -205,15 +210,23 @@ def train(cfg, train_options, net, device, dataloader_train, dataloader_val, opt
                         continue
 
                     if train_options["weight_map"]["val"] and train_options["weight_map"]["enable_weights"][chart]:
-                        val_loss_batch += weight * weighted_loss_functions[chart](
-                            output[chart].squeeze(-1), inf_y[chart].unsqueeze(0), weight_maps[chart].unsqueeze(0)
-                        )
+                        if chart == "SIC" and train_options["model_selection"] == "UNet_regression_var":
+                            val_loss_batch += weight * weighted_loss_functions[chart](
+                                output[chart], inf_y[chart].unsqueeze(0), weight_maps[chart].unsqueeze(0)
+                            )
+                        else:
+                            val_loss_batch += weight * weighted_loss_functions[chart](
+                                output[chart].squeeze(-1), inf_y[chart].unsqueeze(0), weight_maps[chart].unsqueeze(0)
+                            )
                     else:
                         val_loss_batch += weight * loss_ce_functions[chart](output[chart], inf_y[chart].unsqueeze(0))
 
             # - Store outputs and targets.
             for chart in train_options["charts"]:
-                output[chart] = class_decider(output[chart], train_options, chart)
+                if chart == "SIC" and train_options["model_selection"] == "UNet_regression_var":
+                    output[chart] = class_decider(output[chart]["mean"].unsqueeze(-1), train_options, chart)
+                else:
+                    output[chart] = class_decider(output[chart], train_options, chart)
                 outputs_flat[chart] = torch.cat((outputs_flat[chart], output[chart][~cfv_masks[chart]]))
                 inf_ys_flat[chart] = torch.cat((inf_ys_flat[chart], inf_y[chart][~cfv_masks[chart]]))
 

@@ -125,6 +125,30 @@ class WeightedMSELoss(torch.nn.Module):
         return torch.mean(valid_errors) if valid_errors.numel() > 0 else torch.tensor(0.0, device=input.device)
 
 
+class WeightedGaussianNLLLoss(torch.nn.Module):
+    def __init__(self, **kwargs):
+        super(WeightedGaussianNLLLoss, self).__init__()
+        self.ignore_index = kwargs.get("ignore_index", None) if kwargs else None
+        self.beta = kwargs.get("beta", 0) if kwargs else 0
+
+    def forward(self, input, target, weight_map):
+
+        mean = input["mean"]
+        variance = input["variance"]
+
+        weight_map, target = weight_map.type_as(mean), target.type_as(mean)
+
+        # calculate the Gaussian NLL loss
+        gaussian_nll = torch.nn.functional.gaussian_nll_loss(mean, target, variance, reduction="none", eps=1e-3)
+        if self.beta != 0:
+            gaussian_nll = gaussian_nll * (variance**self.beta)
+
+        weighted_gaussian_nll = gaussian_nll * weight_map
+
+        valid_errors = weighted_gaussian_nll[weight_map > 0]
+        return torch.mean(valid_errors) if valid_errors.numel() > 0 else torch.tensor(0.0, device=mean.device)
+
+
 class WeightedCrossEntropyLoss(torch.nn.Module):
     def __init__(self, **kwargs):
         super(WeightedCrossEntropyLoss, self).__init__()

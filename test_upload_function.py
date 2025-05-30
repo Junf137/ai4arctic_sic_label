@@ -103,6 +103,9 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 output = slide_inference(inf_x, net, train_options, "test")
             else:
                 output = net(inf_x)
+                if train_options["model_selection"] == "UNet_regression_var":
+                    # sic_output_var = output["SIC"]["variance"].unsqueeze(-1).to(device)  # Variance of SIC
+                    output["SIC"] = output["SIC"]["mean"].unsqueeze(-1).to(device)  # Mean of SIC
 
             inf_x = inf_x.to("cpu")
 
