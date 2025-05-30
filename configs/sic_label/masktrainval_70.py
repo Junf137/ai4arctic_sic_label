@@ -15,28 +15,28 @@ train_options.update(
     {
         "weight_map": {
             "train": True,
-            "val": False,
+            "val": True,
             "test": False,
             "weights": {
                 "SIC": {
                     "invalid": 0,
-                    "inner_edges": 60.0,
-                    "ice_cfv_edges": 60.0,
-                    "ice_water_edges": 60.0,
+                    "inner_edges": 70.0,
+                    "ice_cfv_edges": 70.0,
+                    "ice_water_edges": 70.0,
                     "center": 1,
                 },
                 "SOD": {
                     "invalid": 0,
-                    "inner_edges": 60.0,
-                    "ice_cfv_edges": 60.0,
-                    "ice_water_edges": 60.0,
+                    "inner_edges": 70.0,
+                    "ice_cfv_edges": 70.0,
+                    "ice_water_edges": 70.0,
                     "center": 1,
                 },
                 "FLOE": {
                     "invalid": 0,
-                    "inner_edges": 60.0,
-                    "ice_cfv_edges": 60.0,
-                    "ice_water_edges": 60.0,
+                    "inner_edges": 70.0,
+                    "ice_cfv_edges": 70.0,
+                    "ice_water_edges": 70.0,
                     "center": 1,
                 },
             },
