@@ -134,6 +134,7 @@ train_options.update(
             "SIC": {
                 "type": "MSELossWithIgnoreIndex",
                 "ignore_index": 255,
+                "beta": 0.5,  # Beta value for gaussian_nll_loss.
             },
             "SOD": {
                 "type": "CrossEntropyLoss",
