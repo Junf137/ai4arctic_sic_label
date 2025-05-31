@@ -53,6 +53,7 @@ train_options.update(
         "num_workers_val": 4,  # Number of parallel processes during validation.
         "down_sample_scale": 10,
         "deterministic": False,
+        "save_nc_file": False,  # Save the output as a netCDF file.
         # -- SIC weight map configuration -- #
         "weight_map": {
             # Enable weight map for different stages.

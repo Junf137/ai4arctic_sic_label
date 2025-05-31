@@ -50,6 +50,9 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
     train_options = cfg.train_options
     train_options = get_variable_options(train_options)
 
+    if train_options["save_nc_file"] and mode == "test":
+        upload_package = xr.Dataset()
+
     weights = torch.load(f=checkpoint, weights_only=False)["model_state_dict"]
     net.load_state_dict(weights)
     print("Model successfully loaded.")
@@ -103,9 +106,10 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 output = slide_inference(inf_x, net, train_options, "test")
             else:
                 output = net(inf_x)
-                if train_options["model_selection"] == "UNet_regression_var":
-                    # sic_output_var = output["SIC"]["variance"].unsqueeze(-1).to(device)  # Variance of SIC
-                    output["SIC"] = output["SIC"]["mean"].unsqueeze(-1).to(device)  # Mean of SIC
+
+            if train_options["model_selection"] == "UNet_regression_var":
+                sic_output_var = output["SIC"]["variance"].unsqueeze(-1).to(device)  # Variance of SIC
+                output["SIC"] = output["SIC"]["mean"].unsqueeze(-1).to(device)  # Mean of SIC
 
             inf_x = inf_x.to("cpu")
 
@@ -142,12 +146,46 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
                 ).squeeze()
                 weight_maps[chart] = weight_maps[chart].to("cpu")
 
+            if sic_output_var.size(3) == 1:
+                sic_output_var = sic_output_var.permute(0, 3, 1, 2)
+                sic_output_var = torch.nn.functional.interpolate(sic_output_var, size=original_size, mode="nearest")
+                sic_output_var = sic_output_var.permute(0, 2, 3, 1)
+            else:
+                sic_output_var = torch.nn.functional.interpolate(sic_output_var, size=original_size, mode="nearest")
+            sic_output_var = sic_output_var.to("cpu").squeeze().numpy()
+            sic_output_var[cfv_masks["SIC"].numpy()] = np.nan
+
         # Process and move results to CPU immediately
         output_class = {}
         for chart in train_options["charts"]:
             output_class[chart] = class_decider(output[chart], train_options, chart).detach()
             outputs_flat[chart].append(output_class[chart][~cfv_masks[chart]])
             inf_ys_flat[chart].append(inf_y[chart][~cfv_masks[chart]])
+
+            if train_options["save_nc_file"] and mode == "test":
+                upload_package[f"{scene_name}_{chart}"] = xr.DataArray(
+                    name=f"{scene_name}_{chart}",
+                    data=output_class[chart].squeeze().numpy(),
+                    dims=(f"{scene_name}_dim0", f"{scene_name}_dim1"),
+                )
+
+                upload_package[f"{scene_name}_{chart}_weight_map"] = xr.DataArray(
+                    name=f"{scene_name}_{chart}_weight_map",
+                    data=weight_maps[chart].squeeze().numpy(),
+                    dims=(f"{scene_name}_dim0", f"{scene_name}_dim1"),
+                )
+
+                if chart == "SIC":
+                    upload_package[f"{scene_name}_{chart}_var"] = xr.DataArray(
+                        name=f"{scene_name}_{chart}_var",
+                        data=sic_output_var,
+                        dims=(f"{scene_name}_dim0", f"{scene_name}_dim1"),
+                    )
+                    upload_package[f"{scene_name}_{chart}_std_dev"] = xr.DataArray(
+                        name=f"{scene_name}_{chart}_std_dev",
+                        data=np.sqrt(sic_output_var),
+                        dims=(f"{scene_name}_dim0", f"{scene_name}_dim1"),
+                    )
 
         # Process edge and center metrics for all charts
         cent_edge_flat = cat_edge_cent_metrics(cent_edge_flat, weight_maps, output_class, inf_y, train_options)
@@ -296,3 +334,10 @@ def test(mode: str, net: torch.nn.modules, checkpoint: str, device: str, cfg, te
         artifact.add(table, experiment_name + "_val")
 
     wandb.log_artifact(artifact)
+
+    if train_options["save_nc_file"] and mode == "test":
+        upload_package_path = osp.join(cfg.work_dir, f"{experiment_name}_{test_name}_upload_package.nc")
+        encoding = {var: dict(zlib=True, complevel=5) for var in upload_package.data_vars}
+        upload_package.to_netcdf(upload_package_path, mode="w", format="NETCDF4", engine="h5netcdf", encoding=encoding)
+        wandb.save(upload_package_path)
+        print(f"Upload package saved to {upload_package_path}")
