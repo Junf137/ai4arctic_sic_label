@@ -72,6 +72,12 @@ def parse_args():
     group.add_argument(
         "--finetune-from", type=pathlib.Path, default=None, help="Start new training using the weights from checkpoint"
     )
+    group.add_argument(
+        "--test-only",
+        type=pathlib.Path,
+        default=None,
+        help="Path to model checkpoint. If provided, skips training and only runs evaluation on test set",
+    )
 
     args = parser.parse_args()
 
@@ -436,6 +442,9 @@ def main():
     elif args.finetune_from:
         print(colour_str(f"Finetune model from {args.finetune_from}", "green"))
         _ = load_model(net, args.finetune_from)
+    elif args.test_only:
+        print(colour_str(f"Test-only model from {args.test_only}", "green"))
+        _ = load_model(net, args.test_only)
 
     # WandB initialization
     config_basename = osp.splitext(osp.basename(args.config))[0]
@@ -480,21 +489,32 @@ def main():
     create_train_validation_and_test_scene_list(train_options)
 
     # Create dataloaders
-    dataloader_train, dataloader_val = create_dataloaders(train_options)
+    if args.test_only:
+        dataloader_train, dataloader_val = None, None
+    else:
+        dataloader_train, dataloader_val = create_dataloaders(train_options)
 
-    # Update Config
-    wandb.config["validate_list"] = train_options["validate_list"]
+        # Update Config
+        wandb.config["validate_list"] = train_options["validate_list"]
 
-    print("Starting Training")
-    checkpoint_path = train(cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, epoch_start)
+    # test-only mode or training (fine-tuning or resuming) mode
+    if args.test_only:
+        checkpoint_path = args.test_only
+        print("Starting testing with loaded model")
+        test("test", net, checkpoint_path, device, cfg.deepcopy(), train_options["test_list"], "Test")
+    else:
+        print("Starting Training")
+        checkpoint_path = train(
+            cfg, train_options, net, device, dataloader_train, dataloader_val, optimizer, scheduler, epoch_start
+        )
 
-    print("Staring Validation with best model")
-    # this is for valset 1 visualization along with gt
-    test("val", net, checkpoint_path, device, cfg.deepcopy(), train_options["validate_list"], "Cross Validation")
+        print("Starting Validation with best model")
+        # this is for valset 1 visualization along with gt
+        test("val", net, checkpoint_path, device, cfg.deepcopy(), train_options["validate_list"], "Cross Validation")
 
-    print("Starting testing with best model")
-    # this is for test path along with gt after the gt has been released
-    test("test", net, checkpoint_path, device, cfg.deepcopy(), train_options["test_list"], "Test")
+        print("Starting testing with best model")
+        # this is for test path along with gt after the gt has been released
+        test("test", net, checkpoint_path, device, cfg.deepcopy(), train_options["test_list"], "Test")
 
     # finish the wandb run
     wandb.finish()
