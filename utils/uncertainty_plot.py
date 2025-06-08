@@ -105,7 +105,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
         ax.set_title(f"Diff: {title1} - {title2}")
         diff = np.abs(np.subtract(scene1, scene2))
         im = ax.imshow(diff, cmap="hot_r")
-        cbar = plt.colorbar(im, ax=ax)
+        cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
         cbar.set_label(label="Difference", fontsize=12)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -121,7 +121,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     ax = axes[0, 0]
     ax.set_title("HH SAR")
     im = ax.imshow(sar, cmap="gray")
-    cbar = plt.colorbar(im, ax=ax)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
     cbar.set_label(label="Backscatter Coeff [dB]", fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -133,7 +133,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     ax = axes[0, 1]
     ax.set_title("HV SAR")
     im = ax.imshow(sar, cmap="gray")
-    cbar = plt.colorbar(im, ax=ax)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
     cbar.set_label(label="Backscatter Coeff [dB]", fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -143,7 +143,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     ax = axes[0, 2]
     ax.set_title("18.7 GHz H")
     im = ax.imshow(amsr)
-    cbar = plt.colorbar(im, ax=ax)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
     cbar.set_label(label="TB [K]", fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -153,7 +153,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     ax = axes[1, 0]
     ax.set_title("18.7 GHz V")
     im = ax.imshow(amsr)
-    cbar = plt.colorbar(im, ax=ax)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
     cbar.set_label(label="TB [K]", fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -163,7 +163,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     ax = axes[1, 1]
     ax.set_title("36.5 GHz H")
     im = ax.imshow(amsr)
-    cbar = plt.colorbar(im, ax=ax)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
     cbar.set_label(label="TB [K]", fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -173,7 +173,7 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     ax = axes[1, 2]
     ax.set_title("36.5 GHz V")
     im = ax.imshow(amsr)
-    cbar = plt.colorbar(im, ax=ax)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
     cbar.set_label(label="TB [K]", fontsize=12)
     ax.set_xticks([])
     ax.set_yticks([])
