@@ -110,6 +110,46 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
         ax.set_xticks([])
         ax.set_yticks([])
 
+    def diff_correct_predictions(ax1, ax2, ax3, scene1, scene2, scene3, chart, n_classes, LABELS, CLABEL, title1, title2, title3):
+        scene1_copy = np.copy(scene1)
+        scene2_copy = np.copy(scene2)
+        scene3_copy = np.copy(scene3)
+
+        # Find areas where all three models predict the same value
+        diff_scene_mask = (scene1_copy == scene2_copy) & (scene1_copy == scene3_copy) & (scene2_copy == scene3_copy)
+        scene1_copy[diff_scene_mask] = np.nan
+        scene2_copy[diff_scene_mask] = np.nan
+        scene3_copy[diff_scene_mask] = np.nan
+
+        # Find areas where predictions don't match the ground truth
+        scene1_chart_mask = scene1_copy != chart
+        scene2_chart_mask = scene2_copy != chart
+        scene3_chart_mask = scene3_copy != chart
+
+        # Only keep predictions that match the ground truth
+        scene1_copy[scene1_chart_mask] = np.nan
+        scene2_copy[scene2_chart_mask] = np.nan
+        scene3_copy[scene3_chart_mask] = np.nan
+
+        # Plot areas where only one model correctly predicts the value
+        ax1.set_title(title1)
+        im1 = ax1.imshow(scene1_copy, vmin=0, vmax=n_classes - 2, cmap="jet", interpolation="nearest")
+        ax1.set_xticks([])
+        ax1.set_yticks([])
+        cbar_ice_classification(ax=ax1, n_classes=n_classes, LABELS=LABELS, CBAR_LABEL=CLABEL, cmap="jet")
+
+        ax2.set_title(title2)
+        im2 = ax2.imshow(scene2_copy, vmin=0, vmax=n_classes - 2, cmap="jet", interpolation="nearest")
+        ax2.set_xticks([])
+        ax2.set_yticks([])
+        cbar_ice_classification(ax=ax2, n_classes=n_classes, LABELS=LABELS, CBAR_LABEL=CLABEL, cmap="jet")
+
+        ax3.set_title(title3)
+        im3 = ax3.imshow(scene3_copy, vmin=0, vmax=n_classes - 2, cmap="jet", interpolation="nearest")
+        ax3.set_xticks([])
+        ax3.set_yticks([])
+        cbar_ice_classification(ax=ax3, n_classes=n_classes, LABELS=LABELS, CBAR_LABEL=CLABEL, cmap="jet")
+
     # Create plot with SAR and AMSR data
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
     fig.suptitle(f"Scene: {scene_id}", fontsize=16)
@@ -258,18 +298,40 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
         fig.savefig(os.path.join(scene_dir, "2_sic_predictions.png"))
 
     # Create plot for difference maps
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig, axes = plt.subplots(4, 3, figsize=(18, 24))
     fig.suptitle(f"Difference Maps - Scene: {scene_id}", fontsize=16)
 
+    # Correct predictions for each scene (unique correct predictions)
+    diff_correct_predictions(
+        axes[0, 0],
+        axes[0, 1],
+        axes[0, 2],
+        data_0,
+        data_1,
+        data_50,
+        chart_data,
+        n_classes_SIC,
+        LABELS_SIC,
+        CLABEL_SIC,
+        "Only Correct For: Weight 0",
+        "Only Correct For: Weight 1",
+        "Only Correct For: Weight 50",
+    )
+
     # Differences Ice Chart vs Model predictions
-    diff_plot(axes[0, 0], chart_data, data_0, "Ice Chart", "Weight 0")
-    diff_plot(axes[0, 1], chart_data, data_1, "Ice Chart", "Weight 1")
-    diff_plot(axes[0, 2], chart_data, data_50, "Ice Chart", "Weight 50")
+    diff_plot(axes[1, 0], chart_data, data_0, "Ice Chart", "Weight 0")
+    diff_plot(axes[1, 1], chart_data, data_1, "Ice Chart", "Weight 1")
+    diff_plot(axes[1, 2], chart_data, data_50, "Ice Chart", "Weight 50")
 
     # Differences between model predictions
-    diff_plot(axes[1, 0], data_0, data_1, "Weight 0", "Weight 1")
-    diff_plot(axes[1, 1], data_0, data_50, "Weight 0", "Weight 50")
-    diff_plot(axes[1, 2], data_1, data_50, "Weight 1", "Weight 50")
+    diff_plot(axes[2, 0], data_0, data_1, "Weight 0", "Weight 1")
+    diff_plot(axes[2, 1], data_0, data_50, "Weight 0", "Weight 50")
+    diff_plot(axes[2, 2], data_1, data_50, "Weight 1", "Weight 50")
+
+    # Differences in standard deviation
+    diff_plot(axes[3, 0], std_dev_0, std_dev_1, "Weight 0 Std Dev", "Weight 1 Std Dev")
+    diff_plot(axes[3, 1], std_dev_0, std_dev_50, "Weight 0 Std Dev", "Weight 50 Std Dev")
+    diff_plot(axes[3, 2], std_dev_1, std_dev_50, "Weight 1 Std Dev", "Weight 50 Std Dev")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     # plt.show()
