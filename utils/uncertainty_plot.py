@@ -339,6 +339,72 @@ def plot_test_scene(ds_test, ds_0, ds_1, ds_50, output_dir):
     if output_dir:
         fig.savefig(os.path.join(scene_dir, "3_difference_maps.png"))
 
+    # Create plot for ERA5 data
+    # Read u10m_rotated, v10m_rotated, t2m, tcwv, tclw from the test dataset
+    u10m_rotated = ds_test.u10m_rotated.values
+    v10m_rotated = ds_test.v10m_rotated.values
+    t2m = ds_test.t2m.values
+    tcwv = ds_test.tcwv.values
+    tclw = ds_test.tclw.values
+
+    # Create a new figure for ERA5 data
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig.suptitle(f"ERA5 Data - Scene: {scene_id}", fontsize=16)
+
+    # Plot wind vectors (u10m and v10m)
+    ax = axes[0, 0]
+    ax.set_title("10m Wind")
+    # Skip some points to make the plot clearer
+    skip = 8
+    y, x = np.mgrid[: u10m_rotated.shape[0], : u10m_rotated.shape[1]]
+    ax.quiver(
+        x[::skip, ::skip], y[::skip, ::skip], u10m_rotated[::skip, ::skip], v10m_rotated[::skip, ::skip], scale=50, color="blue"
+    )
+    # Add wind speed as background
+    wind_speed = np.sqrt(u10m_rotated**2 + v10m_rotated**2)
+    im = ax.imshow(wind_speed, cmap="viridis", alpha=0.5)
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
+    cbar.set_label(label="Wind Speed [m/s]", fontsize=12)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Plot t2m (2m temperature)
+    ax = axes[0, 1]
+    ax.set_title("2m Temperature")
+    # Convert from Kelvin to Celsius
+    im = ax.imshow(t2m - 273.15, cmap="RdBu_r")
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
+    cbar.set_label(label="Temperature [°C]", fontsize=12)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Plot tcwv (total column water vapor)
+    ax = axes[0, 2]
+    ax.set_title("Total Column Water Vapor")
+    im = ax.imshow(tcwv, cmap="Blues")
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
+    cbar.set_label(label="TCWV [kg/m²]", fontsize=12)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Plot tclw (total column liquid water)
+    ax = axes[1, 0]
+    ax.set_title("Total Column Liquid Water")
+    im = ax.imshow(tclw, cmap="Blues")
+    cbar = plt.colorbar(im, ax=ax, fraction=0.0485, pad=0.049)
+    cbar.set_label(label="TCLW [kg/m²]", fontsize=12)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Make the other plots empty
+    axes[1, 1].axis("off")
+    axes[1, 2].axis("off")
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    if output_dir:
+        fig.savefig(os.path.join(scene_dir, "4_era5_data.png"))
+
 
 # %%
 # Plot the first test scene
